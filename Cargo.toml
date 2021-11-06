@@ -1,0 +1,43 @@
+[package]
+name = "flux"
+version = "0.1.0"
+authors = ["Sander Melnikov <hey@sandydoo.me"]
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[features]
+default = ["console_error_panic_hook"]
+
+[profile.release]
+lto = true
+
+[dependencies]
+js-sys = "0.3.55"
+serde = { version = "1", features = ["derive"] }
+wasm-bindgen = { version = "0.2.78", features = ["serde-serialize"] }
+console_error_panic_hook = { version = "0.1.1", optional = true }
+thiserror = "1"
+
+[dependencies.web-sys]
+version = "0.3.4"
+features = [
+  'console',
+  'Document',
+  'Element',
+  'HtmlCanvasElement',
+  'WebGlActiveInfo',
+  'WebGlBuffer',
+  'WebGlFramebuffer',
+  'WebGlRenderbuffer',
+  'WebGlUniformLocation',
+  'WebGlVertexArrayObject',
+  'WebGl2RenderingContext',
+  'WebGlProgram',
+  'WebGlShader',
+  'WebGlTexture',
+  'WebGlTransformFeedback',
+  'Window',
+]
+

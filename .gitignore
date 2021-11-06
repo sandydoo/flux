@@ -1,0 +1,7 @@
+# Rust
+/target
+
+# Javascript
+/node_modules
+.pnpm-debug.log
+
