@@ -24,6 +24,7 @@ enum Problem {
     CannotCreateProgram(),
     CannotWriteToTexture(),
     WrongDataType(),
+    AttribNotActive(String),
 }
 
 impl fmt::Display for Problem {
@@ -32,6 +33,7 @@ impl fmt::Display for Problem {
             Problem::CannotCreateTexture() => "Cannot create texture",
             Problem::CannotCreateFramebuffer() => "Cannot create framebuffer",
             Problem::CannotCreateShader(maybe_desc) => &maybe_desc.as_ref().unwrap(),
+            Problem::AttribNotActive(name) => "Attribute not active",
             // TODO: fix
             _ => "Something went wrong",
         };
@@ -568,7 +570,7 @@ impl RenderPass {
         })
     }
 
-    pub fn draw(&self, uniforms: Vec<Uniform<'_>>) -> Result<()> {
+    pub fn draw(&self, uniforms: Vec<Uniform<'_>>, instance_count: u32) -> Result<()> {
         let context = &self.context;
         context.use_program(Some(&self.program.program));
         context.bind_vertex_array(Some(&self.vao));
@@ -582,12 +584,22 @@ impl RenderPass {
                 ref buffer,
                 primitive,
             } => {
-                context.draw_elements_with_i32(
-                    primitive,
-                    buffer.size as i32,
-                    GL::UNSIGNED_SHORT,
-                    0,
-                );
+                if instance_count > 1 {
+                    context.draw_elements_instanced_with_i32(
+                        primitive,
+                        buffer.size as i32,
+                        GL::UNSIGNED_SHORT,
+                        0,
+                        instance_count as i32,
+                    );
+                } else {
+                    context.draw_elements_with_i32(
+                        primitive,
+                        buffer.size as i32,
+                        GL::UNSIGNED_SHORT,
+                        0,
+                    );
+                }
             }
 
             Indices::NoIndices(primitive) => {
@@ -601,15 +613,35 @@ impl RenderPass {
         Ok(())
     }
 
-    pub fn draw_to(&self, framebuffer: &Framebuffer, uniforms: Vec<Uniform<'_>>) -> Result<()> {
+    pub fn draw_to(
+        &self,
+        framebuffer: &Framebuffer,
+        uniforms: Vec<Uniform<'_>>,
+        instance_count: u32,
+    ) -> Result<()> {
+        let previous_viewport: Vec<i32> = self
+            .context
+            .get_parameter(GL::VIEWPORT)
+            .unwrap()
+            .dyn_into::<js_sys::Int32Array>()
+            .unwrap()
+            .to_vec();
+
         self.context
             .bind_framebuffer(GL::FRAMEBUFFER, Some(&framebuffer.id));
         self.context
             .viewport(0, 0, framebuffer.width as i32, framebuffer.height as i32);
 
-        self.draw(uniforms);
+        self.draw(uniforms, instance_count)?;
 
         self.context.bind_framebuffer(GL::FRAMEBUFFER, None);
+
+        self.context.viewport(
+            previous_viewport[0] as i32,
+            previous_viewport[1] as i32,
+            previous_viewport[2] as i32,
+            previous_viewport[3] as i32,
+        );
 
         Ok(())
     }

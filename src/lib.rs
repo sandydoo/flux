@@ -4,6 +4,7 @@ mod fluid;
 mod render;
 mod web;
 
+use drawer::Drawer;
 use fluid::Fluid;
 use web::ContextOptions;
 
@@ -56,9 +57,10 @@ pub fn start() -> Result<(), JsValue> {
     let grid_width: u32 = ((width as f32) / grid_spacing).ceil() as u32;
     let grid_height: u32 = ((height as f32) / grid_spacing).ceil() as u32;
 
+    // rename to timestep, or sim_timestep
     let delta_t: f32 = 1.0 / 120.0;
     let viscosity: f32 = 1.0; // rho
-    let velocity_dissipation: f32 = 0.3;
+    let velocity_dissipation: f32 = 0.1;
 
     // TODO: deal with result
     let fluid = Fluid::new(
@@ -70,22 +72,25 @@ pub fn start() -> Result<(), JsValue> {
     )
     .unwrap();
 
-    // let drawer = Drawer::new(&context, width, height);
+    let drawer = Drawer::new(&context, width, height).unwrap();
 
     // TODO: clean this up
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();
 
-    let animate: Box<dyn FnMut(f32)> = Box::new(move |_| {
-        // Clear the canvas
+    // Finish setup before running the main rendering loop
+    context.finish();
+
+    let animate: Box<dyn FnMut(f32)> = Box::new(move |timestep| {
         context.clear_color(0.0, 0.0, 0.0, 1.0);
         context.clear(GL::COLOR_BUFFER_BIT | GL::DEPTH_BUFFER_BIT);
 
         context.viewport(0, 0, width as i32, height as i32);
 
-        // Advection
         {
             fluid.advect(delta_t);
+
+            drawer.draw_lines(timestep, &fluid.get_velocity());
         }
 
         web::request_animation_frame(f.borrow().as_ref().unwrap());

@@ -1,8 +1,10 @@
 use crate::{data, render};
 use render::{
-    BindingInfo, Buffer, Context, DoubleFramebuffer, Indices, TextureOptions, Uniform,
+    BindingInfo, Buffer, Context, DoubleFramebuffer, Framebuffer, Indices, TextureOptions, Uniform,
     UniformValue, VertexBuffer,
 };
+
+use std::cell::Ref;
 
 use web_sys::WebGl2RenderingContext as GL;
 
@@ -128,9 +130,14 @@ impl Fluid {
                         ),
                     },
                 ],
+                1,
             )
             .unwrap();
 
         self.velocity_textures.swap();
+    }
+
+    pub fn get_velocity(&self) -> Ref<Framebuffer> {
+        self.velocity_textures.current()
     }
 }
