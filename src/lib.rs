@@ -90,8 +90,9 @@ pub fn start() -> Result<(), JsValue> {
         {
             // Convection
             fluid.advect(delta_t);
-            fluid.diffuse(delta_t);
+            fluid.diffuse();
             fluid.solve_pressure(delta_t);
+            fluid.subtract_gradient();
 
             drawer.draw_lines(timestep, &fluid.get_velocity());
         }

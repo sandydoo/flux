@@ -2,7 +2,6 @@
 precision mediump float;
 precision mediump sampler2D;
 
-uniform float deltaT;
 uniform float rho;
 uniform float epsilon;
 uniform sampler2D velocityTexture;

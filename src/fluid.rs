@@ -14,6 +14,8 @@ static FLUID_VERT_SHADER: &'static str = include_str!("./shaders/textured_quad.v
 static ADVECTION_FRAG_SHADER: &'static str = include_str!("./shaders/advection.frag");
 static DIVERGENCE_FRAG_SHADER: &'static str = include_str!("./shaders/divergence.frag");
 static SOLVE_PRESSURE_FRAG_SHADER: &'static str = include_str!("./shaders/solve_pressure.frag");
+static SUBTRACT_GRADIENT_FRAG_SHADER: &'static str =
+    include_str!("./shaders/subtract_gradient.frag");
 
 pub struct Fluid {
     viscosity: f32,
@@ -21,6 +23,7 @@ pub struct Fluid {
 
     grid_width: u32,
     grid_height: u32,
+    grid_size: f32,
 
     velocity_textures: DoubleFramebuffer,
     divergence_texture: Framebuffer,
@@ -29,6 +32,7 @@ pub struct Fluid {
     advection_pass: render::RenderPass,
     divergence_pass: render::RenderPass,
     pressure_pass: render::RenderPass,
+    subtract_gradient_pass: render::RenderPass,
 }
 
 impl Fluid {
@@ -76,6 +80,8 @@ impl Fluid {
             render::Program::new(&context, (FLUID_VERT_SHADER, DIVERGENCE_FRAG_SHADER))?;
         let pressure_program =
             render::Program::new(&context, (FLUID_VERT_SHADER, SOLVE_PRESSURE_FRAG_SHADER))?;
+        let subtract_gradient_program =
+            render::Program::new(&context, (FLUID_VERT_SHADER, SUBTRACT_GRADIENT_FRAG_SHADER))?;
 
         let advection_pass = render::RenderPass::new(
             &context,
@@ -131,12 +137,31 @@ impl Fluid {
             pressure_program,
         )
         .unwrap();
+        let subtract_gradient_pass = render::RenderPass::new(
+            &context,
+            vec![VertexBuffer {
+                buffer: plane_vertices.clone(),
+                binding: BindingInfo {
+                    name: "position".to_string(),
+                    size: 3,
+                    type_: GL::FLOAT,
+                    ..Default::default()
+                },
+            }],
+            Indices::IndexBuffer {
+                buffer: plane_indices.clone(),
+                primitive: GL::TRIANGLES,
+            },
+            subtract_gradient_program,
+        )
+        .unwrap();
 
         Ok(Self {
             viscosity,
             velocity_dissipation,
             grid_width,
             grid_height,
+            grid_size: 1.0 / grid_width as f32,
 
             velocity_textures,
             divergence_texture,
@@ -145,20 +170,18 @@ impl Fluid {
             advection_pass,
             divergence_pass,
             pressure_pass,
+            subtract_gradient_pass,
         })
     }
 
     pub fn advect(&self, timestep: f32) -> () {
-        // TODO: fix
-        let epsilon: f32 = 1.0;
-
         self.advection_pass
             .draw_to(
                 &self.velocity_textures.next(),
                 vec![
                     Uniform {
                         name: "uTexelSize".to_string(),
-                        value: UniformValue::Float(epsilon),
+                        value: UniformValue::Float(self.grid_size),
                     },
                     Uniform {
                         name: "deltaT".to_string(),
@@ -166,7 +189,7 @@ impl Fluid {
                     },
                     Uniform {
                         name: "epsilon".to_string(),
-                        value: UniformValue::Float(epsilon),
+                        value: UniformValue::Float(self.grid_size),
                     },
                     Uniform {
                         name: "dissipation".to_string(),
@@ -194,21 +217,14 @@ impl Fluid {
         self.velocity_textures.swap();
     }
 
-    pub fn diffuse(&self, timestep: f32) -> () {
-        // TODO: fix
-        let epsilon: f32 = 1.0;
-
+    pub fn diffuse(&self) -> () {
         self.divergence_pass
             .draw_to(
                 &self.divergence_texture,
                 vec![
                     Uniform {
                         name: "uTexelSize".to_string(),
-                        value: UniformValue::Float(epsilon),
-                    },
-                    Uniform {
-                        name: "deltaT".to_string(),
-                        value: UniformValue::Float(timestep),
+                        value: UniformValue::Float(self.grid_size),
                     },
                     Uniform {
                         name: "rho".to_string(),
@@ -216,7 +232,7 @@ impl Fluid {
                     },
                     Uniform {
                         name: "epsilon".to_string(),
-                        value: UniformValue::Float(epsilon),
+                        value: UniformValue::Float(self.grid_size),
                     },
                     Uniform {
                         name: "velocityTexture".to_string(),
@@ -234,8 +250,7 @@ impl Fluid {
     }
 
     pub fn solve_pressure(&self, timestep: f32) -> () {
-        let epsilon: f32 = 1.0;
-        let alpha = epsilon.powf(2.0) / (self.viscosity * timestep);
+        let alpha = self.grid_size.powf(2.0) / (self.viscosity * timestep);
         let r_beta = 1.0 / (4.0 + alpha);
 
         self.pressure_pass
@@ -244,7 +259,7 @@ impl Fluid {
                 vec![
                     Uniform {
                         name: "uTexelSize".to_string(),
-                        value: UniformValue::Float(epsilon),
+                        value: UniformValue::Float(self.grid_size),
                     },
                     Uniform {
                         name: "alpha".to_string(),
@@ -269,6 +284,41 @@ impl Fluid {
                 1,
             )
             .unwrap();
+    }
+
+    pub fn subtract_gradient(&self) -> () {
+        self.subtract_gradient_pass
+            .draw_to(
+                &self.velocity_textures.next(),
+                vec![
+                    Uniform {
+                        name: "uTexelSize".to_string(),
+                        value: UniformValue::Float(self.grid_size),
+                    },
+                    Uniform {
+                        name: "epsilon".to_string(),
+                        value: UniformValue::Float(self.grid_size),
+                    },
+                    Uniform {
+                        name: "velocityTexture".to_string(),
+                        value: UniformValue::Texture2D(
+                            &self.velocity_textures.current().texture,
+                            0,
+                        ),
+                    },
+                    Uniform {
+                        name: "pressureTexture".to_string(),
+                        value: UniformValue::Texture2D(
+                            &self.pressure_textures.current().texture,
+                            1,
+                        ),
+                    },
+                ],
+                1,
+            )
+            .unwrap();
+
+        self.velocity_textures.swap()
     }
 
     pub fn get_velocity(&self) -> Ref<Framebuffer> {
