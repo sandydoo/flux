@@ -12,6 +12,7 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 static FLUID_VERT_SHADER: &'static str = include_str!("./shaders/textured_quad.vert");
 static ADVECTION_FRAG_SHADER: &'static str = include_str!("./shaders/advection.frag");
+static DIVERGENCE_FRAG_SHADER: &'static str = include_str!("./shaders/divergence.frag");
 
 pub struct Fluid {
     viscosity: f32,
@@ -21,8 +22,10 @@ pub struct Fluid {
     grid_height: u32,
 
     velocity_textures: DoubleFramebuffer,
+    divergence_texture: Framebuffer,
 
     advection_pass: render::RenderPass,
+    divergence_pass: render::RenderPass,
 }
 
 impl Fluid {
@@ -41,6 +44,9 @@ impl Fluid {
         let velocity_textures =
             render::DoubleFramebuffer::new(&context, grid_width, grid_height, texture_options)?
                 .with_f32_data(&initial_velocity_data)?;
+        let divergence_texture =
+            render::Framebuffer::new(&context, grid_width, grid_height, texture_options)?
+                .with_f32_data(&vec![0.0; (grid_width * grid_height * 4) as usize])?;
 
         // Geometry
         let plane_vertices = Buffer::from_f32(
@@ -60,11 +66,13 @@ impl Fluid {
 
         let advection_program =
             render::Program::new(&context, (FLUID_VERT_SHADER, ADVECTION_FRAG_SHADER))?;
+        let divergence_program =
+            render::Program::new(&context, (FLUID_VERT_SHADER, DIVERGENCE_FRAG_SHADER))?;
 
         let advection_pass = render::RenderPass::new(
             &context,
             vec![VertexBuffer {
-                buffer: plane_vertices,
+                buffer: plane_vertices.clone(),
                 binding: BindingInfo {
                     name: "position".to_string(),
                     size: 3,
@@ -73,10 +81,28 @@ impl Fluid {
                 },
             }],
             Indices::IndexBuffer {
-                buffer: plane_indices,
+                buffer: plane_indices.clone(),
                 primitive: GL::TRIANGLES,
             },
             advection_program,
+        )
+        .unwrap();
+        let divergence_pass = render::RenderPass::new(
+            &context,
+            vec![VertexBuffer {
+                buffer: plane_vertices.clone(),
+                binding: BindingInfo {
+                    name: "position".to_string(),
+                    size: 3,
+                    type_: GL::FLOAT,
+                    ..Default::default()
+                },
+            }],
+            Indices::IndexBuffer {
+                buffer: plane_indices.clone(),
+                primitive: GL::TRIANGLES,
+            },
+            divergence_program,
         )
         .unwrap();
 
@@ -87,13 +113,16 @@ impl Fluid {
             grid_height,
 
             velocity_textures,
+            divergence_texture,
+
             advection_pass,
+            divergence_pass,
         })
     }
 
     pub fn advect(&self, timestep: f32) -> () {
         // TODO: fix
-        let epsilon: f32 = 0.0001;
+        let epsilon: f32 = 1.0;
 
         self.advection_pass
             .draw_to(
@@ -135,6 +164,43 @@ impl Fluid {
             .unwrap();
 
         self.velocity_textures.swap();
+    }
+
+    pub fn diffuse(&self, timestep: f32) -> () {
+        // TODO: fix
+        let epsilon: f32 = 1.0;
+
+        self.divergence_pass
+            .draw_to(
+                &self.divergence_texture,
+                vec![
+                    Uniform {
+                        name: "uTexelSize".to_string(),
+                        value: UniformValue::Float(epsilon),
+                    },
+                    Uniform {
+                        name: "deltaT".to_string(),
+                        value: UniformValue::Float(timestep),
+                    },
+                    Uniform {
+                        name: "rho".to_string(),
+                        value: UniformValue::Float(self.viscosity),
+                    },
+                    Uniform {
+                        name: "epsilon".to_string(),
+                        value: UniformValue::Float(epsilon),
+                    },
+                    Uniform {
+                        name: "velocityTexture".to_string(),
+                        value: UniformValue::Texture2D(
+                            &self.velocity_textures.current().texture,
+                            0,
+                        ),
+                    },
+                ],
+                1,
+            )
+            .unwrap();
     }
 
     pub fn get_velocity(&self) -> Ref<Framebuffer> {

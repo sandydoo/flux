@@ -88,7 +88,9 @@ pub fn start() -> Result<(), JsValue> {
         context.viewport(0, 0, width as i32, height as i32);
 
         {
+            // Convection
             fluid.advect(delta_t);
+            fluid.diffuse(delta_t);
 
             drawer.draw_lines(timestep, &fluid.get_velocity());
         }

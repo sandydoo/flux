@@ -32,7 +32,7 @@ void main() {
 
   vec2 u = scale * texture(velocityTexture, textureCoord + offset).xy;
 
-  vec2 pastCoord = textureCoord - (epsilon * deltaT * u);
+  vec2 pastCoord = textureCoord - (deltaT * epsilon * u);
   vec4 pastColor = texture(inputTexture, pastCoord);
   float decay = 1.0 + dissipation * deltaT;
   fragColor = pastColor / decay;

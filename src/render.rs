@@ -41,6 +41,7 @@ impl fmt::Display for Problem {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct Buffer<T> {
     context: Context,
     id: WebGlBuffer,
@@ -130,6 +131,7 @@ impl Default for TextureOptions {
     }
 }
 
+#[derive(Clone)]
 pub struct Framebuffer {
     context: Context,
     pub id: WebGlFramebuffer,
@@ -186,7 +188,7 @@ impl Framebuffer {
         })
     }
 
-    fn with_f32_data(&self, data: &Vec<f32>) -> Result<&Self> {
+    pub fn with_f32_data(self, data: &Vec<f32>) -> Result<Self> {
         self.context
             .bind_texture(GL::TEXTURE_2D, Some(&self.texture));
         unsafe {
@@ -251,9 +253,14 @@ impl DoubleFramebuffer {
             return Err(Box::new(Problem::WrongDataType()));
         }
 
-        self.front.borrow().with_f32_data(&data)?;
+        // TODO: are these clones okay? The problem is that the builder pattern
+        // doesn’t work well with RefCell in the DoubleBuffer. Another option is
+        // to build with references and call a `finalize` method at the end.
+        self.front
+            .replace_with(|buffer| buffer.clone().with_f32_data(&data).unwrap());
         // TODO: should we copy the data to the second buffer/texture, or just init with the right size?
-        self.back.borrow().with_f32_data(&data)?;
+        self.back
+            .replace_with(|buffer| buffer.clone().with_f32_data(&data).unwrap());
 
         Ok(self)
     }
