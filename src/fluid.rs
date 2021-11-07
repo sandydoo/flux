@@ -20,6 +20,7 @@ static SUBTRACT_GRADIENT_FRAG_SHADER: &'static str =
 pub struct Fluid {
     viscosity: f32,
     velocity_dissipation: f32,
+    pressure_iterations: u32,
 
     grid_width: u32,
     grid_height: u32,
@@ -159,6 +160,8 @@ impl Fluid {
         Ok(Self {
             viscosity,
             velocity_dissipation,
+            pressure_iterations: 20,
+
             grid_width,
             grid_height,
             grid_size: 1.0 / grid_width as f32,
@@ -245,45 +248,47 @@ impl Fluid {
                 1,
             )
             .unwrap();
-
-        self.pressure_textures.swap();
     }
 
     pub fn solve_pressure(&self, timestep: f32) -> () {
         let alpha = self.grid_size.powf(2.0) / (self.viscosity * timestep);
         let r_beta = 1.0 / (4.0 + alpha);
 
-        self.pressure_pass
-            .draw_to(
-                &self.pressure_textures.next(),
-                vec![
-                    Uniform {
-                        name: "uTexelSize".to_string(),
-                        value: UniformValue::Float(self.grid_size),
-                    },
-                    Uniform {
-                        name: "alpha".to_string(),
-                        value: UniformValue::Float(alpha),
-                    },
-                    Uniform {
-                        name: "rBeta".to_string(),
-                        value: UniformValue::Float(r_beta),
-                    },
-                    Uniform {
-                        name: "divergenceTexture".to_string(),
-                        value: UniformValue::Texture2D(&self.divergence_texture.texture, 0),
-                    },
-                    Uniform {
-                        name: "pressureTexture".to_string(),
-                        value: UniformValue::Texture2D(
-                            &self.pressure_textures.current().texture,
-                            1,
-                        ),
-                    },
-                ],
-                1,
-            )
-            .unwrap();
+        for _ in 0..self.pressure_iterations {
+            self.pressure_pass
+                .draw_to(
+                    &self.pressure_textures.next(),
+                    vec![
+                        Uniform {
+                            name: "uTexelSize".to_string(),
+                            value: UniformValue::Float(self.grid_size),
+                        },
+                        Uniform {
+                            name: "alpha".to_string(),
+                            value: UniformValue::Float(alpha),
+                        },
+                        Uniform {
+                            name: "rBeta".to_string(),
+                            value: UniformValue::Float(r_beta),
+                        },
+                        Uniform {
+                            name: "divergenceTexture".to_string(),
+                            value: UniformValue::Texture2D(&self.divergence_texture.texture, 0),
+                        },
+                        Uniform {
+                            name: "pressureTexture".to_string(),
+                            value: UniformValue::Texture2D(
+                                &self.pressure_textures.current().texture,
+                                1,
+                            ),
+                        },
+                    ],
+                    1,
+                )
+                .unwrap();
+
+            self.pressure_textures.swap();
+        }
     }
 
     pub fn subtract_gradient(&self) -> () {
