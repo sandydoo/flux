@@ -10,7 +10,7 @@ use web_sys::WebGl2RenderingContext as GL;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-static FLUID_VERT_SHADER: &'static str = include_str!("./shaders/textured_quad.vert");
+static FLUID_VERT_SHADER: &'static str = include_str!("./shaders/fluid.vert");
 static ADVECTION_FRAG_SHADER: &'static str = include_str!("./shaders/advection.frag");
 static DIVERGENCE_FRAG_SHADER: &'static str = include_str!("./shaders/divergence.frag");
 static SOLVE_PRESSURE_FRAG_SHADER: &'static str = include_str!("./shaders/solve_pressure.frag");
