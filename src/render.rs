@@ -364,6 +364,8 @@ impl Program {
             UniformValue::Texture2D(texture, id) => {
                 context.active_texture(GL::TEXTURE0 + id);
                 context.bind_texture(GL::TEXTURE_2D, Some(&texture));
+
+                context.uniform1i(self.get_uniform_location(&uniform.name).as_ref(), id as i32);
             }
         }
     }
