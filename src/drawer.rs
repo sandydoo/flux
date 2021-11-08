@@ -9,6 +9,8 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 static LINE_VERT_SHADER: &'static str = include_str!("./shaders/line.vert");
 static LINE_FRAG_SHADER: &'static str = include_str!("./shaders/line.frag");
+static TEXTURE_VERT_SHADER: &'static str = include_str!("./shaders/texture.vert");
+static TEXTURE_FRAG_SHADER: &'static str = include_str!("./shaders/texture.frag");
 
 pub struct Drawer {
     context: Context,
@@ -16,6 +18,7 @@ pub struct Drawer {
     height: u32,
 
     draw_lines_pass: render::RenderPass,
+    draw_texture_pass: render::RenderPass,
 }
 
 impl Drawer {
@@ -51,8 +54,24 @@ impl Drawer {
             GL::STATIC_DRAW,
         )?;
 
+        let plane_vertices = Buffer::from_f32(
+            &context,
+            &data::PLANE_VERTICES.to_vec(),
+            GL::ARRAY_BUFFER,
+            GL::STATIC_DRAW,
+        )
+        .unwrap();
+        let plane_indices = Buffer::from_u16(
+            &context,
+            &data::PLANE_INDICES.to_vec(),
+            GL::ELEMENT_ARRAY_BUFFER,
+            GL::STATIC_DRAW,
+        )
+        .unwrap();
         let draw_lines_program =
             render::Program::new(&context, (LINE_VERT_SHADER, LINE_FRAG_SHADER))?;
+        let draw_texture_program =
+            render::Program::new(&context, (TEXTURE_VERT_SHADER, TEXTURE_FRAG_SHADER))?;
 
         let draw_lines_pass = render::RenderPass::new(
             &context,
@@ -93,12 +112,31 @@ impl Drawer {
             draw_lines_program,
         )
         .unwrap();
+        let draw_texture_pass = render::RenderPass::new(
+            &context,
+            vec![VertexBuffer {
+                buffer: plane_vertices,
+                binding: BindingInfo {
+                    name: "position".to_string(),
+                    size: 3,
+                    type_: GL::FLOAT,
+                    ..Default::default()
+                },
+            }],
+            Indices::IndexBuffer {
+                buffer: plane_indices,
+                primitive: GL::TRIANGLES,
+            },
+            draw_texture_program,
+        )
+        .unwrap();
 
         Ok(Self {
             context: context.clone(),
             width,
             height,
             draw_lines_pass,
+            draw_texture_pass,
         })
     }
 
@@ -126,6 +164,17 @@ impl Drawer {
                 },
             ],
             20 * 20,
+
+    pub fn draw_texture(&self, texture: &Framebuffer) -> Result<()> {
+        self.context
+            .viewport(0, 0, self.width as i32, self.height as i32);
+
+        self.draw_texture_pass.draw(
+            vec![Uniform {
+                name: "inputTexture".to_string(),
+                value: UniformValue::Texture2D(&texture.texture, 0),
+            }],
+            1,
         )
     }
 }
