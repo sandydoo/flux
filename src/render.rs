@@ -220,6 +220,32 @@ impl Framebuffer {
 
         Ok(self)
     }
+
+    pub fn zero_out(&self) -> Result<()> {
+        self.context
+            .bind_texture(GL::TEXTURE_2D, Some(&self.texture));
+        unsafe {
+            let array =
+                js_sys::Float32Array::view(&vec![0.0; (self.width * self.height * 4) as usize]);
+            self.context
+            .tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_array_buffer_view(
+                GL::TEXTURE_2D,
+                0,
+                GL::RGBA32F as i32,
+                self.width as i32,
+                self.height as i32,
+                0,
+                GL::RGBA,
+                GL::FLOAT,
+                Some(&array),
+            )
+            .or(Err(Box::new(Problem::CannotWriteToTexture())))?;
+        }
+
+        self.context.bind_texture(GL::TEXTURE_2D, None);
+
+        Ok(())
+    }
 }
 
 pub struct DoubleFramebuffer {
@@ -263,6 +289,12 @@ impl DoubleFramebuffer {
             .replace_with(|buffer| buffer.clone().with_f32_data(&data).unwrap());
 
         Ok(self)
+    }
+
+    pub fn zero_out(&self) -> Result<()> {
+        self.current().zero_out()?;
+        self.next().zero_out()?;
+        Ok(())
     }
 
     pub fn current(&self) -> Ref<Framebuffer> {
