@@ -1,5 +1,9 @@
 # TODO
 
+### General
+
+- [] Add support for non-square aspect ratio
+
 ### Performance
 
 - [] Move to wgpu in the long-term. WebGL/WebGPU support is very flaky at the
