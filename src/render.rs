@@ -832,14 +832,6 @@ impl RenderPass {
         uniforms: Vec<Uniform<'_>>,
         instance_count: u32,
     ) -> Result<()> {
-        let previous_viewport: Vec<i32> = self
-            .context
-            .get_parameter(GL::VIEWPORT)
-            .unwrap()
-            .dyn_into::<js_sys::Int32Array>()
-            .unwrap()
-            .to_vec();
-
         self.context
             .bind_framebuffer(GL::FRAMEBUFFER, Some(&framebuffer.id));
         self.context
@@ -848,13 +840,6 @@ impl RenderPass {
         self.draw_impl(vec![], uniforms, None, instance_count)?;
 
         self.context.bind_framebuffer(GL::FRAMEBUFFER, None);
-
-        self.context.viewport(
-            previous_viewport[0] as i32,
-            previous_viewport[1] as i32,
-            previous_viewport[2] as i32,
-            previous_viewport[3] as i32,
-        );
 
         Ok(())
     }
