@@ -1,7 +1,6 @@
 use std::cell::{Ref, RefCell};
 use std::collections::HashMap;
 use std::fmt;
-use std::marker::PhantomData;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -42,15 +41,14 @@ impl fmt::Display for Problem {
 }
 
 #[derive(Clone, Debug)]
-pub struct Buffer<T> {
+pub struct Buffer {
     context: Context,
-    id: WebGlBuffer,
-    size: usize,
-    type_: u32,
-    marker: PhantomData<T>,
+    pub id: WebGlBuffer,
+    pub size: usize,
+    pub type_: u32,
 }
 
-impl Buffer<f32> {
+impl Buffer {
     pub fn from_f32(
         context: &Context,
         data: &Vec<f32>,
@@ -76,12 +74,9 @@ impl Buffer<f32> {
             id: buffer,
             size: data.len(),
             type_: buffer_type,
-            marker: PhantomData,
         })
     }
-}
 
-impl Buffer<u16> {
     pub fn from_u16(
         context: &Context,
         data: &Vec<u16>,
@@ -107,7 +102,34 @@ impl Buffer<u16> {
             id: buffer,
             size: data.len(),
             type_: buffer_type,
-            marker: PhantomData,
+        })
+    }
+
+    pub fn from_u32(
+        context: &Context,
+        data: &Vec<u32>,
+        buffer_type: u32,
+        usage: u32,
+    ) -> Result<Self> {
+        let memory_buffer = wasm_bindgen::memory()
+            .dyn_into::<WebAssembly::Memory>()
+            .unwrap() // fix
+            .buffer();
+        let data_location = data.as_ptr() as u32 / 4;
+        let data_array = js_sys::Uint16Array::new(&memory_buffer)
+            .subarray(data_location, data_location + data.len() as u32);
+
+        let buffer = context.create_buffer().ok_or("failed to create buffer")?;
+
+        context.bind_buffer(buffer_type, Some(&buffer));
+        context.buffer_data_with_array_buffer_view(buffer_type, &data_array, usage);
+        context.bind_buffer(buffer_type, None);
+
+        Ok(Self {
+            context: context.clone(),
+            id: buffer,
+            size: data.len(),
+            type_: buffer_type,
         })
     }
 }
@@ -535,8 +557,8 @@ pub fn link_program(
     }
 }
 
-pub struct VertexBuffer<T> {
-    pub buffer: Buffer<T>,
+pub struct VertexBuffer {
+    pub buffer: Buffer,
     pub binding: BindingInfo,
 }
 
@@ -551,13 +573,13 @@ pub struct BindingInfo {
 }
 
 pub enum Indices {
-    IndexBuffer { buffer: Buffer<u16>, primitive: u32 },
+    IndexBuffer { buffer: Buffer, primitive: u32 },
     NoIndices(u32),
 }
 
 pub struct RenderPass {
     context: Context,
-    vertex_buffers: Vec<VertexBuffer<f32>>,
+    vertex_buffers: Vec<VertexBuffer>,
     indices: Indices,
     program: Program,
     vao: WebGlVertexArrayObject,
@@ -566,7 +588,7 @@ pub struct RenderPass {
 impl RenderPass {
     pub fn new(
         context: &Context,
-        vertex_buffers: Vec<VertexBuffer<f32>>,
+        vertex_buffers: Vec<VertexBuffer>,
         indices: Indices,
         program: Program,
     ) -> Result<Self> {
