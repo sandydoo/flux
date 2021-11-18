@@ -10,6 +10,7 @@ This is an attempt at capturing that magic and bottling it up in a more portable
 - [Prerequisites](#prerequisites)
 - [Setup](#setup)
 - [Develop](#develop)
+- [License](#license)
 
 
 ## Prerequisites
@@ -37,3 +38,12 @@ pnpm install
 ```sh
 pnpm serve
 ```
+
+
+## License
+
+[MIT][license-url] © [Sander Melnikov][maintainer-url].
+
+
+[license-url]: https://github.com/sandydoo/flux/blob/main/LICENSE
+[maintainer-url]: https://github.com/sandydoo/
