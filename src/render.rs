@@ -439,9 +439,27 @@ impl Program {
         context.use_program(Some(&self.program));
 
         match uniform.value {
+            UniformValue::UnsignedInt(value) => {
+                context.uniform1ui(self.get_uniform_location(&uniform.name).as_ref(), value)
+            }
+
+            UniformValue::SignedInt(value) => {
+                context.uniform1i(self.get_uniform_location(&uniform.name).as_ref(), value)
+            }
+
             UniformValue::Float(value) => {
                 context.uniform1f(self.get_uniform_location(&uniform.name).as_ref(), value)
             }
+
+            UniformValue::Vec2(value) => context.uniform2fv_with_f32_array(
+                self.get_uniform_location(&uniform.name).as_ref(),
+                &value,
+            ),
+
+            UniformValue::Vec3(value) => context.uniform3fv_with_f32_array(
+                self.get_uniform_location(&uniform.name).as_ref(),
+                &value,
+            ),
 
             UniformValue::Texture2D(texture, id) => {
                 context.active_texture(GL::TEXTURE0 + id);
@@ -486,50 +504,13 @@ pub struct Attribute {
     pub divisor: u32,
 }
 
-pub enum AttributeType {
-    SignedInt(),
-    UnsignedInt(),
-    Float(),
-}
-
-impl AttributeType {
-    pub fn to_gl_type(&self) -> GlDataType {
-        match self {
-            Self::SignedInt() => GL::INT,
-            Self::UnsignedInt() => GL::UNSIGNED_INT,
-            Self::Float() => GL::FLOAT,
-        }
-    }
-}
-
-pub enum AttributeValue {
-    SignedInt(i32),
-    Float(f32),
-}
-
 pub enum UniformValue<'a> {
-    // SignedInt(i32),
-    // UnsignedInt(u32),
+    SignedInt(i32),
+    UnsignedInt(u32),
     Float(f32),
+    Vec2([f32; 2]),
+    Vec3([f32; 3]),
     Texture2D(&'a WebGlTexture, u32),
-}
-
-pub enum UniformType {
-    // SignedInt(),
-    // UnsignedInt(),
-    Float(),
-    Texture2D(),
-}
-
-impl UniformType {
-    pub fn to_gl_type(&self) -> GlDataType {
-        match self {
-            // Self::SignedInt() => GL::INT,
-            // Self::UnsignedInt() => GL::UNSIGNED_INT,
-            Self::Float() => GL::FLOAT,
-            Self::Texture2D() => GL::TEXTURE_2D,
-        }
-    }
 }
 
 pub struct Uniform<'a> {
