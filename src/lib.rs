@@ -34,7 +34,7 @@ pub fn start() -> Result<(), JsValue> {
         premultiplied_alpha: true,
         power_preference: "high-performance",
         depth: true,
-        antialias: false,
+        antialias: true,
     }
     .serialize();
 
@@ -53,14 +53,13 @@ pub fn start() -> Result<(), JsValue> {
     let context = Rc::new(gl);
 
     // Settings
-    let grid_spacing: f32 = 10.0;
-    let grid_width: u32 = ((width as f32) / grid_spacing).ceil() as u32;
-    let grid_height: u32 = ((height as f32) / grid_spacing).ceil() as u32;
+    let grid_width: u32 = 128;
+    let grid_height: u32 = 128;
 
-    // rename to timestep, or sim_timestep
-    let delta_t: f32 = 1.0 / 120.0;
-    let viscosity: f32 = 1.0; // rho
-    let velocity_dissipation: f32 = 0.1;
+    // TODO: rename to timestep, or sim_timestep
+    let delta_t: f32 = 1.0 / 60.0;
+    let viscosity: f32 = 20.0;
+    let velocity_dissipation: f32 = 0.05;
 
     // TODO: deal with result
     let fluid = Fluid::new(
@@ -72,7 +71,7 @@ pub fn start() -> Result<(), JsValue> {
     )
     .unwrap();
 
-    let drawer = Drawer::new(&context, width, height).unwrap();
+    let drawer = Drawer::new(&context, width, height, 50, 50).unwrap();
 
     // TODO: clean this up
     let f = Rc::new(RefCell::new(None));

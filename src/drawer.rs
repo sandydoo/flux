@@ -14,15 +14,28 @@ static TEXTURE_FRAG_SHADER: &'static str = include_str!("./shaders/texture.frag"
 
 pub struct Drawer {
     context: Context,
+
     width: u32,
     height: u32,
+
+    grid_width: u32,
+    grid_height: u32,
+    line_count: u32,
 
     draw_lines_pass: render::RenderPass,
     draw_texture_pass: render::RenderPass,
 }
 
 impl Drawer {
-    pub fn new(context: &Context, width: u32, height: u32) -> Result<Self> {
+    pub fn new(
+        context: &Context,
+        width: u32,
+        height: u32,
+        grid_width: u32,
+        grid_height: u32,
+    ) -> Result<Self> {
+        let line_count = grid_width * grid_height;
+
         let line_vertices = Buffer::from_f32(
             &context,
             &data::LINE_VERTICES.to_vec(),
@@ -135,6 +148,10 @@ impl Drawer {
             context: context.clone(),
             width,
             height,
+            grid_width: grid_width,
+            grid_height: grid_height,
+            line_count: line_count,
+
             draw_lines_pass,
             draw_texture_pass,
         })
