@@ -4,14 +4,14 @@ precision mediump sampler2D;
 
 uniform float epsilon;
 uniform sampler2D velocityTexture;
-      
+
 in highp vec2 textureCoord;
 in vec2 vL;
 in vec2 vR;
 in vec2 vT;
 in vec2 vB;
 out vec4 fragColor;
-      
+
 void main() {
   float L = texture(velocityTexture, vL).x;
   float R = texture(velocityTexture, vR).x;

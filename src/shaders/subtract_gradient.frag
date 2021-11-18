@@ -20,7 +20,7 @@ void main() {
   float R = texture(pressureTexture, vR).x;
   float T = texture(pressureTexture, vT).x;
   float B = texture(pressureTexture, vB).x;
-  
+
   velocity.xy -= 0.5 * epsilon * vec2(R - L, T - B);
   fragColor = vec4(velocity, 0.0, 1.0);
 }

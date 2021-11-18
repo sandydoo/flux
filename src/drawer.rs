@@ -7,7 +7,6 @@ use web_sys::WebGl2RenderingContext as GL;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-static BASIC_FRAG_SHADER: &'static str = include_str!("./shaders/basic.frag");
 static LINE_VERT_SHADER: &'static str = include_str!("./shaders/line.vert");
 static LINE_FRAG_SHADER: &'static str = include_str!("./shaders/line.frag");
 static ENDPOINT_VERT_SHADER: &'static str = include_str!("./shaders/endpoint.vert");
