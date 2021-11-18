@@ -5,10 +5,10 @@ use std::rc::Rc;
 use thiserror::Error;
 
 use js_sys::WebAssembly;
-use wasm_bindgen::JsCast;
+use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{
     WebGl2RenderingContext as GL, WebGlBuffer, WebGlFramebuffer, WebGlProgram, WebGlShader,
-    WebGlTexture, WebGlUniformLocation, WebGlVertexArrayObject,
+    WebGlTexture, WebGlTransformFeedback, WebGlUniformLocation, WebGlVertexArrayObject,
 };
 
 pub type Context = Rc<GL>;
@@ -340,7 +340,23 @@ pub struct Program {
 }
 
 impl Program {
-    pub fn new(context: &Context, shaders: (&str, &str)) -> Result<Program> {
+    pub fn new(context: &Context, shaders: (&str, &str)) -> Result<Self> {
+        Self::new_impl(&context, shaders, None)
+    }
+
+    pub fn new_with_transform_feedback(
+        context: &Context,
+        shaders: (&str, &str),
+        transform_feedback: TransformFeedback,
+    ) -> Result<Self> {
+        Self::new_impl(&context, shaders, Some(transform_feedback))
+    }
+
+    pub fn new_impl(
+        context: &Context,
+        shaders: (&str, &str),
+        transform_feedback: Option<TransformFeedback>,
+    ) -> Result<Self> {
         let vertex_shader = compile_shader(&context, GL::VERTEX_SHADER, shaders.0)?;
         let fragment_shader = compile_shader(&context, GL::FRAGMENT_SHADER, shaders.1)?;
 
@@ -349,6 +365,15 @@ impl Program {
             .ok_or(Problem::CannotCreateProgram())?;
         context.attach_shader(&program, &vertex_shader);
         context.attach_shader(&program, &fragment_shader);
+
+        if let Some(TransformFeedback { ref names, mode }) = transform_feedback {
+            context.transform_feedback_varyings(
+                &program,
+                &JsValue::from_serde(&names).unwrap(),
+                mode,
+            );
+        }
+
         context.link_program(&program);
 
         // Delete the shaders to free up memory
@@ -507,6 +532,11 @@ pub struct Uniform<'a> {
     pub value: UniformValue<'a>,
 }
 
+pub struct TransformFeedback {
+    pub names: Vec<String>,
+    pub mode: u32,
+}
+
 pub fn compile_shader(context: &GL, shader_type: u32, source: &str) -> Result<WebGlShader> {
     let shader = context
         .create_shader(shader_type)
@@ -577,6 +607,39 @@ pub enum Indices {
     NoIndices(u32),
 }
 
+pub struct TransformFeedbackBuffer {
+    id: WebGlTransformFeedback,
+    front: RefCell<Buffer>,
+    back: RefCell<Buffer>,
+}
+
+impl TransformFeedbackBuffer {
+    pub fn new_with_f32(context: &Context, data: &Vec<f32>, usage: u32) -> Result<Self> {
+        let transform_feedback_buffer = context.create_transform_feedback().unwrap();
+
+        let front = Buffer::from_f32(&context, &data, GL::ARRAY_BUFFER, usage)?;
+        let back = Buffer::from_f32(&context, &data, GL::ARRAY_BUFFER, usage)?;
+
+        Ok(Self {
+            id: transform_feedback_buffer,
+            front: RefCell::new(front),
+            back: RefCell::new(back),
+        })
+    }
+
+    pub fn current(&self) -> Ref<Buffer> {
+        self.front.borrow()
+    }
+
+    pub fn next(&self) -> Ref<Buffer> {
+        self.back.borrow()
+    }
+
+    pub fn swap(&self) {
+        self.front.swap(&self.back)
+    }
+}
+
 pub struct RenderPass {
     context: Context,
     vertex_buffers: Vec<VertexBuffer>,
@@ -634,12 +697,52 @@ impl RenderPass {
     }
 
     pub fn draw(&self, uniforms: Vec<Uniform<'_>>, instance_count: u32) -> Result<()> {
+        self.draw_impl(vec![], uniforms, None, instance_count)
+    }
+
+    // pub fn draw_new(&self, vertex_buffers: Vec<VertexBuffer>, uniforms: Vec<Uniform<'_>>, instance_count: u32) -> Result<()> {}
+
+    pub fn draw_impl(
+        &self,
+        vertex_buffers: Vec<VertexBuffer>,
+        uniforms: Vec<Uniform<'_>>,
+        transform_feedback: Option<&TransformFeedbackBuffer>,
+        instance_count: u32,
+    ) -> Result<()> {
         let context = &self.context;
         context.use_program(Some(&self.program.program));
+
         context.bind_vertex_array(Some(&self.vao));
 
         for uniform in uniforms.into_iter() {
             self.program.set_uniform(&uniform);
+        }
+
+        if let Some(feedback_buffer) = transform_feedback {
+            context.bind_transform_feedback(GL::TRANSFORM_FEEDBACK, Some(&feedback_buffer.id));
+            context.bind_buffer_base(
+                GL::TRANSFORM_FEEDBACK_BUFFER,
+                0,
+                Some(&feedback_buffer.next().id),
+            );
+
+            context.enable(GL::RASTERIZER_DISCARD);
+            context.begin_transform_feedback(GL::POINTS);
+        }
+
+        let mut vertices_count: Option<usize> = None;
+
+        for VertexBuffer { buffer, binding } in self.vertex_buffers.iter() {
+            // TODO: convert binding.size to usize
+            let elements_count = buffer.size / (binding.size as usize);
+            if let Some(current) = vertices_count {
+                if current != elements_count {
+                    vertices_count = None;
+                    break;
+                }
+            } else {
+                vertices_count = Some(elements_count);
+            }
         }
 
         match self.indices {
@@ -671,10 +774,58 @@ impl RenderPass {
             }
         }
 
+        if transform_feedback.is_some() {
+            context.end_transform_feedback();
+
+            context.bind_buffer_base(GL::TRANSFORM_FEEDBACK_BUFFER, 0, None);
+            context.bind_transform_feedback(GL::TRANSFORM_FEEDBACK, None);
+
+            context.disable(GL::RASTERIZER_DISCARD);
+        }
+
         context.bind_vertex_array(None);
 
         Ok(())
     }
+
+    // pub fn draw_to_buffer(
+    //     &self,
+    //     feedback_buffer: &TransformFeedbackBuffer,
+    //     uniforms: Vec<Uniform<'_>>,
+    // ) -> Result<()> {
+    //     self.draw_impl(uniforms, Some(feedback_buffer), 1);
+
+    //     // feedback_buffer.swap();
+
+    //     // self.context
+    //     //     .bind_buffer(GL::COPY_READ_BUFFER, Some(&feedback_buffer.next().id));
+    //     // self.context
+    //     //     .bind_buffer(GL::COPY_WRITE_BUFFER, Some(&feedback_buffer.current().id));
+    //     // self.context
+    //     //     .bind_buffer(GL::COPY_WRITE_BUFFER, Some(&feedback_buffer.current().id));
+    //     // self.context.buffer_data_with_array_buffer_view(
+    //     //     GL::COPY_WRITE_BUFFER,
+    //     //     &data_array,
+    //     //     GL::DYNAMIC_DRAW,
+    //     // );
+    //     // self.context.copy_buffer_sub_data_with_i32_and_i32_and_i32(
+    //     //     GL::TRANSFORM_FEEDBACK_BUFFER,
+    //     //     GL::COPY_WRITE_BUFFER,
+    //     //     0,
+    //     //     0,
+    //     //     (feedback_buffer.next().size) as i32,
+    //     //     // 1000,
+    //     // );
+    //     // self.context.bind_buffer(GL::COPY_READ_BUFFER, None);
+    //     // self.context.bind_buffer(GL::COPY_WRITE_BUFFER, None);
+    //     // self.context
+    //     //     .bind_buffer_base(GL::TRANSFORM_FEEDBACK_BUFFER, 0, None);
+    //     // self.context
+    //     //     .bind_transform_feedback(GL::TRANSFORM_FEEDBACK, None);
+    //     // self.context.finish();
+
+    //     Ok(())
+    // }
 
     pub fn draw_to(
         &self,
@@ -695,7 +846,7 @@ impl RenderPass {
         self.context
             .viewport(0, 0, framebuffer.width as i32, framebuffer.height as i32);
 
-        self.draw(uniforms, instance_count)?;
+        self.draw_impl(vec![], uniforms, None, instance_count)?;
 
         self.context.bind_framebuffer(GL::FRAMEBUFFER, None);
 
