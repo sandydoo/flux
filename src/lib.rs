@@ -92,6 +92,8 @@ pub fn start() -> Result<(), JsValue> {
             fluid.advect(delta_t);
 
             fluid.diffuse(delta_t);
+
+            // TODO: this needs a second pass. See GPU Gems.
             fluid.curl(delta_t);
 
             fluid.calculate_divergence();

@@ -18,6 +18,6 @@ void main () {
   float R = texture(velocityTexture, vR).y;
   float T = texture(velocityTexture, vT).x;
   float B = texture(velocityTexture, vB).x;
-  float vorticity = R - L - T + B;
+  float vorticity = (R - L) - (T - B);
   fragColor = vec4(texture(velocityTexture, textureCoord).rg + deltaT * vorticity, 0.0, 1.0);
 }

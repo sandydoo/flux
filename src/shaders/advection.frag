@@ -25,14 +25,14 @@ void main() {
   if (textureCoord.y < 0.0) {
     offset.y = 1.0;
     scale.y = -1.0;
-  } else if(textureCoord.y > 1.0) {
+  } else if (textureCoord.y > 1.0) {
     offset.y = -1.0;
     scale.y = -1.0;
   }
 
-  vec2 u = scale * texture(velocityTexture, textureCoord + offset).xy;
+  vec2 velocity = scale * texture(velocityTexture, textureCoord + offset).xy;
 
-  vec2 pastCoord = textureCoord - (deltaT * epsilon * u);
+  vec2 pastCoord = textureCoord - (epsilon * deltaT * velocity);
   vec4 pastColor = texture(inputTexture, pastCoord);
   float decay = 1.0 + dissipation * deltaT;
   fragColor = pastColor / decay;
