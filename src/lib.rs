@@ -1,11 +1,13 @@
 mod data;
 mod drawer;
 mod fluid;
+mod noise;
 mod render;
 mod web;
 
 use drawer::Drawer;
 use fluid::Fluid;
+use noise::Noise;
 use web::ContextOptions;
 
 use std::cell::RefCell;
@@ -71,24 +73,32 @@ pub fn start() -> Result<(), JsValue> {
     )
     .unwrap();
 
+    let mut noise = Noise::new(&context, grid_width, grid_height).unwrap();
     let drawer = Drawer::new(&context, width, height, 50, 50).unwrap();
+
+    noise.generate(0.0);
+    // Finish setup before running the main rendering loop
+    context.finish();
 
     // TODO: clean this up
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();
 
-    // Finish setup before running the main rendering loop
-    context.finish();
+    let mut elapsed_time: f32 = 0.0;
 
-    let animate: Box<dyn FnMut(f32)> = Box::new(move |timestep| {
+    let animate: Box<dyn FnMut(f32)> = Box::new(move |_| {
         context.clear_color(0.0, 0.0, 0.0, 1.0);
         context.clear(GL::COLOR_BUFFER_BIT | GL::DEPTH_BUFFER_BIT);
 
         context.viewport(0, 0, width as i32, height as i32);
 
         {
+            noise.generate(elapsed_time);
+
             // Convection
             fluid.advect(delta_t);
+
+            noise.blend_noise_into(&fluid.get_velocity_textures(), delta_t);
 
             fluid.diffuse(delta_t);
 
@@ -101,6 +111,8 @@ pub fn start() -> Result<(), JsValue> {
 
             drawer.place_lines(delta_t, &fluid.get_velocity());
             drawer.draw_lines(delta_t); // TODO: timestep or delta
+
+            elapsed_time += delta_t * 2.0;
         }
 
         web::request_animation_frame(f.borrow().as_ref().unwrap());
