@@ -334,6 +334,7 @@ impl DoubleFramebuffer {
     }
 }
 
+#[derive(Clone)]
 pub struct Program {
     context: Context,
     program: WebGlProgram,
@@ -464,12 +465,14 @@ impl Program {
     }
 }
 
+#[derive(Clone)]
 struct AttributeInfo {
     type_: u32,
     size: u32,
     location: u32,
 }
 
+#[derive(Clone)]
 struct UniformInfo {
     type_: u32,
     size: i32,
