@@ -11,6 +11,8 @@ static LINE_VERT_SHADER: &'static str = include_str!("./shaders/line.vert");
 static LINE_FRAG_SHADER: &'static str = include_str!("./shaders/line.frag");
 static TEXTURE_VERT_SHADER: &'static str = include_str!("./shaders/texture.vert");
 static TEXTURE_FRAG_SHADER: &'static str = include_str!("./shaders/texture.frag");
+static PLACE_LINES_VERT_SHADER: &'static str = include_str!("./shaders/place_lines.vert");
+static PLACE_LINES_FRAG_SHADER: &'static str = include_str!("./shaders/place_lines.frag");
 
 pub struct Drawer {
     context: Context,
@@ -22,6 +24,10 @@ pub struct Drawer {
     grid_height: u32,
     line_count: u32,
 
+    line_state_textures: render::DoubleFramebuffer,
+    basepoint_texture: render::Framebuffer,
+
+    place_lines_pass: render::RenderPass,
     draw_lines_pass: render::RenderPass,
     draw_texture_pass: render::RenderPass,
 }
@@ -48,24 +54,26 @@ impl Drawer {
             GL::ELEMENT_ARRAY_BUFFER,
             GL::STATIC_DRAW,
         )?;
-        let basepoints = Buffer::from_f32(
-            &context,
-            &data::new_points(20, 20),
-            GL::ARRAY_BUFFER,
-            GL::STREAM_DRAW, // TODO: what’s the most appropriate type here?
-        )?;
-        let color_data: [f32; 16] = [
-            0.14509804, 0.68627451, 0.80784314, 0.0, //
-            0.14509804, 0.68627451, 0.80784314, 1.0, //
-            0.14509804, 0.68627451, 0.80784314, 1.0, //
-            0.14509804, 0.68627451, 0.80784314, 0.0, //
-        ];
-        let colors = Buffer::from_f32(
             &context,
             &color_data.to_vec(),
             GL::ARRAY_BUFFER,
             GL::STATIC_DRAW,
         )?;
+
+        // Line state
+        //
+        // position.x
+        // position.y
+        // velocity.x
+        // velocity.y
+        let texture_options: render::TextureOptions = Default::default();
+        let line_state_textures =
+            render::DoubleFramebuffer::new(&context, grid_width, grid_height, texture_options)?
+                .with_f32_data(&data::new_line_state(grid_width as i32, grid_height as i32))?;
+
+        let basepoint_texture =
+            render::Framebuffer::new(&context, grid_width, grid_height, texture_options)?
+                .with_f32_data(&data::new_points(grid_width as i32, grid_height as i32))?;
 
         let plane_vertices = Buffer::from_f32(
             &context,
@@ -81,43 +89,44 @@ impl Drawer {
             GL::STATIC_DRAW,
         )
         .unwrap();
+
+        let place_lines_program =
+            render::Program::new(&context, (PLACE_LINES_VERT_SHADER, PLACE_LINES_FRAG_SHADER))?;
         let draw_lines_program =
             render::Program::new(&context, (LINE_VERT_SHADER, LINE_FRAG_SHADER))?;
         let draw_texture_program =
             render::Program::new(&context, (TEXTURE_VERT_SHADER, TEXTURE_FRAG_SHADER))?;
 
+        let place_lines_pass = render::RenderPass::new(
+            &context,
+            vec![VertexBuffer {
+                buffer: plane_vertices.clone(),
+                binding: BindingInfo {
+                    name: "position".to_string(),
+                    size: 3,
+                    type_: GL::FLOAT,
+                    ..Default::default()
+                },
+            }],
+            Indices::IndexBuffer {
+                buffer: plane_indices.clone(),
+                primitive: GL::TRIANGLES,
+            },
+            place_lines_program,
+        )
+        .unwrap();
+
         let draw_lines_pass = render::RenderPass::new(
             &context,
-            vec![
-                VertexBuffer {
-                    buffer: line_vertices,
-                    binding: BindingInfo {
-                        name: "position".to_string(),
-                        size: 3,
-                        type_: GL::FLOAT,
-                        ..Default::default()
-                    },
+            vec![VertexBuffer {
+                buffer: line_vertices.clone(),
+                binding: BindingInfo {
+                    name: "vertex".to_string(),
+                    size: 3,
+                    type_: GL::FLOAT,
+                    ..Default::default()
                 },
-                VertexBuffer {
-                    buffer: basepoints,
-                    binding: BindingInfo {
-                        name: "basepoint".to_string(),
-                        size: 3,
-                        type_: GL::FLOAT,
-                        divisor: 1,
-                        ..Default::default()
-                    },
-                },
-                VertexBuffer {
-                    buffer: colors,
-                    binding: BindingInfo {
-                        name: "color".to_string(),
-                        size: 4,
-                        type_: GL::FLOAT,
-                        ..Default::default()
-                    },
-                },
-            ],
+            }],
             Indices::IndexBuffer {
                 buffer: line_indices,
                 primitive: GL::TRIANGLES,
@@ -152,35 +161,87 @@ impl Drawer {
             grid_height: grid_height,
             line_count: line_count,
 
+            line_state_textures,
+            basepoint_texture,
+
+            place_lines_pass,
             draw_lines_pass,
             draw_texture_pass,
         })
     }
 
-    pub fn draw_lines(&self, timestep: f32, texture: &Framebuffer) -> Result<()> {
+    pub fn place_lines(&self, timestep: f32, texture: &Framebuffer) -> () {
+        self.place_lines_pass
+            .draw_to(
+                &self.line_state_textures.next(),
+                vec![
+                    Uniform {
+                        name: "deltaT".to_string(),
+                        value: UniformValue::Float(timestep),
+                    },
+                    Uniform {
+                        name: "lineCount".to_string(),
+                        value: UniformValue::UnsignedInt(self.line_count),
+                    },
+                    Uniform {
+                        name: "basepointTexture".to_string(),
+                        value: UniformValue::Texture2D(&self.basepoint_texture.texture, 0),
+                    },
+                    Uniform {
+                        name: "lineStateTexture".to_string(),
+                        value: UniformValue::Texture2D(
+                            &self.line_state_textures.current().texture,
+                            1,
+                        ),
+                    },
+                    Uniform {
+                        name: "velocityTexture".to_string(),
+                        value: UniformValue::Texture2D(&texture.texture, 2),
+                    },
+                ],
+                1,
+            )
+            .unwrap();
+
+        self.line_state_textures.swap();
+    }
+
+    pub fn draw_lines(&self, timestep: f32) -> () {
         self.context
             .viewport(0, 0, self.width as i32, self.height as i32);
 
         self.context.enable(GL::BLEND);
-        self.context.blend_func_separate(
-            GL::SRC_ALPHA,
-            GL::ONE_MINUS_SRC_ALPHA,
-            GL::ONE,
-            GL::ONE_MINUS_SRC_ALPHA,
-        );
+        self.context.blend_func(GL::SRC_ALPHA, GL::ONE);
 
-        self.draw_lines_pass.draw(
-            vec![
-                Uniform {
-                    name: "deltaT".to_string(),
-                    value: UniformValue::Float(timestep),
-                },
-                Uniform {
-                    name: "velocityTexture".to_string(),
-                    value: UniformValue::Texture2D(&texture.texture, 0),
-                },
-            ],
-            20 * 20,
+        self.draw_lines_pass
+            .draw(
+                vec![
+                    Uniform {
+                        name: "deltaT".to_string(),
+                        value: UniformValue::Float(timestep),
+                    },
+                    Uniform {
+                        name: "lineCount".to_string(),
+                        value: UniformValue::UnsignedInt(self.line_count),
+                    },
+                    Uniform {
+                        name: "uColor".to_string(),
+                        value: UniformValue::Vec3([0.98431373, 0.71764706, 0.19215686]),
+                    },
+                    Uniform {
+                        name: "lineStateTexture".to_string(),
+                        value: UniformValue::Texture2D(
+                            &self.line_state_textures.current().texture,
+                            0,
+                        ),
+                    },
+                ],
+                self.line_count,
+            )
+            .unwrap();
+
+        self.context.disable(GL::BLEND);
+    }
 
     pub fn draw_texture(&self, texture: &Framebuffer) -> Result<()> {
         self.context

@@ -4,14 +4,15 @@
 precision highp float;
 precision highp sampler2D;
 
-in vec3 position;
-in vec3 basepoint;
-in vec4 color;
+in vec3 vertex;
 
 uniform float deltaT;
-uniform sampler2D velocityTexture;
+uniform uint lineCount;
+uniform vec3 uColor;
+uniform sampler2D lineStateTexture;
 
-out vec4 vColor;
+out vec3 vVertex;
+out float vHeight;
 
 mat4 translate(vec3 v) {
   return mat4(
@@ -43,13 +44,30 @@ mat4 rotateZ(float angle) {
   );
 }
 
+vec4 getValueByIndexFromTexture(sampler2D tex, int index) {
+  int texWidth = textureSize(tex, 0).x;
+  int col = index % texWidth;
+  int row = index / texWidth;
+  return texelFetch(tex, ivec2(col, row), 0);
+}
+
 void main() {;
-  vec2 textureCoord = basepoint.xy * 0.5 + 0.5;
+  vec4 lineState = getValueByIndexFromTexture(lineStateTexture, gl_InstanceID);
+  vec2 position = lineState.rg;
+  vec2 velocity = lineState.ba;
 
-  vec2 velocity = texture(velocityTexture, textureCoord).xy;
-  float angle = -atan(velocity.y, velocity.x) + PI / 2.0; // figure out the right angle here
-  float magnitude = length(velocity);
-  gl_Position = translate(basepoint) * rotateZ(angle) * scale(vec3(magnitude, magnitude, 1.0)) * vec4(position, 1.0);
+  // TODO: Maybe make this configurable. Can get quite different feels by
+  // rotating the lines relative to the velocity field.
+  float angle = -atan(velocity.y, velocity.x) - PI / 2.0;
 
-  vColor = color;
+  // TODO: Think through the scaling here. Make it configurable.
+  float width = smoothstep(0.0, 0.2, length(velocity));
+  float height = length(velocity);
+
+  // TODO: actually make this a uniform
+  mat4 uViewMatrix = scale(vec3(2.0));
+  gl_Position = uViewMatrix * translate(vec3(position.xy, 0.0)) * rotateZ(angle) * scale(vec3(width, height, 1.0)) * vec4(vertex, 1.0);
+
+  vVertex = vertex;
+  vHeight = height;
 }

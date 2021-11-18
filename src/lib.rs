@@ -99,7 +99,8 @@ pub fn start() -> Result<(), JsValue> {
             fluid.solve_pressure();
             fluid.subtract_gradient();
 
-            drawer.draw_lines(timestep, &fluid.get_velocity());
+            drawer.place_lines(delta_t, &fluid.get_velocity());
+            drawer.draw_lines(delta_t); // TODO: timestep or delta
         }
 
         web::request_animation_frame(f.borrow().as_ref().unwrap());
