@@ -5,3 +5,5 @@
 /node_modules
 .pnpm-debug.log
 
+# Release
+/dist
