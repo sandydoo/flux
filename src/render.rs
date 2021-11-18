@@ -24,6 +24,7 @@ enum Problem {
     CannotWriteToTexture(),
     WrongDataType(),
     AttribNotActive(String),
+    VerticesCountMismatch(),
     CannotBindUnsupportedVertexType(),
 }
 
@@ -34,6 +35,9 @@ impl fmt::Display for Problem {
             Problem::CannotCreateFramebuffer() => "Cannot create framebuffer",
             Problem::CannotCreateShader(maybe_desc) => &maybe_desc.as_ref().unwrap(),
             Problem::AttribNotActive(name) => "Attribute not active",
+            Problem::VerticesCountMismatch() => {
+                "The vertex buffers have different numbers of vertices"
+            }
             Problem::CannotBindUnsupportedVertexType() => "Vertex attribute type is not supported",
             // TODO: fix
             _ => "Something went wrong",
@@ -751,8 +755,21 @@ impl RenderPass {
             }
 
             Indices::NoIndices(primitive) => {
-                // TODO: fix
-                context.draw_arrays(primitive, 0, 20 * 20);
+                let vertices_count = match vertices_count {
+                    Some(count) => count,
+                    None => return Err(Box::new(Problem::VerticesCountMismatch())),
+                };
+
+                if instance_count > 1 {
+                    context.draw_arrays_instanced(
+                        primitive,
+                        0,
+                        vertices_count as i32,
+                        instance_count as i32,
+                    );
+                } else {
+                    context.draw_arrays(primitive, 0, vertices_count as i32);
+                }
             }
         }
 
