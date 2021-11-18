@@ -2,7 +2,6 @@
 precision mediump float;
 precision mediump sampler2D;
 
-uniform float rho;
 uniform float epsilon;
 uniform sampler2D velocityTexture;
       
@@ -25,6 +24,6 @@ void main() {
   if (vT.y > 1.0) { T = -velocity.y; }
   if (vB.y < 0.0) { B = -velocity.y; }
 
-  float div = 0.5 * epsilon * rho * (R - L + T - B);
+  float div = 0.5 * epsilon * (R - L + T - B);
   fragColor = vec4(div, 0.0, 0.0, 1.0);
 }

@@ -21,10 +21,12 @@ static CURL_FRAG_SHADER: &'static str = include_str!("./shaders/curl.frag");
 pub struct Fluid {
     viscosity: f32,
     velocity_dissipation: f32,
+    diffusion_iterations: u32,
     pressure_iterations: u32,
 
     grid_width: u32,
     grid_height: u32,
+    texel_size: f32,
     grid_size: f32,
 
     velocity_textures: DoubleFramebuffer,
@@ -32,6 +34,7 @@ pub struct Fluid {
     pressure_textures: DoubleFramebuffer,
 
     advection_pass: render::RenderPass,
+    diffusion_pass: render::RenderPass,
     divergence_pass: render::RenderPass,
     pressure_pass: render::RenderPass,
     subtract_gradient_pass: render::RenderPass,
@@ -46,6 +49,9 @@ impl Fluid {
         viscosity: f32,
         velocity_dissipation: f32,
     ) -> Result<Self> {
+        let grid_size: f32 = 1.0 / grid_width as f32;
+        let texel_size: f32 = 1.0 / grid_width as f32;
+
         let texture_options: TextureOptions = Default::default();
 
         // Framebuffers
@@ -105,6 +111,24 @@ impl Fluid {
             advection_program,
         )
         .unwrap();
+        let diffusion_pass = render::RenderPass::new(
+            &context,
+            vec![VertexBuffer {
+                buffer: plane_vertices.clone(),
+                binding: BindingInfo {
+                    name: "position".to_string(),
+                    size: 3,
+                    type_: GL::FLOAT,
+                    ..Default::default()
+                },
+            }],
+            Indices::IndexBuffer {
+                buffer: plane_indices.clone(),
+                primitive: GL::TRIANGLES,
+            },
+            pressure_program.clone(),
+        )
+        .unwrap();
         let divergence_pass = render::RenderPass::new(
             &context,
             vec![VertexBuffer {
@@ -138,7 +162,7 @@ impl Fluid {
                 buffer: plane_indices.clone(),
                 primitive: GL::TRIANGLES,
             },
-            pressure_program,
+            pressure_program.clone(),
         )
         .unwrap();
         let subtract_gradient_pass = render::RenderPass::new(
@@ -181,17 +205,20 @@ impl Fluid {
         Ok(Self {
             viscosity,
             velocity_dissipation,
-            pressure_iterations: 20,
+            diffusion_iterations: 5,
+            pressure_iterations: 30,
 
             grid_width,
             grid_height,
-            grid_size: 1.0 / grid_width as f32,
+            texel_size: texel_size,
+            grid_size: grid_size,
 
             velocity_textures,
             divergence_texture,
             pressure_textures,
 
             advection_pass,
+            diffusion_pass,
             divergence_pass,
             pressure_pass,
             subtract_gradient_pass,
@@ -206,7 +233,7 @@ impl Fluid {
                 vec![
                     Uniform {
                         name: "uTexelSize".to_string(),
-                        value: UniformValue::Float(self.grid_size),
+                        value: UniformValue::Float(self.texel_size),
                     },
                     Uniform {
                         name: "deltaT".to_string(),
@@ -242,18 +269,58 @@ impl Fluid {
         self.velocity_textures.swap();
     }
 
-    pub fn diffuse(&self) -> () {
+    pub fn diffuse(&self, timestep: f32) -> () {
+        let center_factor = self.grid_size.powf(2.0) / (self.viscosity * timestep);
+        let stencil_factor = 1.0 / (4.0 + center_factor);
+
+        for _ in 0..self.diffusion_iterations {
+            self.diffusion_pass
+                .draw_to(
+                    &self.velocity_textures.next(),
+                    vec![
+                        Uniform {
+                            name: "uTexelSize".to_string(),
+                            value: UniformValue::Float(self.texel_size),
+                        },
+                        Uniform {
+                            name: "alpha".to_string(),
+                            value: UniformValue::Float(center_factor),
+                        },
+                        Uniform {
+                            name: "rBeta".to_string(),
+                            value: UniformValue::Float(stencil_factor),
+                        },
+                        Uniform {
+                            name: "divergenceTexture".to_string(),
+                            value: UniformValue::Texture2D(
+                                &self.velocity_textures.current().texture,
+                                0,
+                            ),
+                        },
+                        Uniform {
+                            name: "pressureTexture".to_string(),
+                            value: UniformValue::Texture2D(
+                                &self.velocity_textures.current().texture,
+                                1,
+                            ),
+                        },
+                    ],
+                    1,
+                )
+                .unwrap();
+
+            self.velocity_textures.swap();
+        }
+    }
+
+    pub fn calculate_divergence(&self) -> () {
         self.divergence_pass
             .draw_to(
                 &self.divergence_texture,
                 vec![
                     Uniform {
                         name: "uTexelSize".to_string(),
-                        value: UniformValue::Float(self.grid_size),
-                    },
-                    Uniform {
-                        name: "rho".to_string(),
-                        value: UniformValue::Float(self.viscosity),
+                        value: UniformValue::Float(self.texel_size),
                     },
                     Uniform {
                         name: "epsilon".to_string(),
@@ -272,9 +339,11 @@ impl Fluid {
             .unwrap();
     }
 
-    pub fn solve_pressure(&self, timestep: f32) -> () {
-        let alpha = self.grid_size.powf(2.0) / (self.viscosity * timestep);
-        let r_beta = 1.0 / (4.0 + alpha);
+    pub fn solve_pressure(&self) -> () {
+        let alpha = -self.grid_size * self.grid_size;
+        let r_beta = 0.25;
+
+        self.pressure_textures.zero_out().unwrap();
 
         for _ in 0..self.pressure_iterations {
             self.pressure_pass
@@ -283,7 +352,7 @@ impl Fluid {
                     vec![
                         Uniform {
                             name: "uTexelSize".to_string(),
-                            value: UniformValue::Float(self.grid_size),
+                            value: UniformValue::Float(self.texel_size),
                         },
                         Uniform {
                             name: "alpha".to_string(),
@@ -320,7 +389,7 @@ impl Fluid {
                 vec![
                     Uniform {
                         name: "uTexelSize".to_string(),
-                        value: UniformValue::Float(self.grid_size),
+                        value: UniformValue::Float(self.texel_size),
                     },
                     Uniform {
                         name: "epsilon".to_string(),
@@ -345,7 +414,7 @@ impl Fluid {
             )
             .unwrap();
 
-        self.velocity_textures.swap()
+        self.velocity_textures.swap();
     }
 
     pub fn curl(&self, timestep: f32) -> () {
@@ -355,7 +424,7 @@ impl Fluid {
                 vec![
                     Uniform {
                         name: "uTexelSize".to_string(),
-                        value: UniformValue::Float(self.grid_size),
+                        value: UniformValue::Float(self.texel_size),
                     },
                     Uniform {
                         name: "deltaT".to_string(),
@@ -374,6 +443,10 @@ impl Fluid {
             .unwrap();
 
         self.velocity_textures.swap();
+    }
+
+    pub fn get_grid_size(&self) -> f32 {
+        self.grid_size
     }
 
     pub fn get_velocity(&self) -> Ref<Framebuffer> {
