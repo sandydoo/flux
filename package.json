@@ -1,4 +1,5 @@
 {
+  "author": "Sander Melnikov <hey@sandydoo.me>",
   "scripts": {
     "build": "webpack --mode production",
     "serve": "webpack serve"
