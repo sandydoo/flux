@@ -24,6 +24,7 @@ enum Problem {
     CannotWriteToTexture(),
     WrongDataType(),
     AttribNotActive(String),
+    CannotBindUnsupportedVertexType(),
 }
 
 impl fmt::Display for Problem {
@@ -33,6 +34,7 @@ impl fmt::Display for Problem {
             Problem::CannotCreateFramebuffer() => "Cannot create framebuffer",
             Problem::CannotCreateShader(maybe_desc) => &maybe_desc.as_ref().unwrap(),
             Problem::AttribNotActive(name) => "Attribute not active",
+            Problem::CannotBindUnsupportedVertexType() => "Vertex attribute type is not supported",
             // TODO: fix
             _ => "Something went wrong",
         };
@@ -664,19 +666,7 @@ impl RenderPass {
             ref binding,
         } in vertex_buffers.iter()
         {
-            context.bind_buffer(GL::ARRAY_BUFFER, Some(&buffer.id));
-            // TODO: fix unwrap
-            let location = program.get_attrib_location(&binding.name).unwrap();
-            context.enable_vertex_attrib_array(location);
-            context.vertex_attrib_pointer_with_i32(
-                location,
-                binding.size as i32,
-                binding.type_,
-                false,
-                binding.offset as i32,
-                binding.stride as i32,
-            );
-            context.vertex_attrib_divisor(location, binding.divisor);
+            bind_attributes(&context, &program, buffer, binding);
         }
 
         if let Indices::IndexBuffer { ref buffer, .. } = indices {
@@ -713,6 +703,14 @@ impl RenderPass {
         context.use_program(Some(&self.program.program));
 
         context.bind_vertex_array(Some(&self.vao));
+
+        for VertexBuffer {
+            ref buffer,
+            binding,
+        } in vertex_buffers.iter()
+        {
+            bind_attributes(&context, &self.program, buffer, binding);
+        }
 
         for uniform in uniforms.into_iter() {
             self.program.set_uniform(&uniform);
@@ -859,4 +857,46 @@ impl RenderPass {
 
         Ok(())
     }
+}
+
+pub fn bind_attributes(
+    context: &Context,
+    program: &Program,
+    buffer: &Buffer,
+    binding: &BindingInfo,
+) -> Result<()> {
+    context.bind_buffer(GL::ARRAY_BUFFER, Some(&buffer.id));
+    // TODO: fix unwrap
+    let location = program.get_attrib_location(&binding.name).unwrap();
+    context.enable_vertex_attrib_array(location);
+
+    match binding.type_ {
+        GL::FLOAT => context.vertex_attrib_pointer_with_i32(
+            location,
+            binding.size as i32,
+            binding.type_,
+            false,
+            binding.stride as i32,
+            binding.offset as i32,
+        ),
+        GL::UNSIGNED_INT => context.vertex_attrib_i_pointer_with_i32(
+            location,
+            binding.size as i32,
+            binding.type_,
+            binding.stride as i32,
+            binding.offset as i32,
+        ),
+        GL::INT => context.vertex_attrib_i_pointer_with_i32(
+            location,
+            binding.size as i32,
+            binding.type_,
+            binding.stride as i32,
+            binding.offset as i32,
+        ),
+        _ => return Err(Box::new(Problem::CannotBindUnsupportedVertexType())),
+    };
+
+    context.vertex_attrib_divisor(location, binding.divisor);
+
+    Ok(())
 }
