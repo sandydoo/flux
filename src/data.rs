@@ -79,6 +79,28 @@ pub fn make_sine_vector_field(rows: i32, cols: i32) -> Vec<f32> {
     data
 }
 
+pub fn make_checkerboard_field(rows: i32, cols: i32) -> Vec<f32> {
+    let mut data = Vec::with_capacity((rows * cols * 4) as usize);
+    let step_x = 1.0 / (rows as f32);
+    let step_y = 1.0 / (cols as f32);
+
+    for u in 0..rows {
+        for v in 0..cols {
+            let offset_y = if (u + v) % 2 == 0 { v + 1 } else { v };
+
+            let x: f32 = step_x * (u as f32) * 2.0 - 1.0;
+            let y: f32 = step_y * (offset_y as f32) * 2.0 - 1.0;
+
+            data.push(x);
+            data.push(y);
+            data.push(0.0);
+            data.push(1.0);
+        }
+    }
+
+    data
+}
+
 pub fn new_circle(resolution: u32) -> Vec<f32> {
     let mut segments = Vec::with_capacity((resolution * 2 + 1) as usize);
 

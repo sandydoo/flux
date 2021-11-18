@@ -109,6 +109,11 @@ pub fn start() -> Result<(), JsValue> {
             fluid.solve_pressure();
             fluid.subtract_gradient();
 
+            // Debugging
+            // drawer.draw_texture(&noise.get_noise());
+            // drawer.draw_texture(&fluid.get_velocity());
+            // drawer.draw_texture(&fluid.get_pressure());
+
             drawer.place_lines(delta_t, &fluid.get_velocity());
             drawer.draw_lines(delta_t); // TODO: timestep or delta
             drawer.draw_endpoints();
