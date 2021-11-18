@@ -1,3 +1,5 @@
+![A screenshot of the fluid simulation in action](./media/header.jpg)
+
 # Flux
 
 > An ode to the macOS Drift screensaver that runs in the browser.
