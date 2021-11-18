@@ -111,6 +111,7 @@ pub fn start() -> Result<(), JsValue> {
 
             drawer.place_lines(delta_t, &fluid.get_velocity());
             drawer.draw_lines(delta_t); // TODO: timestep or delta
+            drawer.draw_endpoints();
 
             elapsed_time += delta_t * 2.0;
         }

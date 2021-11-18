@@ -78,3 +78,18 @@ pub fn make_sine_vector_field(rows: i32, cols: i32) -> Vec<f32> {
 
     data
 }
+
+pub fn new_circle(resolution: u32) -> Vec<f32> {
+    let mut segments = Vec::with_capacity((resolution * 2 + 1) as usize);
+
+    segments.push(0.0);
+    segments.push(0.0);
+
+    for section in 0..=resolution {
+        let angle = 2.0 * PI * (section as f32) / (resolution as f32);
+        segments.push(1.0 * angle.cos());
+        segments.push(1.0 * angle.sin());
+    }
+
+    segments
+}

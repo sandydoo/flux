@@ -7,8 +7,11 @@ use web_sys::WebGl2RenderingContext as GL;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
+static BASIC_FRAG_SHADER: &'static str = include_str!("./shaders/basic.frag");
 static LINE_VERT_SHADER: &'static str = include_str!("./shaders/line.vert");
 static LINE_FRAG_SHADER: &'static str = include_str!("./shaders/line.frag");
+static ENDPOINT_VERT_SHADER: &'static str = include_str!("./shaders/endpoint.vert");
+static ENDPOINT_FRAG_SHADER: &'static str = include_str!("./shaders/endpoint.frag");
 static TEXTURE_VERT_SHADER: &'static str = include_str!("./shaders/texture.vert");
 static TEXTURE_FRAG_SHADER: &'static str = include_str!("./shaders/texture.frag");
 static PLACE_LINES_VERT_SHADER: &'static str = include_str!("./shaders/place_lines.vert");
@@ -29,6 +32,7 @@ pub struct Drawer {
 
     place_lines_pass: render::RenderPass,
     draw_lines_pass: render::RenderPass,
+    draw_endpoints_pass: render::RenderPass,
     draw_texture_pass: render::RenderPass,
 }
 
@@ -54,8 +58,10 @@ impl Drawer {
             GL::ELEMENT_ARRAY_BUFFER,
             GL::STATIC_DRAW,
         )?;
+
+        let circle_vertices = Buffer::from_f32(
             &context,
-            &color_data.to_vec(),
+            &data::new_circle(16),
             GL::ARRAY_BUFFER,
             GL::STATIC_DRAW,
         )?;
@@ -94,6 +100,8 @@ impl Drawer {
             render::Program::new(&context, (PLACE_LINES_VERT_SHADER, PLACE_LINES_FRAG_SHADER))?;
         let draw_lines_program =
             render::Program::new(&context, (LINE_VERT_SHADER, LINE_FRAG_SHADER))?;
+        let draw_endpoints_program =
+            render::Program::new(&context, (ENDPOINT_VERT_SHADER, ENDPOINT_FRAG_SHADER))?;
         let draw_texture_program =
             render::Program::new(&context, (TEXTURE_VERT_SHADER, TEXTURE_FRAG_SHADER))?;
 
@@ -134,6 +142,23 @@ impl Drawer {
             draw_lines_program,
         )
         .unwrap();
+
+        let draw_endpoints_pass = render::RenderPass::new(
+            &context,
+            vec![VertexBuffer {
+                buffer: circle_vertices.clone(),
+                binding: BindingInfo {
+                    name: "vertex".to_string(),
+                    size: 2,
+                    type_: GL::FLOAT,
+                    ..Default::default()
+                },
+            }],
+            Indices::NoIndices(GL::TRIANGLE_FAN),
+            draw_endpoints_program,
+        )
+        .unwrap();
+
         let draw_texture_pass = render::RenderPass::new(
             &context,
             vec![VertexBuffer {
@@ -166,6 +191,7 @@ impl Drawer {
 
             place_lines_pass,
             draw_lines_pass,
+            draw_endpoints_pass,
             draw_texture_pass,
         })
     }
@@ -243,16 +269,47 @@ impl Drawer {
         self.context.disable(GL::BLEND);
     }
 
-    pub fn draw_texture(&self, texture: &Framebuffer) -> Result<()> {
+    pub fn draw_endpoints(&self) -> () {
         self.context
             .viewport(0, 0, self.width as i32, self.height as i32);
 
-        self.draw_texture_pass.draw(
-            vec![Uniform {
-                name: "inputTexture".to_string(),
-                value: UniformValue::Texture2D(&texture.texture, 0),
-            }],
-            1,
-        )
+        self.context.enable(GL::BLEND);
+        self.context.blend_func(GL::SRC_ALPHA, GL::ONE);
+
+        self.draw_endpoints_pass
+            .draw(
+                vec![
+                    Uniform {
+                        name: "uColor".to_string(),
+                        value: UniformValue::Vec3([0.98431373, 0.71764706, 0.19215686]),
+                    },
+                    Uniform {
+                        name: "lineStateTexture".to_string(),
+                        value: UniformValue::Texture2D(
+                            &self.line_state_textures.current().texture,
+                            0,
+                        ),
+                    },
+                ],
+                self.line_count,
+            )
+            .unwrap();
+
+        self.context.disable(GL::BLEND);
+    }
+
+    pub fn draw_texture(&self, texture: &Framebuffer) -> () {
+        self.context
+            .viewport(0, 0, self.width as i32, self.height as i32);
+
+        self.draw_texture_pass
+            .draw(
+                vec![Uniform {
+                    name: "inputTexture".to_string(),
+                    value: UniformValue::Texture2D(&texture.texture, 0),
+                }],
+                1,
+            )
+            .unwrap();
     }
 }
