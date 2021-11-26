@@ -7,12 +7,14 @@ use web_sys::Window;
 #[serde(rename_all = "camelCase")]
 pub struct ContextOptions {
     pub alpha: bool,
-    pub preserve_drawing_buffer: bool,
-    pub stencil: bool,
-    pub premultiplied_alpha: bool,
-    pub power_preference: &'static str,
     pub depth: bool,
+    pub stencil: bool,
+    pub desynchronized: bool,
     pub antialias: bool,
+    pub fail_if_major_performance_caveat: bool,
+    pub power_preference: &'static str,
+    pub premultiplied_alpha: bool,
+    pub preserve_drawing_buffer: bool,
 }
 
 impl ContextOptions {

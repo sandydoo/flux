@@ -33,12 +33,14 @@ pub fn start() -> Result<(), JsValue> {
 
     let options = ContextOptions {
         alpha: false,
-        preserve_drawing_buffer: false,
-        stencil: false,
-        premultiplied_alpha: false,
-        power_preference: "high-performance",
         depth: false,
+        stencil: false,
+        desynchronized: false,
         antialias: true,
+        fail_if_major_performance_caveat: false,
+        power_preference: "high-performance",
+        premultiplied_alpha: false,
+        preserve_drawing_buffer: false,
     }
     .serialize();
 
