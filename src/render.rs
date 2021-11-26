@@ -251,26 +251,15 @@ impl Framebuffer {
 
     pub fn zero_out(&self) -> Result<()> {
         self.context
-            .bind_texture(GL::TEXTURE_2D, Some(&self.texture));
-        unsafe {
-            let array =
-                js_sys::Float32Array::view(&vec![0.0; (self.width * self.height * 4) as usize]);
-            self.context
-            .tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_array_buffer_view(
-                GL::TEXTURE_2D,
-                0,
-                GL::RGBA32F as i32,
-                self.width as i32,
-                self.height as i32,
-                0,
-                GL::RGBA,
-                GL::FLOAT,
-                Some(&array),
-            )
-            .or(Err(Box::new(Problem::CannotWriteToTexture())))?;
-        }
+            .bind_framebuffer(GL::FRAMEBUFFER, Some(&self.id));
 
-        self.context.bind_texture(GL::TEXTURE_2D, None);
+        self.context
+            .viewport(0, 0, self.width as i32, self.height as i32);
+        self.context.clear_color(0.0, 0.0, 0.0, 0.0);
+        self.context
+            .clear(GL::COLOR_BUFFER_BIT | GL::DEPTH_BUFFER_BIT);
+
+        self.context.bind_framebuffer(GL::FRAMEBUFFER, None);
 
         Ok(())
     }
