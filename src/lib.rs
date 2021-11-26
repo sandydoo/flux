@@ -114,7 +114,7 @@ pub fn start() -> Result<(), JsValue> {
             fluid.diffuse(delta_t);
 
             // TODO: this needs a second pass. See GPU Gems.
-            fluid.curl(delta_t);
+            // fluid.curl(delta_t);
 
             fluid.calculate_divergence();
             fluid.solve_pressure();
