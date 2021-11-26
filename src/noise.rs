@@ -121,7 +121,10 @@ impl Noise {
                 vec![
                     Uniform {
                         name: "uTexelSize".to_string(),
-                        value: UniformValue::Float(1.0 / self.texture.width as f32),
+                        value: UniformValue::Vec2([
+                            1.0 / self.texture.width as f32,
+                            1.0 / self.texture.height as f32,
+                        ]),
                     },
                     Uniform {
                         name: "deltaT".to_string(),

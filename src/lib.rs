@@ -26,8 +26,10 @@ pub fn start() -> Result<(), JsValue> {
     let document = window.document().unwrap();
     let canvas = document.get_element_by_id("canvas").unwrap();
     let canvas: web_sys::HtmlCanvasElement = canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
-    let width = canvas.width();
-    let height = canvas.height();
+    let width = 2 * canvas.client_width() as u32;
+    let height = 2 * canvas.client_height() as u32;
+    canvas.set_width(width);
+    canvas.set_height(height);
 
     let options = ContextOptions {
         alpha: true,
@@ -55,6 +57,7 @@ pub fn start() -> Result<(), JsValue> {
     let context = Rc::new(gl);
 
     // Settings
+    let grid_spacing: u32 = 32;
     let grid_width: u32 = 128;
     let grid_height: u32 = 128;
 
@@ -74,7 +77,15 @@ pub fn start() -> Result<(), JsValue> {
     .unwrap();
 
     let mut noise = Noise::new(&context, grid_width, grid_height).unwrap();
-    let drawer = Drawer::new(&context, width, height, 50, 50).unwrap();
+    let drawer = Drawer::new(
+        &context,
+        width,
+        height,
+        width / grid_spacing,
+        height / grid_spacing,
+        grid_spacing,
+    )
+    .unwrap();
 
     noise.generate(0.0);
     // Finish setup before running the main rendering loop

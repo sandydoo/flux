@@ -21,8 +21,8 @@ void main() {
 
   // Draw the entire endpoint when the line is small. Otherwise, draw only half.
   if (side >= 0.0 || vSize < 0.1) {
-    fragColor = vec4(uColor, 1.0);
+    fragColor = vec4(uColor, 0.9);
   } else {
-    fragColor = vec4(uColor.rgb, 1.0 - smoothstep(0.05, 0.1, vSize));
+    fragColor = vec4(uColor.rgb, 0.9 * (1.0 - smoothstep(0.05, 0.1, vSize)));
   }
 }

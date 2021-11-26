@@ -4,6 +4,7 @@ precision highp sampler2D;
 
 uniform float deltaT;
 uniform uint lineCount;
+uniform mat4 uProjection;
 uniform sampler2D basepointTexture;
 uniform sampler2D lineStateTexture;
 uniform sampler2D velocityTexture;
@@ -25,10 +26,10 @@ void main() {
   vec2 position = lineState.rg;
   vec2 velocity = lineState.ba;
 
-  vec2 velocityAtPosition = texture(velocityTexture, position * 0.5 + 0.5).xy;
+  vec2 velocityAtPosition = texture(velocityTexture, (uProjection * vec4(position, 0.0, 1.0)).xy * 0.5 + 0.5).xy;
   vec2 deltaVelocity = velocityAtPosition - velocity;
 
-  velocity += clamp(rand(textureCoord), 0.5, 1.0) * deltaVelocity * deltaT;
+  velocity += clamp(rand(position), 0.7, 1.0) * deltaVelocity * deltaT;
 
   fragColor = vec4(position, velocity);
 }

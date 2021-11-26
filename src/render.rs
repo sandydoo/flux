@@ -465,6 +465,12 @@ impl Program {
                 &value,
             ),
 
+            UniformValue::Mat4(value) => context.uniform_matrix4fv_with_f32_array(
+                self.get_uniform_location(&uniform.name).as_ref(),
+                false,
+                &value,
+            ),
+
             UniformValue::Texture2D(texture, id) => {
                 context.active_texture(GL::TEXTURE0 + id);
                 context.bind_texture(GL::TEXTURE_2D, Some(&texture));
@@ -514,6 +520,7 @@ pub enum UniformValue<'a> {
     Float(f32),
     Vec2([f32; 2]),
     Vec3([f32; 3]),
+    Mat4([f32; 16]),
     Texture2D(&'a WebGlTexture, u32),
 }
 

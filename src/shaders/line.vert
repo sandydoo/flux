@@ -4,14 +4,15 @@
 precision highp float;
 precision highp sampler2D;
 
-in vec3 vertex;
+in vec2 vertex;
 
 uniform float deltaT;
 uniform uint lineCount;
 uniform vec3 uColor;
+uniform mat4 uProjection;
 uniform sampler2D lineStateTexture;
 
-out vec3 vVertex;
+out vec2 vVertex;
 out float vHeight;
 
 mat4 translate(vec3 v) {
@@ -54,19 +55,26 @@ vec4 getValueByIndexFromTexture(sampler2D tex, int index) {
 void main() {;
   vec4 lineState = getValueByIndexFromTexture(lineStateTexture, gl_InstanceID);
   vec2 position = lineState.rg;
-  vec2 velocity = lineState.ba;
-
-  // TODO: Maybe make this configurable. Can get quite different feels by
-  // rotating the lines relative to the velocity field.
-  float angle = -atan(velocity.y, velocity.x) - PI / 2.0;
+  vec2 velocityVector = lineState.ba;
 
   // TODO: Think through the scaling here. Make it configurable.
-  float width = smoothstep(0.0, 0.2, length(velocity));
-  float height = length(velocity);
+  float velocity = length(velocityVector);
+  float width = smoothstep(0.0, 0.2, velocity);
+  float height = smoothstep(0.0, 0.2, velocity);
+
+  float uLineLength = 400.0;
+  float uLineWidth = 10.0;
+
+  vec2 pointA = position;
+  vec2 pointB = position + (normalize(velocityVector) * uLineLength * height);
+  vec2 xBasis = pointB - pointA;
+  xBasis.y *= -1.0; // flip y-axis
+  vec2 yBasis = normalize(vec2(-xBasis.y, xBasis.x));
+  vec2 point = pointA - xBasis * vertex.x - yBasis * (width * uLineWidth) * vertex.y;
 
   // TODO: actually make this a uniform
-  mat4 uViewMatrix = scale(vec3(2.0));
-  gl_Position = uViewMatrix * translate(vec3(position.xy, 0.0)) * rotateZ(angle) * scale(vec3(width, height, 1.0)) * vec4(vertex, 1.0);
+  mat4 uViewMatrix = scale(vec3(1.6));
+  gl_Position = uViewMatrix * uProjection * vec4(point, 0.0, 1.0);
 
   vVertex = vertex;
   vHeight = height;

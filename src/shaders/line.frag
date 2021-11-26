@@ -1,7 +1,7 @@
 #version 300 es
 precision highp float;
 
-in vec3 vVertex;
+in vec2 vVertex;
 in float vHeight;
 
 uniform vec3 uColor;
@@ -9,6 +9,6 @@ uniform vec3 uColor;
 out vec4 fragColor;
 
 void main() {
-  float opacity = smoothstep(0.2, 1.0, vVertex.y);
-  fragColor = vec4(uColor, smoothstep(0.05, 0.1, vHeight) * 0.9 * opacity);
+  float opacity = 0.9 * smoothstep(0.1, 0.15, vHeight) * smoothstep(0.4, 1.0, vVertex.x);
+  fragColor = vec4(uColor, opacity);
 }

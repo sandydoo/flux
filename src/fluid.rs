@@ -26,7 +26,7 @@ pub struct Fluid {
 
     grid_width: u32,
     grid_height: u32,
-    texel_size: f32,
+    texel_size: [f32; 2],
     grid_size: f32,
 
     velocity_textures: DoubleFramebuffer,
@@ -50,7 +50,7 @@ impl Fluid {
         velocity_dissipation: f32,
     ) -> Result<Self> {
         let grid_size: f32 = 1.0 / grid_width as f32;
-        let texel_size: f32 = 1.0 / grid_width as f32;
+        let texel_size = [1.0 / grid_width as f32, 1.0 / grid_height as f32];
 
         let texture_options: TextureOptions = Default::default();
 
@@ -210,8 +210,8 @@ impl Fluid {
 
             grid_width,
             grid_height,
-            texel_size: texel_size,
-            grid_size: grid_size,
+            texel_size,
+            grid_size,
 
             velocity_textures,
             divergence_texture,
@@ -233,7 +233,7 @@ impl Fluid {
                 vec![
                     Uniform {
                         name: "uTexelSize".to_string(),
-                        value: UniformValue::Float(self.texel_size),
+                        value: UniformValue::Vec2(self.texel_size),
                     },
                     Uniform {
                         name: "deltaT".to_string(),
@@ -280,7 +280,7 @@ impl Fluid {
                     vec![
                         Uniform {
                             name: "uTexelSize".to_string(),
-                            value: UniformValue::Float(self.texel_size),
+                            value: UniformValue::Vec2(self.texel_size),
                         },
                         Uniform {
                             name: "alpha".to_string(),
@@ -320,7 +320,7 @@ impl Fluid {
                 vec![
                     Uniform {
                         name: "uTexelSize".to_string(),
-                        value: UniformValue::Float(self.texel_size),
+                        value: UniformValue::Vec2(self.texel_size),
                     },
                     Uniform {
                         name: "epsilon".to_string(),
@@ -352,7 +352,7 @@ impl Fluid {
                     vec![
                         Uniform {
                             name: "uTexelSize".to_string(),
-                            value: UniformValue::Float(self.texel_size),
+                            value: UniformValue::Vec2(self.texel_size),
                         },
                         Uniform {
                             name: "alpha".to_string(),
@@ -389,7 +389,7 @@ impl Fluid {
                 vec![
                     Uniform {
                         name: "uTexelSize".to_string(),
-                        value: UniformValue::Float(self.texel_size),
+                        value: UniformValue::Vec2(self.texel_size),
                     },
                     Uniform {
                         name: "epsilon".to_string(),
@@ -424,7 +424,7 @@ impl Fluid {
                 vec![
                     Uniform {
                         name: "uTexelSize".to_string(),
-                        value: UniformValue::Float(self.texel_size),
+                        value: UniformValue::Vec2(self.texel_size),
                     },
                     Uniform {
                         name: "deltaT".to_string(),

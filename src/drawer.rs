@@ -21,6 +21,7 @@ pub struct Drawer {
 
     width: u32,
     height: u32,
+    aspect_ratio: f32,
 
     grid_width: u32,
     grid_height: u32,
@@ -33,6 +34,8 @@ pub struct Drawer {
     draw_lines_pass: render::RenderPass,
     draw_endpoints_pass: render::RenderPass,
     draw_texture_pass: render::RenderPass,
+
+    projection_matrix: [f32; 16],
 }
 
 impl Drawer {
@@ -42,8 +45,10 @@ impl Drawer {
         height: u32,
         grid_width: u32,
         grid_height: u32,
+        grid_spacing: u32,
     ) -> Result<Self> {
         let line_count = grid_width * grid_height;
+        let aspect_ratio: f32 = (width as f32) / (height as f32);
 
         let line_vertices = Buffer::from_f32(
             &context,
@@ -74,11 +79,11 @@ impl Drawer {
         let texture_options: render::TextureOptions = Default::default();
         let line_state_textures =
             render::DoubleFramebuffer::new(&context, grid_width, grid_height, texture_options)?
-                .with_f32_data(&data::new_line_state(grid_width as i32, grid_height as i32))?;
+                .with_f32_data(&data::new_line_state(width, height, grid_spacing))?;
 
         let basepoint_texture =
             render::Framebuffer::new(&context, grid_width, grid_height, texture_options)?
-                .with_f32_data(&data::new_points(grid_width as i32, grid_height as i32))?;
+                .with_f32_data(&data::new_points(width, height, grid_spacing))?;
 
         let plane_vertices = Buffer::from_f32(
             &context,
@@ -129,15 +134,12 @@ impl Drawer {
                 buffer: line_vertices.clone(),
                 binding: BindingInfo {
                     name: "vertex".to_string(),
-                    size: 3,
+                    size: 2,
                     type_: GL::FLOAT,
                     ..Default::default()
                 },
             }],
-            Indices::IndexBuffer {
-                buffer: line_indices,
-                primitive: GL::TRIANGLES,
-            },
+            Indices::NoIndices(GL::TRIANGLES),
             draw_lines_program,
         )
         .unwrap();
@@ -177,13 +179,33 @@ impl Drawer {
         )
         .unwrap();
 
+        let projection_matrix = [
+            2.0 / (width as f32),
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -2.0 / (height as f32),
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            2.0 / 1.0,
+            0.0,
+            -1.0,
+            1.0,
+            0.0,
+            1.0,
+        ];
+
         Ok(Self {
             context: context.clone(),
             width,
             height,
-            grid_width: grid_width,
-            grid_height: grid_height,
-            line_count: line_count,
+            aspect_ratio,
+            grid_width,
+            grid_height,
+            line_count,
 
             line_state_textures,
             basepoint_texture,
@@ -192,6 +214,8 @@ impl Drawer {
             draw_lines_pass,
             draw_endpoints_pass,
             draw_texture_pass,
+
+            projection_matrix,
         })
     }
 
@@ -207,6 +231,10 @@ impl Drawer {
                     Uniform {
                         name: "lineCount".to_string(),
                         value: UniformValue::UnsignedInt(self.line_count),
+                    },
+                    Uniform {
+                        name: "uProjection".to_string(),
+                        value: UniformValue::Mat4(self.projection_matrix),
                     },
                     Uniform {
                         name: "basepointTexture".to_string(),
@@ -254,6 +282,10 @@ impl Drawer {
                         value: UniformValue::Vec3([0.98431373, 0.71764706, 0.19215686]),
                     },
                     Uniform {
+                        name: "uProjection".to_string(),
+                        value: UniformValue::Mat4(self.projection_matrix),
+                    },
+                    Uniform {
                         name: "lineStateTexture".to_string(),
                         value: UniformValue::Texture2D(
                             &self.line_state_textures.current().texture,
@@ -281,6 +313,10 @@ impl Drawer {
                     Uniform {
                         name: "uColor".to_string(),
                         value: UniformValue::Vec3([0.98431373, 0.71764706, 0.19215686]),
+                    },
+                    Uniform {
+                        name: "uProjection".to_string(),
+                        value: UniformValue::Mat4(self.projection_matrix),
                     },
                     Uniform {
                         name: "lineStateTexture".to_string(),
@@ -311,4 +347,27 @@ impl Drawer {
             )
             .unwrap();
     }
+}
+
+fn get_projection(field_of_view: f32, aspect_ratio: f32, near: f32, far: f32) -> [f32; 16] {
+    let f = (field_of_view * 0.5).tan();
+    let range_inv = 1.0 / (near - far);
+    [
+        f / aspect_ratio,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        f,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        (near + far) * range_inv,
+        1.0,
+        0.0,
+        0.0,
+        near * far * range_inv * 2.0,
+        0.0,
+    ]
 }
