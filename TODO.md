@@ -2,7 +2,11 @@
 
 ### General
 
-- [] Add support for non-square aspect ratio
+- [x] Add support for non-square aspect ratio
+
+- [] What state should the line hold? Endpoint? And velocity?
+
+- [] What happens if add the velocity at the endpoint of the line?
 
 ### Performance
 
