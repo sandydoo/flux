@@ -32,12 +32,12 @@ pub fn start() -> Result<(), JsValue> {
     canvas.set_height(height);
 
     let options = ContextOptions {
-        alpha: true,
+        alpha: false,
         preserve_drawing_buffer: false,
         stencil: false,
-        premultiplied_alpha: true,
+        premultiplied_alpha: false,
         power_preference: "high-performance",
-        depth: true,
+        depth: false,
         antialias: true,
     }
     .serialize();
@@ -99,7 +99,7 @@ pub fn start() -> Result<(), JsValue> {
 
     let animate: Box<dyn FnMut(f32)> = Box::new(move |_| {
         context.clear_color(0.0, 0.0, 0.0, 1.0);
-        context.clear(GL::COLOR_BUFFER_BIT | GL::DEPTH_BUFFER_BIT);
+        context.clear(GL::COLOR_BUFFER_BIT);
 
         context.viewport(0, 0, width as i32, height as i32);
 
