@@ -5,6 +5,7 @@ precision highp sampler2D;
 
 uniform float uLineWidth;
 uniform float uLineLength;
+uniform float uViewScale;
 uniform mat4 uProjection;
 uniform sampler2D lineStateTexture;
 
@@ -56,7 +57,7 @@ void main() {
 
   float angle = atan(velocityVector.y, velocityVector.x) - PI / 2.0;
 
-  mat4 uViewMatrix = scale(vec3(1.6));
+  mat4 uViewMatrix = scale(vec3(uViewScale));
   float pointSize = uLineWidth * width;
   mat4 modelMatrix = mat4(
     0.5 * pointSize, 0.0, 0.0, 0.0,

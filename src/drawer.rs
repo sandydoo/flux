@@ -37,6 +37,7 @@ pub struct Drawer {
     draw_endpoints_pass: render::RenderPass,
     draw_texture_pass: render::RenderPass,
 
+    view_scale: f32,
     projection_matrix: [f32; 16],
 }
 
@@ -219,6 +220,7 @@ impl Drawer {
             draw_endpoints_pass,
             draw_texture_pass,
 
+            view_scale: 1.6,
             projection_matrix,
         })
     }
@@ -286,6 +288,10 @@ impl Drawer {
                         value: UniformValue::Vec3([0.98431373, 0.71764706, 0.19215686]),
                     },
                     Uniform {
+                        name: "uViewScale".to_string(),
+                        value: UniformValue::Float(self.view_scale),
+                    },
+                    Uniform {
                         name: "uProjection".to_string(),
                         value: UniformValue::Mat4(self.projection_matrix),
                     },
@@ -325,6 +331,10 @@ impl Drawer {
                     Uniform {
                         name: "uColor".to_string(),
                         value: UniformValue::Vec3([0.98431373, 0.71764706, 0.19215686]),
+                    },
+                    Uniform {
+                        name: "uViewScale".to_string(),
+                        value: UniformValue::Float(self.view_scale),
                     },
                     Uniform {
                         name: "uProjection".to_string(),

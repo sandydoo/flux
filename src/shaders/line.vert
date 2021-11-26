@@ -10,6 +10,7 @@ uniform float deltaT;
 uniform float uLineWidth;
 uniform float uLineLength;
 uniform vec3 uColor;
+uniform float uViewScale;
 uniform mat4 uProjection;
 uniform sampler2D lineStateTexture;
 
@@ -70,8 +71,7 @@ void main() {;
   vec2 yBasis = normalize(vec2(-xBasis.y, xBasis.x));
   vec2 point = pointA - xBasis * vertex.x - yBasis * (width * uLineWidth) * vertex.y;
 
-  // TODO: actually make this a uniform
-  mat4 uViewMatrix = scale(vec3(1.6));
+  mat4 uViewMatrix = scale(vec3(uViewScale));
   gl_Position = uViewMatrix * uProjection * vec4(point, 0.0, 1.0);
 
   vVertex = vertex;
