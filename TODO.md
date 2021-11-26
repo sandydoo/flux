@@ -8,10 +8,14 @@
 
 - [ ] What happens if add the velocity at the endpoint of the line?
 
-### Performance
+### Accessibility (not the 11-ty kind)
+
+- [ ] Add hosted option with CI builds
 
 - [ ] Move to wgpu in the long-term. WebGL/WebGPU support is very flaky at the
   moment, so I’d like to wait.
+
+### Performance
 
 - [ ] Clean up textures/framebuffers, i.e. implement the Drop trait.
 
