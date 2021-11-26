@@ -3,6 +3,8 @@
 precision highp float;
 precision highp sampler2D;
 
+uniform float uLineWidth;
+uniform float uLineLength;
 uniform mat4 uProjection;
 uniform sampler2D lineStateTexture;
 
@@ -47,10 +49,6 @@ void main() {
   float velocity = length(velocityVector);
   float width = smoothstep(0.0, 0.2, velocity);
   float height = smoothstep(0.0, 0.2, velocity);
-
-  // TODO: make uniform
-  float uLineLength = 400.0;
-  float uLineWidth = 10.0;
 
   vec2 direction = normalize(velocityVector);
   direction.y *= -1.0;

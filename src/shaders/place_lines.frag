@@ -3,7 +3,6 @@ precision highp float;
 precision highp sampler2D;
 
 uniform float deltaT;
-uniform uint lineCount;
 uniform mat4 uProjection;
 uniform sampler2D basepointTexture;
 uniform sampler2D lineStateTexture;

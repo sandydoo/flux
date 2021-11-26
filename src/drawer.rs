@@ -26,6 +26,8 @@ pub struct Drawer {
     grid_width: u32,
     grid_height: u32,
     line_count: u32,
+    line_width: f32,
+    line_length: f32,
 
     line_state_textures: render::DoubleFramebuffer,
     basepoint_texture: render::Framebuffer,
@@ -206,6 +208,8 @@ impl Drawer {
             grid_width,
             grid_height,
             line_count,
+            line_width: 10.0,
+            line_length: 400.0,
 
             line_state_textures,
             basepoint_texture,
@@ -227,10 +231,6 @@ impl Drawer {
                     Uniform {
                         name: "deltaT".to_string(),
                         value: UniformValue::Float(timestep),
-                    },
-                    Uniform {
-                        name: "lineCount".to_string(),
-                        value: UniformValue::UnsignedInt(self.line_count),
                     },
                     Uniform {
                         name: "uProjection".to_string(),
@@ -274,8 +274,12 @@ impl Drawer {
                         value: UniformValue::Float(timestep),
                     },
                     Uniform {
-                        name: "lineCount".to_string(),
-                        value: UniformValue::UnsignedInt(self.line_count),
+                        name: "uLineWidth".to_string(),
+                        value: UniformValue::Float(self.line_width),
+                    },
+                    Uniform {
+                        name: "uLineLength".to_string(),
+                        value: UniformValue::Float(self.line_length),
                     },
                     Uniform {
                         name: "uColor".to_string(),
@@ -310,6 +314,14 @@ impl Drawer {
         self.draw_endpoints_pass
             .draw(
                 vec![
+                    Uniform {
+                        name: "uLineWidth".to_string(),
+                        value: UniformValue::Float(self.line_width),
+                    },
+                    Uniform {
+                        name: "uLineLength".to_string(),
+                        value: UniformValue::Float(self.line_length),
+                    },
                     Uniform {
                         name: "uColor".to_string(),
                         value: UniformValue::Vec3([0.98431373, 0.71764706, 0.19215686]),
