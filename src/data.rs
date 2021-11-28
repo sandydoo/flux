@@ -22,6 +22,7 @@ pub static LINE_VERTICES: [f32; 12] = [
 
 // Points
 
+// World space coordinates: zero-centered, width x height
 pub fn new_points(width: u32, height: u32, grid_spacing: u32) -> Vec<f32> {
     let rows = height / grid_spacing;
     let cols = width / grid_spacing;
@@ -31,8 +32,9 @@ pub fn new_points(width: u32, height: u32, grid_spacing: u32) -> Vec<f32> {
         for u in 0..cols {
             let x: f32 = (u * grid_spacing) as f32;
             let y: f32 = (v * grid_spacing) as f32;
-            data.push(x);
-            data.push(y);
+
+            data.push(x - (width as f32) / 2.0);
+            data.push(y - (height as f32) / 2.0);
             data.push(0.0);
             data.push(1.0);
         }
@@ -41,6 +43,7 @@ pub fn new_points(width: u32, height: u32, grid_spacing: u32) -> Vec<f32> {
     data
 }
 
+// World space coordinates: zero-centered, width x height
 pub fn new_line_state(width: u32, height: u32, grid_spacing: u32) -> Vec<f32> {
     let rows = height / grid_spacing;
     let cols = width / grid_spacing;
@@ -50,8 +53,9 @@ pub fn new_line_state(width: u32, height: u32, grid_spacing: u32) -> Vec<f32> {
         for u in 0..cols {
             let x: f32 = (u * grid_spacing) as f32;
             let y: f32 = (v * grid_spacing) as f32;
-            data.push(x);
-            data.push(y);
+
+            data.push(x - (width as f32) / 2.0);
+            data.push(y - (height as f32) / 2.0);
             data.push(0.0);
             data.push(0.0);
         }
