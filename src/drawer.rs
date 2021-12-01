@@ -28,6 +28,7 @@ pub struct Drawer {
     line_count: u32,
     line_width: f32,
     line_length: f32,
+    line_begin_offset: f32,
     color: [f32; 3],
 
     line_state_textures: render::DoubleFramebuffer,
@@ -212,6 +213,7 @@ impl Drawer {
             line_count,
             line_width: 10.0,
             line_length: 400.0,
+            line_begin_offset: 0.3,
             // pink
             // 0.99215686, 0.67058824, 0.57254902
             // yellow
@@ -288,6 +290,10 @@ impl Drawer {
                     Uniform {
                         name: "uLineLength".to_string(),
                         value: UniformValue::Float(self.line_length),
+                    },
+                    Uniform {
+                        name: "uLineBeginOffset".to_string(),
+                        value: UniformValue::Float(self.line_begin_offset),
                     },
                     Uniform {
                         name: "uColor".to_string(),
