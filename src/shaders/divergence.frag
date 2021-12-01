@@ -2,7 +2,7 @@
 precision mediump float;
 precision mediump sampler2D;
 
-uniform float epsilon;
+uniform float halfEpsilon;
 uniform sampler2D velocityTexture;
 
 in highp vec2 textureCoord;
@@ -24,6 +24,6 @@ void main() {
   if (vT.y > 1.0) { T = -velocity.y; }
   if (vB.y < 0.0) { B = -velocity.y; }
 
-  float div = 0.5 * epsilon * (R - L + T - B);
+  float div = halfEpsilon * (R - L + T - B);
   fragColor = vec4(div, 0.0, 0.0, 1.0);
 }

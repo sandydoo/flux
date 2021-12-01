@@ -327,8 +327,8 @@ impl Fluid {
                         value: UniformValue::Vec2(self.texel_size),
                     },
                     Uniform {
-                        name: "epsilon".to_string(),
-                        value: UniformValue::Float(self.grid_size),
+                        name: "halfEpsilon".to_string(),
+                        value: UniformValue::Float(0.5 * self.grid_size),
                     },
                     Uniform {
                         name: "velocityTexture".to_string(),
@@ -396,8 +396,8 @@ impl Fluid {
                         value: UniformValue::Vec2(self.texel_size),
                     },
                     Uniform {
-                        name: "epsilon".to_string(),
-                        value: UniformValue::Float(self.grid_size),
+                        name: "halfEpsilon".to_string(),
+                        value: UniformValue::Float(0.5 * self.grid_size),
                     },
                     Uniform {
                         name: "velocityTexture".to_string(),

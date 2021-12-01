@@ -2,7 +2,7 @@
 precision mediump float;
 precision mediump sampler2D;
 
-uniform float epsilon;
+uniform float halfEpsilon;
 uniform sampler2D velocityTexture;
 uniform sampler2D pressureTexture;
 
@@ -21,6 +21,6 @@ void main() {
   float T = texture(pressureTexture, vT).x;
   float B = texture(pressureTexture, vB).x;
 
-  velocity.xy -= 0.5 * epsilon * vec2(R - L, T - B);
+  velocity.xy -= halfEpsilon * vec2(R - L, T - B);
   fragColor = vec4(velocity, 0.0, 1.0);
 }
