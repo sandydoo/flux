@@ -829,13 +829,13 @@ impl RenderPass {
         instance_count: u32,
     ) -> Result<()> {
         self.context
-            .bind_framebuffer(GL::FRAMEBUFFER, Some(&framebuffer.id));
+            .bind_framebuffer(GL::DRAW_FRAMEBUFFER, Some(&framebuffer.id));
         self.context
             .viewport(0, 0, framebuffer.width as i32, framebuffer.height as i32);
 
         self.draw_impl(vec![], uniforms, None, instance_count)?;
 
-        self.context.bind_framebuffer(GL::FRAMEBUFFER, None);
+        self.context.bind_framebuffer(GL::DRAW_FRAMEBUFFER, None);
 
         Ok(())
     }
