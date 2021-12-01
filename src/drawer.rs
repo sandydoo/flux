@@ -28,6 +28,7 @@ pub struct Drawer {
     line_count: u32,
     line_width: f32,
     line_length: f32,
+    color: [f32; 3],
 
     line_state_textures: render::DoubleFramebuffer,
     basepoint_texture: render::Framebuffer,
@@ -211,6 +212,11 @@ impl Drawer {
             line_count,
             line_width: 10.0,
             line_length: 400.0,
+            // pink
+            // 0.99215686, 0.67058824, 0.57254902
+            // yellow
+            // 0.98431373, 0.71764706, 0.19215686
+            color: [0.99215686, 0.67058824, 0.57254902],
 
             line_state_textures,
             basepoint_texture,
@@ -285,7 +291,7 @@ impl Drawer {
                     },
                     Uniform {
                         name: "uColor".to_string(),
-                        value: UniformValue::Vec3([0.98431373, 0.71764706, 0.19215686]),
+                        value: UniformValue::Vec3(self.color),
                     },
                     Uniform {
                         name: "uViewScale".to_string(),
@@ -330,7 +336,7 @@ impl Drawer {
                     },
                     Uniform {
                         name: "uColor".to_string(),
-                        value: UniformValue::Vec3([0.98431373, 0.71764706, 0.19215686]),
+                        value: UniformValue::Vec3(self.color),
                     },
                     Uniform {
                         name: "uViewScale".to_string(),
