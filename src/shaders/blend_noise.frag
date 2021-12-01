@@ -5,7 +5,7 @@ precision highp sampler2D;
 
 uniform float deltaT;
 uniform sampler2D inputTexture;
-uniform sampler2D noiseTexture;
+uniform mediump sampler2D noiseTexture;
 
 in vec2 textureCoord;
 in highp vec2 vL;

@@ -9,7 +9,7 @@ in vec2 vertex;
 uniform float deltaT;
 uniform float uLineWidth;
 uniform float uLineLength;
-uniform vec3 uColor;
+uniform mediump vec3 uColor;
 uniform float uViewScale;
 uniform mat4 uProjection;
 uniform sampler2D lineStateTexture;

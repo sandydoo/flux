@@ -1,6 +1,6 @@
 #version 300 es
-precision highp float;
-precision highp sampler2D;
+precision mediump float;
+precision mediump sampler2D;
 
 uniform float epsilon;
 uniform sampler2D velocityTexture;
