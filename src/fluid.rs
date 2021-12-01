@@ -52,7 +52,11 @@ impl Fluid {
         let grid_size: f32 = 1.0 / grid_width as f32;
         let texel_size = [1.0 / grid_width as f32, 1.0 / grid_height as f32];
 
-        let texture_options: TextureOptions = Default::default();
+        let texture_options: TextureOptions = TextureOptions {
+            mag_filter: GL::LINEAR,
+            min_filter: GL::LINEAR,
+            ..Default::default()
+        };
 
         // Framebuffers
         let initial_velocity_data =

@@ -142,17 +142,17 @@ impl Buffer {
 
 #[derive(Clone, Copy)]
 pub struct TextureOptions {
-    mag_filter: GlDataType,
-    min_filter: GlDataType,
-    wrap_s: GlDataType,
-    wrap_t: GlDataType,
+    pub mag_filter: GlDataType,
+    pub min_filter: GlDataType,
+    pub wrap_s: GlDataType,
+    pub wrap_t: GlDataType,
 }
 
 impl Default for TextureOptions {
     fn default() -> Self {
         TextureOptions {
-            mag_filter: GL::LINEAR,
-            min_filter: GL::LINEAR,
+            mag_filter: GL::NEAREST,
+            min_filter: GL::NEAREST,
             wrap_s: GL::CLAMP_TO_EDGE,
             wrap_t: GL::CLAMP_TO_EDGE,
         }
