@@ -21,8 +21,10 @@ enum Problem {
     CannotCreateFramebuffer(),
     CannotCreateShader(Option<String>),
     CannotCreateProgram(),
+    CannotLinkProgram(String),
     CannotWriteToTexture(),
     WrongDataType(),
+    CannotFindAttributeBinding(String),
     AttribNotActive(String),
     VerticesCountMismatch(),
     CannotBindUnsupportedVertexType(),
@@ -31,18 +33,24 @@ enum Problem {
 impl fmt::Display for Problem {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         let desc = match self {
-            Problem::CannotCreateTexture() => "Cannot create texture",
-            Problem::CannotCreateFramebuffer() => "Cannot create framebuffer",
-            Problem::CannotCreateShader(maybe_desc) => &maybe_desc.as_ref().unwrap(),
-            Problem::AttribNotActive(name) => "Attribute not active",
-            Problem::VerticesCountMismatch() => {
-                "The vertex buffers have different numbers of vertices"
+            Problem::CannotCreateTexture() => "Cannot create texture".to_string(),
+            Problem::CannotCreateFramebuffer() => "Cannot create framebuffer".to_string(),
+            Problem::CannotCreateShader(maybe_desc) => maybe_desc.as_ref().unwrap().to_string(),
+            Problem::CannotLinkProgram(error_message) => error_message.clone(),
+            Problem::CannotFindAttributeBinding(name) => {
+                format!("Can’t find the attribute {}", name)
             }
-            Problem::CannotBindUnsupportedVertexType() => "Vertex attribute type is not supported",
+            Problem::AttribNotActive(name) => format!("Attribute {} not active", name),
+            Problem::VerticesCountMismatch() => {
+                "The vertex buffers have different numbers of vertices".to_string()
+            }
+            Problem::CannotBindUnsupportedVertexType() => {
+                "Vertex attribute type is not supported".to_string()
+            }
             // TODO: fix
-            _ => "Something went wrong",
+            _ => "Something went wrong".to_string(),
         };
-        fmt.write_str(desc)
+        fmt.write_str(desc.as_str())
     }
 }
 
@@ -371,6 +379,16 @@ impl Program {
         }
 
         context.link_program(&program);
+
+        if !context
+            .get_program_parameter(&program, GL::LINK_STATUS)
+            .as_bool()
+            .unwrap_or(false)
+        {
+            return Err(Box::new(Problem::CannotLinkProgram(
+                context.get_program_info_log(&program).unwrap().to_string(),
+            )));
+        }
 
         // Delete the shaders to free up memory
         context.detach_shader(&program, &vertex_shader);
@@ -848,8 +866,12 @@ pub fn bind_attributes(
     binding: &BindingInfo,
 ) -> Result<()> {
     context.bind_buffer(GL::ARRAY_BUFFER, Some(&buffer.id));
-    // TODO: fix unwrap
-    let location = program.get_attrib_location(&binding.name).unwrap();
+    let location =
+        program
+            .get_attrib_location(&binding.name)
+            .ok_or(Problem::CannotFindAttributeBinding(
+                binding.name.to_string(),
+            ))?;
     context.enable_vertex_attrib_array(location);
 
     match binding.type_ {
