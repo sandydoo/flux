@@ -883,20 +883,14 @@ pub fn bind_attributes(
             binding.stride as i32,
             binding.offset as i32,
         ),
-        GL::UNSIGNED_INT => context.vertex_attrib_i_pointer_with_i32(
-            location,
-            binding.size as i32,
-            binding.type_,
-            binding.stride as i32,
-            binding.offset as i32,
-        ),
-        GL::INT => context.vertex_attrib_i_pointer_with_i32(
-            location,
-            binding.size as i32,
-            binding.type_,
-            binding.stride as i32,
-            binding.offset as i32,
-        ),
+        GL::UNSIGNED_SHORT | GL::UNSIGNED_INT | GL::INT => context
+            .vertex_attrib_i_pointer_with_i32(
+                location,
+                binding.size as i32,
+                binding.type_,
+                binding.stride as i32,
+                binding.offset as i32,
+            ),
         _ => return Err(Box::new(Problem::CannotBindUnsupportedVertexType())),
     };
 
