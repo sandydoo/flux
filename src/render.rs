@@ -668,7 +668,7 @@ impl RenderPass {
             ref binding,
         } in vertex_buffers.iter()
         {
-            bind_attributes(&context, &program, buffer, binding);
+            bind_attributes(&context, &program, buffer, binding)?;
         }
 
         if let Indices::IndexBuffer { ref buffer, .. } = indices {
@@ -711,7 +711,7 @@ impl RenderPass {
             binding,
         } in vertex_buffers.iter()
         {
-            bind_attributes(&context, &self.program, buffer, binding);
+            bind_attributes(&context, &self.program, buffer, binding)?;
         }
 
         for uniform in uniforms.into_iter() {
