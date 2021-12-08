@@ -41,14 +41,16 @@ pub fn start() -> Result<(), JsValue> {
     let canvas = html_canvas;
 
     let options = ContextOptions {
-        alpha: false,
+        // Disabling alpha can lead to poor performance on some platforms.
+        // We’ll need it later when implementing MSAA
+        alpha: true,
         depth: false,
         stencil: false,
         desynchronized: false,
         antialias: true,
         fail_if_major_performance_caveat: false,
         power_preference: "high-performance",
-        premultiplied_alpha: false,
+        premultiplied_alpha: true,
         preserve_drawing_buffer: false,
     }
     .serialize();
