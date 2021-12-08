@@ -521,6 +521,7 @@ pub struct Attribute {
     pub divisor: u32,
 }
 
+#[derive(Copy, Clone)]
 pub enum UniformValue<'a> {
     SignedInt(i32),
     UnsignedInt(u32),
