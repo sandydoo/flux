@@ -67,6 +67,7 @@ pub fn start() -> Result<(), JsValue> {
     let delta_t: f32 = 1.0 / 60.0;
     let viscosity: f32 = 20.0;
     let velocity_dissipation: f32 = 0.05;
+    let adjust_advection: f32 = 10.0;
 
     // TODO: deal with result
     let fluid = Fluid::new(
@@ -125,7 +126,7 @@ pub fn start() -> Result<(), JsValue> {
         // drawer.draw_texture(&fluid.get_velocity());
         // drawer.draw_texture(&fluid.get_pressure());
 
-        drawer.place_lines(delta_t, &fluid.get_velocity());
+        drawer.place_lines(delta_t * adjust_advection, &fluid.get_velocity());
 
         drawer.draw_lines();
 
