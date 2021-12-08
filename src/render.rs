@@ -734,7 +734,11 @@ impl RenderPass {
         let mut vertices_count: Option<usize> = None;
 
         for VertexBuffer { buffer, binding } in self.vertex_buffers.iter() {
+            if (binding.divisor > 0) {
+                break;
+            }
             // TODO: convert binding.size to usize
+            // TODO: doesnt take into account stride
             let elements_count = buffer.size / (binding.size as usize);
             if let Some(current) = vertices_count {
                 if current != elements_count {
