@@ -31,8 +31,9 @@ pub struct Drawer {
     line_begin_offset: f32,
     color: [f32; 3],
 
-    line_state_textures: render::DoubleFramebuffer,
-    basepoint_texture: render::Framebuffer,
+    line_state_buffers: render::TransformFeedbackBuffer,
+    line_index_buffer: render::Buffer,
+    basepoint_buffer: render::Buffer,
 
     place_lines_pass: render::RenderPass,
     draw_lines_pass: render::RenderPass,
@@ -61,12 +62,24 @@ impl Drawer {
             GL::ARRAY_BUFFER,
             GL::STATIC_DRAW,
         )?;
-        let line_indices = Buffer::from_u16(
+
+        let basepoint_buffer = Buffer::from_f32(
             &context,
-            &data::LINE_INDICES.to_vec(),
-            GL::ELEMENT_ARRAY_BUFFER,
+            &data::new_points(width, height, grid_spacing),
+            GL::ARRAY_BUFFER,
             GL::STATIC_DRAW,
         )?;
+
+        let mut line_indices = Vec::with_capacity(line_count as usize);
+        for i in 0..line_count {
+            line_indices.push(i as u16);
+        }
+        let line_index_buffer =
+            Buffer::from_u16(&context, &line_indices, GL::ARRAY_BUFFER, GL::STATIC_DRAW)?;
+
+        let line_state = data::new_line_state(width, height, grid_spacing);
+        let line_state_buffers =
+            render::TransformFeedbackBuffer::new_with_f32(&context, &line_state, GL::STATIC_DRAW)?;
 
         let circle_vertices = Buffer::from_f32(
             &context,
@@ -74,21 +87,6 @@ impl Drawer {
             GL::ARRAY_BUFFER,
             GL::STATIC_DRAW,
         )?;
-
-        // Line state
-        //
-        // position.x
-        // position.y
-        // velocity.x
-        // velocity.y
-        let texture_options: render::TextureOptions = Default::default();
-        let line_state_textures =
-            render::DoubleFramebuffer::new(&context, grid_width, grid_height, texture_options)?
-                .with_f32_data(&data::new_line_state(width, height, grid_spacing))?;
-
-        let basepoint_texture =
-            render::Framebuffer::new(&context, grid_width, grid_height, texture_options)?
-                .with_f32_data(&data::new_points(width, height, grid_spacing))?;
 
         let plane_vertices = Buffer::from_f32(
             &context,
@@ -105,8 +103,18 @@ impl Drawer {
         )
         .unwrap();
 
-        let place_lines_program =
-            render::Program::new(&context, (PLACE_LINES_VERT_SHADER, PLACE_LINES_FRAG_SHADER))?;
+        let place_lines_program = render::Program::new_with_transform_feedback(
+            &context,
+            (PLACE_LINES_VERT_SHADER, PLACE_LINES_FRAG_SHADER),
+            render::TransformFeedback {
+                names: vec![
+                    "vEndpointVector".to_string(),
+                    "vVelocityVector".to_string(),
+                    "vLineWidth".to_string(),
+                ],
+                mode: GL::INTERLEAVED_ATTRIBS,
+            },
+        )?;
         let draw_lines_program =
             render::Program::new(&context, (LINE_VERT_SHADER, LINE_FRAG_SHADER))?;
         let draw_endpoints_program =
@@ -116,19 +124,27 @@ impl Drawer {
 
         let place_lines_pass = render::RenderPass::new(
             &context,
-            vec![VertexBuffer {
-                buffer: plane_vertices.clone(),
-                binding: BindingInfo {
-                    name: "position".to_string(),
-                    size: 3,
-                    type_: GL::FLOAT,
-                    ..Default::default()
+            vec![
+                VertexBuffer {
+                    buffer: basepoint_buffer.clone(),
+                    binding: BindingInfo {
+                        name: "basepoint".to_string(),
+                        size: 2,
+                        type_: GL::FLOAT,
+                        ..Default::default()
+                    },
                 },
-            }],
-            Indices::IndexBuffer {
-                buffer: plane_indices.clone(),
-                primitive: GL::TRIANGLES,
-            },
+                // VertexBuffer {
+                //     buffer: line_index_buffer.clone(),
+                //     binding: BindingInfo {
+                //         name: "lineIndex".to_string(),
+                //         size: 1,
+                //         type_: GL::UNSIGNED_SHORT,
+                //         ..Default::default()
+                //     },
+                // },
+            ],
+            Indices::NoIndices(GL::POINTS),
             place_lines_program,
         )
         .unwrap();
@@ -220,8 +236,9 @@ impl Drawer {
             // 0.98431373, 0.71764706, 0.19215686
             color: [0.99215686, 0.67058824, 0.57254902],
 
-            line_state_textures,
-            basepoint_texture,
+            line_state_buffers,
+            line_index_buffer,
+            basepoint_buffer,
 
             place_lines_pass,
             draw_lines_pass,
@@ -235,8 +252,42 @@ impl Drawer {
 
     pub fn place_lines(&self, timestep: f32, texture: &Framebuffer) -> () {
         self.place_lines_pass
-            .draw_to(
-                &self.line_state_textures.next(),
+            .draw_impl(
+                vec![
+                    VertexBuffer {
+                        buffer: self.line_state_buffers.current().clone(),
+                        binding: BindingInfo {
+                            name: "iEndpointVector".to_string(),
+                            size: 2,
+                            type_: GL::FLOAT,
+                            stride: 5 * 4,
+                            offset: 0 * 4,
+                            ..Default::default()
+                        },
+                    },
+                    VertexBuffer {
+                        buffer: self.line_state_buffers.current().clone(),
+                        binding: BindingInfo {
+                            name: "iVelocityVector".to_string(),
+                            size: 2,
+                            type_: GL::FLOAT,
+                            stride: 5 * 4,
+                            offset: 2 * 4,
+                            ..Default::default()
+                        },
+                    },
+                    // VertexBuffer {
+                    //     buffer: self.line_state_buffers.current().clone(),
+                    //     binding: BindingInfo {
+                    //         name: "iLineWidth".to_string(),
+                    //         size: 1,
+                    //         type_: GL::FLOAT,
+                    //         stride: 5 * 4,
+                    //         offset: 4 * 4,
+                    //         ..Default::default()
+                    //     },
+                    // },
+                ],
                 vec![
                     Uniform {
                         name: "deltaT".to_string(),
@@ -247,26 +298,16 @@ impl Drawer {
                         value: UniformValue::Mat4(self.projection_matrix),
                     },
                     Uniform {
-                        name: "basepointTexture".to_string(),
-                        value: UniformValue::Texture2D(&self.basepoint_texture.texture, 0),
-                    },
-                    Uniform {
-                        name: "lineStateTexture".to_string(),
-                        value: UniformValue::Texture2D(
-                            &self.line_state_textures.current().texture,
-                            1,
-                        ),
-                    },
-                    Uniform {
                         name: "velocityTexture".to_string(),
-                        value: UniformValue::Texture2D(&texture.texture, 2),
+                        value: UniformValue::Texture2D(&texture.texture, 0),
                     },
                 ],
+                Some(&self.line_state_buffers),
                 1,
             )
             .unwrap();
 
-        self.line_state_textures.swap();
+        self.line_state_buffers.swap();
     }
 
     pub fn draw_lines(&self, timestep: f32) -> () {

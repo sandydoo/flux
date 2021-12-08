@@ -59,8 +59,7 @@ impl Fluid {
         };
 
         // Framebuffers
-        let initial_velocity_data =
-            data::make_sine_vector_field(grid_width as i32, grid_height as i32);
+        let initial_velocity_data = vec![0.0; (4 * grid_width * grid_height) as usize];
         let velocity_textures =
             render::DoubleFramebuffer::new(&context, grid_width, grid_height, texture_options)?
                 .with_f32_data(&initial_velocity_data)?;
