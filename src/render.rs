@@ -258,12 +258,17 @@ impl Framebuffer {
     }
 
     pub fn zero_out(&self) -> Result<()> {
+        self.clear_color_with([0.0, 0.0, 0.0, 0.0])
+    }
+
+    pub fn clear_color_with(&self, color: [f32; 4]) -> Result<()> {
         self.context
             .bind_framebuffer(GL::FRAMEBUFFER, Some(&self.id));
 
         self.context
             .viewport(0, 0, self.width as i32, self.height as i32);
-        self.context.clear_color(0.0, 0.0, 0.0, 0.0);
+        self.context
+            .clear_color(color[0], color[1], color[2], color[3]);
         self.context
             .clear(GL::COLOR_BUFFER_BIT | GL::DEPTH_BUFFER_BIT);
 
@@ -319,6 +324,12 @@ impl DoubleFramebuffer {
     pub fn zero_out(&self) -> Result<()> {
         self.current().zero_out()?;
         self.next().zero_out()?;
+        Ok(())
+    }
+
+    pub fn clear_color_with(&self, color: [f32; 4]) -> Result<()> {
+        self.current().clear_color_with(color)?;
+        self.next().clear_color_with(color)?;
         Ok(())
     }
 
