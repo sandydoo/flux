@@ -49,7 +49,7 @@ impl Fluid {
         viscosity: f32,
         velocity_dissipation: f32,
     ) -> Result<Self> {
-        let grid_size: f32 = 1.0 / grid_width as f32;
+        let grid_size: f32 = 1.0;
         let texel_size = [1.0 / grid_width as f32, 1.0 / grid_height as f32];
 
         let texture_options: TextureOptions = TextureOptions {
