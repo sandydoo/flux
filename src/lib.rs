@@ -89,50 +89,49 @@ pub fn start() -> Result<(), JsValue> {
     )
     .unwrap();
 
-    noise.generate(0.0);
+    let mut elapsed_time: f32 = 1000.0;
+
+    noise.generate(elapsed_time);
+    noise.blend_noise_into(&fluid.get_velocity_textures(), delta_t);
     // Finish setup before running the main rendering loop
-    context.finish();
+    context.flush();
 
     // TODO: clean this up
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();
 
-    let mut elapsed_time: f32 = 0.0;
-
-    let animate: Box<dyn FnMut(f32)> = Box::new(move |_| {
+    let animate: Box<dyn FnMut(f32)> = Box::new(move |timestep| {
         context.clear_color(0.0, 0.0, 0.0, 1.0);
         context.clear(GL::COLOR_BUFFER_BIT);
 
-        context.viewport(0, 0, width as i32, height as i32);
+        noise.generate(elapsed_time);
 
-        {
-            noise.generate(elapsed_time);
+        // Convection
+        fluid.advect(delta_t);
 
-            // Convection
-            fluid.advect(delta_t);
+        noise.blend_noise_into(&fluid.get_velocity_textures(), delta_t);
 
-            noise.blend_noise_into(&fluid.get_velocity_textures(), delta_t);
+        fluid.diffuse(delta_t);
 
-            fluid.diffuse(delta_t);
+        // TODO: this needs a second pass. See GPU Gems.
+        // fluid.curl(delta_t);
 
-            // TODO: this needs a second pass. See GPU Gems.
-            // fluid.curl(delta_t);
+        fluid.calculate_divergence();
+        fluid.solve_pressure();
+        fluid.subtract_gradient();
 
-            fluid.calculate_divergence();
-            fluid.solve_pressure();
-            fluid.subtract_gradient();
+        // Debugging
+        // drawer.draw_texture(&noise.get_noise());
+        // drawer.draw_texture(&fluid.get_velocity());
+        // drawer.draw_texture(&fluid.get_pressure());
 
-            // Debugging
-            // drawer.draw_texture(&noise.get_noise());
-            // drawer.draw_texture(&fluid.get_velocity());
-            // drawer.draw_texture(&fluid.get_pressure());
+        drawer.place_lines(delta_t, &fluid.get_velocity());
 
-            drawer.place_lines(delta_t, &fluid.get_velocity());
-            drawer.draw_lines(delta_t); // TODO: timestep or delta
-            drawer.draw_endpoints();
+        drawer.draw_lines(delta_t);
 
-            elapsed_time += delta_t * 2.0;
-        }
+        drawer.draw_endpoints();
+
+        elapsed_time += delta_t;
 
         web::request_animation_frame(f.borrow().as_ref().unwrap());
     });
