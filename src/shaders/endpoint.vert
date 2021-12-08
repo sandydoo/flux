@@ -7,13 +7,18 @@ uniform float uLineWidth;
 uniform float uLineLength;
 uniform float uViewScale;
 uniform mat4 uProjection;
-uniform sampler2D lineStateTexture;
 
 in vec2 vertex;
+in vec2 basepoint;
+
+in vec2 iEndpointVector;
+in vec2 iVelocityVector;
+in float iLineWidth;
 
 out vec2 vPosition;
 out float vSize;
 out float vAngle;
+out float vTotalOpacity;
 
 mat4 translate(vec3 v) {
   return mat4(
@@ -33,31 +38,28 @@ mat4 scale(vec3 v) {
   );
 }
 
-vec4 getValueByIndexFromTexture(sampler2D tex, int index) {
-  int texWidth = textureSize(tex, 0).x;
-  int col = index % texWidth;
-  int row = index / texWidth;
-  return texelFetch(tex, ivec2(col, row), 0);
+mat4 rotateZ(float angle) {
+  float s = sin(angle);
+  float c = cos(angle);
+
+  return mat4(
+    c,   -s,  0.0, 0.0,
+    s,  c,    0.0, 0.0,
+    0.0, 0.0, 1.0, 0.0,
+    0.0, 0.0, 0.0, 1.0
+  );
 }
 
 // TODO: A lot of this shared with lines. Can we do something about that?
 void main() {
-  vec4 lineState = getValueByIndexFromTexture(lineStateTexture, gl_InstanceID);
-  vec2 position = lineState.rg;
-  vec2 velocityVector = lineState.ba;
+  vec2 endpoint = basepoint + iEndpointVector * uLineLength;
 
-  // TODO: Think through the scaling here. Make it configurable.
-  float velocity = length(velocityVector);
-  float width = smoothstep(0.0, 0.2, velocity);
-  float height = smoothstep(0.0, 0.2, velocity);
+  float width = iLineWidth;
+  float height = length(endpoint - basepoint) / uLineLength;
 
-  vec2 direction = normalize(velocityVector);
-  direction.y *= -1.0;
-  vec2 endPoint = position - (direction * uLineLength * height);
+  vec2 direction = normalize(endpoint - basepoint);
+  float angle = -atan(direction.y, direction.x) + PI / 2.0;
 
-  float angle = atan(velocityVector.y, velocityVector.x) - PI / 2.0;
-
-  mat4 uViewMatrix = scale(vec3(uViewScale));
   float pointSize = uLineWidth * width;
   mat4 modelMatrix = mat4(
     0.5 * pointSize, 0.0, 0.0, 0.0,
@@ -66,9 +68,11 @@ void main() {
     0.0, 0.0, 0.0, 1.0
   );
 
-  gl_Position = uViewMatrix * uProjection * translate(vec3(endPoint, 0.0)) * modelMatrix * vec4(vertex, 0.0, 1.0);
+  mat4 uViewMatrix = scale(vec3(uViewScale));
+  gl_Position = uViewMatrix * uProjection * translate(vec3(endpoint, 0.0)) * rotateZ(angle) * modelMatrix * vec4(vertex, 0.0, 1.0);
 
   vPosition = vertex;
   vSize = height;
   vAngle = angle;
+  vTotalOpacity = smoothstep(20.0, 50.0, length(endpoint - basepoint));
 }

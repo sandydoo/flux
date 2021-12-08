@@ -83,7 +83,7 @@ impl Drawer {
 
         let circle_vertices = Buffer::from_f32(
             &context,
-            &data::new_circle(16),
+            &data::new_semicircle(8),
             GL::ARRAY_BUFFER,
             GL::STATIC_DRAW,
         )?;
@@ -179,15 +179,27 @@ impl Drawer {
 
         let draw_endpoints_pass = render::RenderPass::new(
             &context,
-            vec![VertexBuffer {
-                buffer: circle_vertices.clone(),
-                binding: BindingInfo {
-                    name: "vertex".to_string(),
-                    size: 2,
-                    type_: GL::FLOAT,
-                    ..Default::default()
+            vec![
+                VertexBuffer {
+                    buffer: circle_vertices.clone(),
+                    binding: BindingInfo {
+                        name: "vertex".to_string(),
+                        size: 2,
+                        type_: GL::FLOAT,
+                        ..Default::default()
+                    },
                 },
-            }],
+                VertexBuffer {
+                    buffer: basepoint_buffer.clone(),
+                    binding: BindingInfo {
+                        name: "basepoint".to_string(),
+                        size: 2,
+                        type_: GL::FLOAT,
+                        divisor: 1,
+                        ..Default::default()
+                    },
+                },
+            ],
             Indices::NoIndices(GL::TRIANGLE_FAN),
             draw_endpoints_program,
         )
@@ -397,7 +409,31 @@ impl Drawer {
         self.context.blend_func(GL::SRC_ALPHA, GL::ONE);
 
         self.draw_endpoints_pass
-            .draw(
+            .draw_impl(
+                vec![
+                    VertexBuffer {
+                        buffer: self.line_state_buffers.current().clone(),
+                        binding: BindingInfo {
+                            name: "iEndpointVector".to_string(),
+                            size: 2,
+                            type_: GL::FLOAT,
+                            stride: 5 * 4,
+                            offset: 0 * 4,
+                            divisor: 1,
+                        },
+                    },
+                    VertexBuffer {
+                        buffer: self.line_state_buffers.current().clone(),
+                        binding: BindingInfo {
+                            name: "iLineWidth".to_string(),
+                            size: 1,
+                            type_: GL::FLOAT,
+                            stride: 5 * 4,
+                            offset: 4 * 4,
+                            divisor: 1,
+                        },
+                    },
+                ],
                 vec![
                     Uniform {
                         name: "uLineWidth".to_string(),
@@ -419,14 +455,8 @@ impl Drawer {
                         name: "uProjection".to_string(),
                         value: UniformValue::Mat4(self.projection_matrix),
                     },
-                    Uniform {
-                        name: "lineStateTexture".to_string(),
-                        value: UniformValue::Texture2D(
-                            &self.line_state_textures.current().texture,
-                            0,
-                        ),
-                    },
                 ],
+                None,
                 self.line_count,
             )
             .unwrap();

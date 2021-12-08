@@ -65,16 +65,16 @@ pub fn new_line_state(width: u32, height: u32, grid_spacing: u32) -> Vec<f32> {
     data
 }
 
-pub fn new_circle(resolution: u32) -> Vec<f32> {
+pub fn new_semicircle(resolution: u32) -> Vec<f32> {
     let mut segments = Vec::with_capacity((resolution * 2 + 1) as usize);
 
     segments.push(0.0);
     segments.push(0.0);
 
     for section in 0..=resolution {
-        let angle = 2.0 * PI * (section as f32) / (resolution as f32);
-        segments.push(1.0 * angle.cos());
-        segments.push(1.0 * angle.sin());
+        let angle = PI * (section as f32) / (resolution as f32);
+        segments.push(angle.cos());
+        segments.push(angle.sin());
     }
 
     segments
