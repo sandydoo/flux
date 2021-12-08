@@ -151,15 +151,27 @@ impl Drawer {
 
         let draw_lines_pass = render::RenderPass::new(
             &context,
-            vec![VertexBuffer {
-                buffer: line_vertices.clone(),
-                binding: BindingInfo {
-                    name: "vertex".to_string(),
-                    size: 2,
-                    type_: GL::FLOAT,
-                    ..Default::default()
+            vec![
+                VertexBuffer {
+                    buffer: line_vertices.clone(),
+                    binding: BindingInfo {
+                        name: "lineVertex".to_string(),
+                        size: 2,
+                        type_: GL::FLOAT,
+                        ..Default::default()
+                    },
                 },
-            }],
+                VertexBuffer {
+                    buffer: basepoint_buffer.clone(),
+                    binding: BindingInfo {
+                        name: "basepoint".to_string(),
+                        size: 2,
+                        type_: GL::FLOAT,
+                        divisor: 1,
+                        ..Default::default()
+                    },
+                },
+            ],
             Indices::NoIndices(GL::TRIANGLES),
             draw_lines_program,
         )
@@ -228,8 +240,8 @@ impl Drawer {
             grid_height,
             line_count,
             line_width: 10.0,
-            line_length: 400.0,
-            line_begin_offset: 0.3,
+            line_length: 300.0,
+            line_begin_offset: 0.4,
             // pink
             // 0.99215686, 0.67058824, 0.57254902
             // yellow
@@ -245,7 +257,7 @@ impl Drawer {
             draw_endpoints_pass,
             draw_texture_pass,
 
-            view_scale: 1.6,
+            view_scale: 1.4,
             projection_matrix,
         })
     }
@@ -310,7 +322,7 @@ impl Drawer {
         self.line_state_buffers.swap();
     }
 
-    pub fn draw_lines(&self, timestep: f32) -> () {
+    pub fn draw_lines(&self) -> () {
         self.context
             .viewport(0, 0, self.width as i32, self.height as i32);
 
@@ -318,12 +330,32 @@ impl Drawer {
         self.context.blend_func(GL::SRC_ALPHA, GL::ONE);
 
         self.draw_lines_pass
-            .draw(
+            .draw_impl(
                 vec![
-                    Uniform {
-                        name: "deltaT".to_string(),
-                        value: UniformValue::Float(timestep),
+                    VertexBuffer {
+                        buffer: self.line_state_buffers.current().clone(),
+                        binding: BindingInfo {
+                            name: "iEndpointVector".to_string(),
+                            size: 2,
+                            type_: GL::FLOAT,
+                            stride: 5 * 4,
+                            offset: 0 * 4,
+                            divisor: 1,
+                        },
                     },
+                    VertexBuffer {
+                        buffer: self.line_state_buffers.current().clone(),
+                        binding: BindingInfo {
+                            name: "iLineWidth".to_string(),
+                            size: 1,
+                            type_: GL::FLOAT,
+                            stride: 5 * 4,
+                            offset: 4 * 4,
+                            divisor: 1,
+                        },
+                    },
+                ],
+                vec![
                     Uniform {
                         name: "uLineWidth".to_string(),
                         value: UniformValue::Float(self.line_width),
@@ -348,14 +380,8 @@ impl Drawer {
                         name: "uProjection".to_string(),
                         value: UniformValue::Mat4(self.projection_matrix),
                     },
-                    Uniform {
-                        name: "lineStateTexture".to_string(),
-                        value: UniformValue::Texture2D(
-                            &self.line_state_textures.current().texture,
-                            0,
-                        ),
-                    },
                 ],
+                None,
                 self.line_count,
             )
             .unwrap();

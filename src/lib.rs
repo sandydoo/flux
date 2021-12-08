@@ -127,7 +127,7 @@ pub fn start() -> Result<(), JsValue> {
 
         drawer.place_lines(delta_t, &fluid.get_velocity());
 
-        drawer.draw_lines(delta_t);
+        drawer.draw_lines();
 
         drawer.draw_endpoints();
 
