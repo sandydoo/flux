@@ -20,11 +20,10 @@ void main() {
   float R = texture(noiseTexture, vR).y;
   float T = texture(noiseTexture, vT).x;
   float B = texture(noiseTexture, vB).x;
-  float C = texture(noiseTexture, textureCoord).x;
+  vec2 C = texture(noiseTexture, textureCoord).xy;
   vec2 force = 0.5 * vec2(abs(T) - abs(B), abs(R) - abs(L));
   force /= length(force) + 0.0001;
   force *= 0.5 * C;
-  force.y *= -1.0;
 
   vec2 inputValue = texture(inputTexture, textureCoord).xy;
   inputValue += force * deltaT;

@@ -65,9 +65,9 @@ pub fn start() -> Result<(), JsValue> {
 
     // TODO: rename to timestep, or sim_timestep
     let delta_t: f32 = 1.0 / 60.0;
-    let viscosity: f32 = 20.0;
-    let velocity_dissipation: f32 = 0.05;
-    let adjust_advection: f32 = 10.0;
+    let viscosity: f32 = 1.2;
+    let velocity_dissipation: f32 = 0.2;
+    let adjust_advection: f32 = 15.0;
 
     // TODO: deal with result
     let fluid = Fluid::new(
@@ -79,7 +79,7 @@ pub fn start() -> Result<(), JsValue> {
     )
     .unwrap();
 
-    let mut noise = Noise::new(&context, grid_width, grid_height).unwrap();
+    let mut noise = Noise::new(&context, grid_width * (width / height), grid_height).unwrap();
     let drawer = Drawer::new(
         &context,
         width,

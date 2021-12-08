@@ -208,7 +208,7 @@ impl Fluid {
         Ok(Self {
             viscosity,
             velocity_dissipation,
-            diffusion_iterations: 5,
+            diffusion_iterations: 10,
             pressure_iterations: 30,
 
             grid_width,
