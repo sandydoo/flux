@@ -27,6 +27,7 @@ features = [
   'Document',
   'Element',
   'HtmlCanvasElement',
+  'OffscreenCanvas',
   'WebGlActiveInfo',
   'WebGlBuffer',
   'WebGlFramebuffer',

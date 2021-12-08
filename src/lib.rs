@@ -24,12 +24,21 @@ pub fn start() -> Result<(), JsValue> {
 
     let window = web::window();
     let document = window.document().unwrap();
-    let canvas = document.get_element_by_id("canvas").unwrap();
-    let canvas: web_sys::HtmlCanvasElement = canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
-    let width = 2 * canvas.client_width() as u32;
-    let height = 2 * canvas.client_height() as u32;
-    canvas.set_width(width);
-    canvas.set_height(height);
+    let html_canvas = document.get_element_by_id("canvas").unwrap();
+    let html_canvas: web_sys::HtmlCanvasElement =
+        html_canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
+    // TODO: should we handle non-standard pixel ratios?
+    let pixel_ratio = window.device_pixel_ratio().ceil() as u32;
+    let width = pixel_ratio * html_canvas.client_width() as u32;
+    let height = pixel_ratio * html_canvas.client_height() as u32;
+    html_canvas.set_width(width);
+    html_canvas.set_height(height);
+
+    // Get offscreen canvas to decouple ourselves from the DOM.
+    // Performance is much better, but the only browser that has implemeted it
+    // is Chrome.
+    // let canvas = html_canvas.transfer_control_to_offscreen()?;
+    let canvas = html_canvas;
 
     let options = ContextOptions {
         alpha: false,
@@ -59,7 +68,7 @@ pub fn start() -> Result<(), JsValue> {
     let context = Rc::new(gl);
 
     // Settings
-    let grid_spacing: u32 = 32;
+    let grid_spacing: u32 = 20 * pixel_ratio;
     let grid_width: u32 = 128;
     let grid_height: u32 = 128;
 
