@@ -1,7 +1,11 @@
 [package]
 name = "flux"
 version = "0.1.0"
+description = "An ode to the macOS Drift screensaver that runs in the browser"
 authors = ["Sander Melnikov <hey@sandydoo.me"]
+repository = "https://github.com/sandydoo/flux/"
+license = "MIT"
+publish = false
 edition = "2021"
 
 [lib]
@@ -23,22 +27,22 @@ thiserror = "1"
 [dependencies.web-sys]
 version = "0.3.4"
 features = [
-  'console',
-  'Document',
-  'Element',
-  'HtmlCanvasElement',
-  'OffscreenCanvas',
-  'WebGlActiveInfo',
-  'WebGlBuffer',
-  'WebGlFramebuffer',
-  'WebGlRenderbuffer',
-  'WebGlUniformLocation',
-  'WebGlVertexArrayObject',
-  'WebGl2RenderingContext',
-  'WebGlProgram',
-  'WebGlShader',
-  'WebGlTexture',
-  'WebGlTransformFeedback',
-  'Window',
+  "console",
+  "Document",
+  "Element",
+  "HtmlCanvasElement",
+  "OffscreenCanvas",
+  "WebGlActiveInfo",
+  "WebGlBuffer",
+  "WebGlFramebuffer",
+  "WebGlRenderbuffer",
+  "WebGlUniformLocation",
+  "WebGlVertexArrayObject",
+  "WebGl2RenderingContext",
+  "WebGlProgram",
+  "WebGlShader",
+  "WebGlTexture",
+  "WebGlTransformFeedback",
+  "Window",
 ]
 
