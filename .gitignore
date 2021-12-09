@@ -1,6 +1,7 @@
 /drafts
 
 # Rust
+/pkg
 /target
 
 # Javascript
@@ -9,3 +10,4 @@
 
 # Release
 /dist
+/result
