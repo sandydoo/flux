@@ -103,7 +103,7 @@ impl Noise {
         self.generate_noise_pass
             .draw_to(
                 &self.texture,
-                vec![
+                &vec![
                     Uniform {
                         name: "uResolution".to_string(),
                         value: UniformValue::Vec2([width as f32, height as f32]),
@@ -122,7 +122,7 @@ impl Noise {
         self.blend_noise_pass
             .draw_to(
                 &textures.next(),
-                vec![
+                &vec![
                     Uniform {
                         name: "uTexelSize".to_string(),
                         value: UniformValue::Vec2([

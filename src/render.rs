@@ -456,7 +456,7 @@ impl Program {
     }
 
     // Move to uniform impl instead? Or not
-    pub fn set_uniform(&self, uniform: &Uniform<'_>) {
+    pub fn set_uniform(&self, uniform: &Uniform) {
         let context = &self.context;
         context.use_program(Some(&self.program));
 
@@ -489,7 +489,7 @@ impl Program {
                 &value,
             ),
 
-            UniformValue::Texture2D(texture, id) => {
+            UniformValue::Texture2D(ref texture, id) => {
                 context.active_texture(GL::TEXTURE0 + id);
                 context.bind_texture(GL::TEXTURE_2D, Some(&texture));
 
@@ -532,7 +532,7 @@ pub struct Attribute {
     pub divisor: u32,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub enum UniformValue<'a> {
     SignedInt(i32),
     UnsignedInt(u32),
@@ -700,16 +700,20 @@ impl RenderPass {
         })
     }
 
-    pub fn draw(&self, uniforms: Vec<Uniform<'_>>, instance_count: u32) -> Result<()> {
-        self.draw_impl(vec![], uniforms, None, instance_count)
+    pub fn set_uniform(&self, uniform: &Uniform) {
+        self.program.set_uniform(&uniform);
     }
 
-    // pub fn draw_new(&self, vertex_buffers: Vec<VertexBuffer>, uniforms: Vec<Uniform<'_>>, instance_count: u32) -> Result<()> {}
+    pub fn draw(&self, uniforms: &Vec<Uniform>, instance_count: u32) -> Result<()> {
+        self.draw_impl(vec![], &uniforms, None, instance_count)
+    }
+
+    // pub fn draw_new(&self, vertex_buffers: Vec<VertexBuffer>, uniforms: Vec<Uniform>, instance_count: u32) -> Result<()> {}
 
     pub fn draw_impl(
         &self,
         vertex_buffers: Vec<VertexBuffer>,
-        uniforms: Vec<Uniform<'_>>,
+        uniforms: &Vec<Uniform>,
         transform_feedback: Option<&TransformFeedbackBuffer>,
         instance_count: u32,
     ) -> Result<()> {
@@ -727,7 +731,7 @@ impl RenderPass {
         }
 
         for uniform in uniforms.into_iter() {
-            self.program.set_uniform(&uniform);
+            self.set_uniform(&uniform);
         }
 
         if let Some(feedback_buffer) = transform_feedback {
@@ -745,7 +749,7 @@ impl RenderPass {
         let mut vertices_count: Option<usize> = None;
 
         for VertexBuffer { buffer, binding } in self.vertex_buffers.iter() {
-            if (binding.divisor > 0) {
+            if binding.divisor > 0 {
                 break;
             }
             // TODO: convert binding.size to usize
@@ -820,7 +824,7 @@ impl RenderPass {
     // pub fn draw_to_buffer(
     //     &self,
     //     feedback_buffer: &TransformFeedbackBuffer,
-    //     uniforms: Vec<Uniform<'_>>,
+    //     uniforms: Vec<Uniform>,
     // ) -> Result<()> {
     //     self.draw_impl(uniforms, Some(feedback_buffer), 1);
 
@@ -859,7 +863,7 @@ impl RenderPass {
     pub fn draw_to(
         &self,
         framebuffer: &Framebuffer,
-        uniforms: Vec<Uniform<'_>>,
+        uniforms: &Vec<Uniform>,
         instance_count: u32,
     ) -> Result<()> {
         self.context
@@ -867,7 +871,7 @@ impl RenderPass {
         self.context
             .viewport(0, 0, framebuffer.width as i32, framebuffer.height as i32);
 
-        self.draw_impl(vec![], uniforms, None, instance_count)?;
+        self.draw_impl(vec![], &uniforms, None, instance_count)?;
 
         self.context.bind_framebuffer(GL::DRAW_FRAMEBUFFER, None);
 

@@ -312,7 +312,7 @@ impl Drawer {
                     //     },
                     // },
                 ],
-                vec![
+                &vec![
                     Uniform {
                         name: "deltaT".to_string(),
                         value: UniformValue::Float(timestep),
@@ -367,7 +367,7 @@ impl Drawer {
                         },
                     },
                 ],
-                vec![
+                &vec![
                     Uniform {
                         name: "uLineWidth".to_string(),
                         value: UniformValue::Float(self.line_width),
@@ -434,7 +434,7 @@ impl Drawer {
                         },
                     },
                 ],
-                vec![
+                &vec![
                     Uniform {
                         name: "uLineWidth".to_string(),
                         value: UniformValue::Float(self.line_width),
@@ -470,7 +470,7 @@ impl Drawer {
 
         self.draw_texture_pass
             .draw(
-                vec![Uniform {
+                &vec![Uniform {
                     name: "inputTexture".to_string(),
                     value: UniformValue::Texture2D(&texture.texture, 0),
                 }],
