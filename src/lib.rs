@@ -90,7 +90,7 @@ pub fn start() -> Result<(), JsValue> {
     )
     .unwrap();
 
-    let mut noise = Noise::new(&context, grid_width * (width / height), grid_height).unwrap();
+    let mut noise = Noise::new(&context, grid_width, grid_height).unwrap();
     let drawer = Drawer::new(
         &context,
         width,
