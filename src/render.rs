@@ -1,5 +1,8 @@
 use std::cell::{Ref, RefCell};
 use std::collections::HashMap;
+use std::hash::BuildHasherDefault;
+use fnv::FnvHasher;
+use std::borrow::Borrow;
 use std::fmt;
 use std::rc::Rc;
 use thiserror::Error;
@@ -351,7 +354,8 @@ pub struct Program {
     context: Context,
     program: WebGlProgram,
     attributes: HashMap<String, AttributeInfo>,
-    uniforms: HashMap<String, UniformInfo>,
+    // uniforms: HashMap<String, UniformInfo, BuildHasherDefault<FnvHasher>>,
+    uniforms: VecMap<String, UniformInfo>
 }
 
 impl Program {
@@ -427,7 +431,8 @@ impl Program {
         }
 
         // Get uniform locations
-        let mut uniforms = HashMap::new();
+        // let mut uniforms = HashMap::with_hasher(Default::default());
+        let mut uniforms = VecMap::new();
         let uniform_count = context
             .get_program_parameter(&program, GL::ACTIVE_UNIFORMS)
             .as_f64()
@@ -917,4 +922,36 @@ pub fn bind_attributes(
     context.vertex_attrib_divisor(location, binding.divisor);
 
     Ok(())
+}
+
+#[derive(Clone)]
+struct VecMap<K, V> {
+    store: Vec<(K, V)>
+}
+
+impl<K, V> VecMap<K, V>
+where
+    K: Eq + PartialEq
+{
+    pub fn new() -> VecMap<K, V> {
+        VecMap { store: Vec::new() }
+    }
+
+    pub fn insert(&mut self, key: K, value: V) -> () {
+        self.store.push((key, value));
+    }
+
+    pub fn get<Q: ?Sized>(&self, search_key: &Q) -> Option<&V>
+    where
+        K: Borrow<Q> + PartialEq<Q>,
+        Q: Eq,
+    {
+        for (ref key, ref value) in self.store.iter() {
+            if key == search_key {
+                return Some(value);
+            }
+        }
+
+        None
+    }
 }
