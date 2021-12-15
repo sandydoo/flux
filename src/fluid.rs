@@ -235,30 +235,30 @@ impl Fluid {
                 &self.velocity_textures.next(),
                 &vec![
                     Uniform {
-                        name: "uTexelSize".to_string(),
+                        name: "uTexelSize",
                         value: UniformValue::Vec2(self.texel_size),
                     },
                     Uniform {
-                        name: "deltaT".to_string(),
+                        name: "deltaT",
                         value: UniformValue::Float(timestep),
                     },
                     Uniform {
-                        name: "epsilon".to_string(),
+                        name: "epsilon",
                         value: UniformValue::Float(self.grid_size),
                     },
                     Uniform {
-                        name: "dissipation".to_string(),
+                        name: "dissipation",
                         value: UniformValue::Float(self.velocity_dissipation),
                     },
                     Uniform {
-                        name: "inputTexture".to_string(),
+                        name: "inputTexture",
                         value: UniformValue::Texture2D(
                             &self.velocity_textures.current().texture,
                             0,
                         ),
                     },
                     Uniform {
-                        name: "velocityTexture".to_string(),
+                        name: "velocityTexture",
                         value: UniformValue::Texture2D(
                             &self.velocity_textures.current().texture,
                             1,
@@ -278,15 +278,15 @@ impl Fluid {
 
         let uniforms = vec![
             Uniform {
-                name: "uTexelSize".to_string(),
+                name: "uTexelSize",
                 value: UniformValue::Vec2(self.texel_size),
             },
             Uniform {
-                name: "alpha".to_string(),
+                name: "alpha",
                 value: UniformValue::Float(center_factor),
             },
             Uniform {
-                name: "rBeta".to_string(),
+                name: "rBeta",
                 value: UniformValue::Float(stencil_factor),
             },
         ];
@@ -301,14 +301,14 @@ impl Fluid {
                     &self.velocity_textures.next(),
                     &vec![
                         Uniform {
-                            name: "divergenceTexture".to_string(),
+                            name: "divergenceTexture",
                             value: UniformValue::Texture2D(
                                 &self.velocity_textures.current().texture,
                                 0,
                             ),
                         },
                         Uniform {
-                            name: "pressureTexture".to_string(),
+                            name: "pressureTexture",
                             value: UniformValue::Texture2D(
                                 &self.velocity_textures.current().texture,
                                 1,
@@ -329,15 +329,15 @@ impl Fluid {
                 &self.divergence_texture,
                 &vec![
                     Uniform {
-                        name: "uTexelSize".to_string(),
+                        name: "uTexelSize",
                         value: UniformValue::Vec2(self.texel_size),
                     },
                     Uniform {
-                        name: "halfEpsilon".to_string(),
+                        name: "halfEpsilon",
                         value: UniformValue::Float(0.5 * self.grid_size),
                     },
                     Uniform {
-                        name: "velocityTexture".to_string(),
+                        name: "velocityTexture",
                         value: UniformValue::Texture2D(
                             &self.velocity_textures.current().texture,
                             0,
@@ -357,19 +357,19 @@ impl Fluid {
 
         let uniforms = vec![
             Uniform {
-                name: "uTexelSize".to_string(),
+                name: "uTexelSize",
                 value: UniformValue::Vec2(self.texel_size),
             },
             Uniform {
-                name: "alpha".to_string(),
+                name: "alpha",
                 value: UniformValue::Float(alpha),
             },
             Uniform {
-                name: "rBeta".to_string(),
+                name: "rBeta",
                 value: UniformValue::Float(r_beta),
             },
             Uniform {
-                name: "divergenceTexture".to_string(),
+                name: "divergenceTexture",
                 value: UniformValue::Texture2D(&self.divergence_texture.texture, 0),
             },
         ];
@@ -383,7 +383,7 @@ impl Fluid {
                 .draw_to(
                     &self.pressure_textures.next(),
                     &vec![Uniform {
-                        name: "pressureTexture".to_string(),
+                        name: "pressureTexture",
                         value: UniformValue::Texture2D(
                             &self.pressure_textures.current().texture,
                             1,
@@ -403,22 +403,22 @@ impl Fluid {
                 &self.velocity_textures.next(),
                 &vec![
                     Uniform {
-                        name: "uTexelSize".to_string(),
+                        name: "uTexelSize",
                         value: UniformValue::Vec2(self.texel_size),
                     },
                     Uniform {
-                        name: "halfEpsilon".to_string(),
+                        name: "halfEpsilon",
                         value: UniformValue::Float(0.5 * self.grid_size),
                     },
                     Uniform {
-                        name: "velocityTexture".to_string(),
+                        name: "velocityTexture",
                         value: UniformValue::Texture2D(
                             &self.velocity_textures.current().texture,
                             0,
                         ),
                     },
                     Uniform {
-                        name: "pressureTexture".to_string(),
+                        name: "pressureTexture",
                         value: UniformValue::Texture2D(
                             &self.pressure_textures.current().texture,
                             1,
@@ -438,15 +438,15 @@ impl Fluid {
                 &self.velocity_textures.next(),
                 &vec![
                     Uniform {
-                        name: "uTexelSize".to_string(),
+                        name: "uTexelSize",
                         value: UniformValue::Vec2(self.texel_size),
                     },
                     Uniform {
-                        name: "deltaT".to_string(),
+                        name: "deltaT",
                         value: UniformValue::Float(timestep),
                     },
                     Uniform {
-                        name: "velocityTexture".to_string(),
+                        name: "velocityTexture",
                         value: UniformValue::Texture2D(
                             &self.velocity_textures.current().texture,
                             0,

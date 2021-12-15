@@ -316,15 +316,15 @@ impl Drawer {
                 ],
                 &vec![
                     Uniform {
-                        name: "deltaT".to_string(),
+                        name: "deltaT",
                         value: UniformValue::Float(timestep),
                     },
                     Uniform {
-                        name: "uProjection".to_string(),
+                        name: "uProjection",
                         value: UniformValue::Mat4(self.projection_matrix),
                     },
                     Uniform {
-                        name: "velocityTexture".to_string(),
+                        name: "velocityTexture",
                         value: UniformValue::Texture2D(&texture.texture, 0),
                     },
                 ],
@@ -371,27 +371,27 @@ impl Drawer {
                 ],
                 &vec![
                     Uniform {
-                        name: "uLineWidth".to_string(),
+                        name: "uLineWidth",
                         value: UniformValue::Float(self.line_width),
                     },
                     Uniform {
-                        name: "uLineLength".to_string(),
+                        name: "uLineLength",
                         value: UniformValue::Float(self.line_length),
                     },
                     Uniform {
-                        name: "uLineBeginOffset".to_string(),
+                        name: "uLineBeginOffset",
                         value: UniformValue::Float(self.line_begin_offset),
                     },
                     Uniform {
-                        name: "uColor".to_string(),
+                        name: "uColor",
                         value: UniformValue::Vec3(self.color),
                     },
                     Uniform {
-                        name: "uViewScale".to_string(),
+                        name: "uViewScale",
                         value: UniformValue::Float(self.view_scale),
                     },
                     Uniform {
-                        name: "uProjection".to_string(),
+                        name: "uProjection",
                         value: UniformValue::Mat4(self.projection_matrix),
                     },
                 ],
@@ -438,23 +438,23 @@ impl Drawer {
                 ],
                 &vec![
                     Uniform {
-                        name: "uLineWidth".to_string(),
+                        name: "uLineWidth",
                         value: UniformValue::Float(self.line_width),
                     },
                     Uniform {
-                        name: "uLineLength".to_string(),
+                        name: "uLineLength",
                         value: UniformValue::Float(self.line_length),
                     },
                     Uniform {
-                        name: "uColor".to_string(),
+                        name: "uColor",
                         value: UniformValue::Vec3(self.color),
                     },
                     Uniform {
-                        name: "uViewScale".to_string(),
+                        name: "uViewScale",
                         value: UniformValue::Float(self.view_scale),
                     },
                     Uniform {
-                        name: "uProjection".to_string(),
+                        name: "uProjection",
                         value: UniformValue::Mat4(self.projection_matrix),
                     },
                 ],
@@ -473,7 +473,7 @@ impl Drawer {
         self.draw_texture_pass
             .draw(
                 &vec![Uniform {
-                    name: "inputTexture".to_string(),
+                    name: "inputTexture",
                     value: UniformValue::Texture2D(&texture.texture, 0),
                 }],
                 1,

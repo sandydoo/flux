@@ -544,7 +544,7 @@ pub enum UniformValue<'a> {
 }
 
 pub struct Uniform<'a> {
-    pub name: String,
+    pub name: &'static str,
     pub value: UniformValue<'a>,
 }
 

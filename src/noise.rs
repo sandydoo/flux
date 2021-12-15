@@ -105,11 +105,11 @@ impl Noise {
                 &self.texture,
                 &vec![
                     Uniform {
-                        name: "uResolution".to_string(),
+                        name: "uResolution",
                         value: UniformValue::Vec2([width as f32, height as f32]),
                     },
                     Uniform {
-                        name: "deltaT".to_string(),
+                        name: "deltaT",
                         value: UniformValue::Float(timestep),
                     },
                 ],
@@ -124,22 +124,22 @@ impl Noise {
                 &textures.next(),
                 &vec![
                     Uniform {
-                        name: "uTexelSize".to_string(),
+                        name: "uTexelSize",
                         value: UniformValue::Vec2([
                             1.0 / self.texture.width as f32,
                             1.0 / self.texture.height as f32,
                         ]),
                     },
                     Uniform {
-                        name: "deltaT".to_string(),
+                        name: "deltaT",
                         value: UniformValue::Float(timestep),
                     },
                     Uniform {
-                        name: "inputTexture".to_string(),
+                        name: "inputTexture",
                         value: UniformValue::Texture2D(&textures.current().texture, 0),
                     },
                     Uniform {
-                        name: "noiseTexture".to_string(),
+                        name: "noiseTexture",
                         value: UniformValue::Texture2D(&self.texture.texture, 1),
                     },
                 ],
