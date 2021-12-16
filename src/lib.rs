@@ -74,11 +74,13 @@ pub fn start() -> Result<(), JsValue> {
     let grid_width: u32 = 128;
     let grid_height: u32 = 128;
 
-    // TODO: rename to timestep, or sim_timestep
-    let delta_t: f32 = 1.0 / 60.0;
+    let fluid_simulation_fps: f32 = 15.0;
     let viscosity: f32 = 1.2;
     let velocity_dissipation: f32 = 0.2;
-    let adjust_advection: f32 = 15.0;
+    let adjust_advection: f32 = 10.0;
+
+    let max_frame_time: f32 = 1.0 / 10.0;
+    let fluid_frame_time: f32 = 1.0 / fluid_simulation_fps;
 
     // TODO: deal with result
     let fluid = Fluid::new(
@@ -101,10 +103,12 @@ pub fn start() -> Result<(), JsValue> {
     )
     .unwrap();
 
-    let mut elapsed_time: f32 = 1000.0;
+    let mut elapsed_time: f32 = 0.0;
+    let mut last_timestamp: f32 = 0.0;
+    let mut frame_time: f32 = 0.0;
 
     noise.generate(elapsed_time);
-    noise.blend_noise_into(&fluid.get_velocity_textures(), delta_t);
+    noise.blend_noise_into(&fluid.get_velocity_textures(), fluid_frame_time);
     // Finish setup before running the main rendering loop
     context.flush();
 
@@ -112,38 +116,45 @@ pub fn start() -> Result<(), JsValue> {
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();
 
-    let animate: Box<dyn FnMut(f32)> = Box::new(move |timestep| {
+    let animate: Box<dyn FnMut(f32)> = Box::new(move |timestamp| {
         context.clear_color(0.0, 0.0, 0.0, 1.0);
         context.clear(GL::COLOR_BUFFER_BIT);
 
-        noise.generate(elapsed_time);
+        let timestep = max_frame_time.min(0.001 * (timestamp - last_timestamp));
+        last_timestamp = timestamp;
+        elapsed_time += timestep;
+        frame_time += timestep;
 
-        // Convection
-        fluid.advect(delta_t);
+        while frame_time >= fluid_frame_time {
+            noise.generate(elapsed_time);
 
-        noise.blend_noise_into(&fluid.get_velocity_textures(), delta_t);
+            // Convection
+            fluid.advect(fluid_frame_time);
 
-        fluid.diffuse(delta_t);
+            noise.blend_noise_into(&fluid.get_velocity_textures(), fluid_frame_time);
 
-        // TODO: this needs a second pass. See GPU Gems.
-        // fluid.curl(delta_t);
+            fluid.diffuse(fluid_frame_time);
 
-        fluid.calculate_divergence();
-        fluid.solve_pressure();
-        fluid.subtract_gradient();
+            // TODO: this needs a second pass. See GPU Gems.
+            // fluid.curl(fluid_frame_time);
+
+            fluid.calculate_divergence();
+            fluid.solve_pressure();
+            fluid.subtract_gradient();
+
+            frame_time -= fluid_frame_time;
+        }
 
         // Debugging
         // drawer.draw_texture(&noise.get_noise());
         // drawer.draw_texture(&fluid.get_velocity());
         // drawer.draw_texture(&fluid.get_pressure());
 
-        drawer.place_lines(delta_t * adjust_advection, &fluid.get_velocity());
-
+    	// TODO: the line animation is still dependent on the client’s fps. Is
+    	// this worth fixing?
+        drawer.place_lines(timestep * adjust_advection, &fluid.get_velocity());
         drawer.draw_lines();
-
         drawer.draw_endpoints();
-
-        elapsed_time += delta_t;
 
         web::request_animation_frame(f.borrow().as_ref().unwrap());
     });
