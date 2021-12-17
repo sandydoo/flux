@@ -56,10 +56,17 @@ impl Drawer {
         let line_count = grid_width * grid_height;
         let aspect_ratio: f32 = (width as f32) / (height as f32);
 
-        let line_vertices = Buffer::from_f32(
+        let line_fragment_vertices = Buffer::from_f32(
             &context,
-            &data::LINE_VERTICES.to_vec(),
+            &data::LINE_FRAGMENT_VERTICES.to_vec(),
             GL::ARRAY_BUFFER,
+            GL::STATIC_DRAW,
+        )?;
+
+        let line_fragment_indices = Buffer::from_u16(
+            &context,
+            &data::LINE_FRAGMENT_INDICES.to_vec(),
+            GL::ELEMENT_ARRAY_BUFFER,
             GL::STATIC_DRAW,
         )?;
 
@@ -153,7 +160,7 @@ impl Drawer {
             &context,
             vec![
                 VertexBuffer {
-                    buffer: line_vertices.clone(),
+                    buffer: line_fragment_vertices.clone(),
                     binding: BindingInfo {
                         name: "lineVertex".to_string(),
                         size: 2,
@@ -172,7 +179,10 @@ impl Drawer {
                     },
                 },
             ],
-            Indices::NoIndices(GL::TRIANGLES),
+            Indices::IndexBuffer {
+                buffer: line_fragment_indices,
+                primitive: GL::TRIANGLES,
+            },
             draw_lines_program,
         )
         .unwrap();
