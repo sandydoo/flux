@@ -13,7 +13,6 @@ in float iLineWidth;
 uniform float uLineWidth;
 uniform float uLineLength;
 uniform mediump vec3 uColor;
-uniform float uViewScale;
 uniform mat4 uProjection;
 
 out vec2 vVertex;
@@ -35,9 +34,7 @@ void main() {
   vec2 yBasis = normalize(vec2(-xBasis.y, xBasis.x));
   vec2 point = basepoint + xBasis * lineVertex.x + yBasis * (iLineWidth * uLineWidth) * lineVertex.y;
 
-  // TODO: turn into a uniform
-  mat4 uViewMatrix = scale(vec3(uViewScale));
-  gl_Position = uViewMatrix * uProjection * vec4(point, 0.0, 1.0);
+  gl_Position = uProjection * vec4(point, 0.0, 1.0);
 
   vVertex = lineVertex;
   vTotalOpacity = smoothstep(30.0, 80.0, length(endpoint - basepoint));

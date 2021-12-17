@@ -539,7 +539,7 @@ pub enum UniformValue<'a> {
     Float(f32),
     Vec2([f32; 2]),
     Vec3([f32; 3]),
-    Mat4([f32; 16]),
+    Mat4(&'a[f32]),
     Texture2D(&'a WebGlTexture, u32),
 }
 

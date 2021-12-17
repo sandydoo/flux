@@ -82,6 +82,7 @@ pub fn start() -> Result<(), JsValue> {
     let max_frame_time: f32 = 1.0 / 10.0;
     let fluid_frame_time: f32 = 1.0 / fluid_simulation_fps;
 
+    let view_scale: f32 = 1.4;
     // TODO: deal with result
     let fluid = Fluid::new(
         &context,
@@ -100,6 +101,7 @@ pub fn start() -> Result<(), JsValue> {
         width / grid_spacing,
         height / grid_spacing,
         grid_spacing,
+        view_scale,
     )
     .unwrap();
 

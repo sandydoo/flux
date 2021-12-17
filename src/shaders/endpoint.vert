@@ -5,7 +5,6 @@ precision highp sampler2D;
 
 uniform float uLineWidth;
 uniform float uLineLength;
-uniform float uViewScale;
 uniform mat4 uProjection;
 
 in vec2 vertex;
@@ -68,8 +67,7 @@ void main() {
     0.0, 0.0, 0.0, 1.0
   );
 
-  mat4 uViewMatrix = scale(vec3(uViewScale));
-  gl_Position = uViewMatrix * uProjection * translate(vec3(endpoint, 0.0)) * rotateZ(angle) * modelMatrix * vec4(vertex, 0.0, 1.0);
+  gl_Position = uProjection * translate(vec3(endpoint, 0.0)) * rotateZ(angle) * modelMatrix * vec4(vertex, 0.0, 1.0);
 
   vPosition = vertex;
   vSize = height;

@@ -4,6 +4,7 @@ use render::{
 };
 
 use web_sys::WebGl2RenderingContext as GL;
+extern crate nalgebra_glm as glm;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -40,8 +41,7 @@ pub struct Drawer {
     draw_endpoints_pass: render::RenderPass,
     draw_texture_pass: render::RenderPass,
 
-    view_scale: f32,
-    projection_matrix: [f32; 16],
+    projection_matrix: glm::TMat4<f32>,
 }
 
 impl Drawer {
@@ -52,6 +52,7 @@ impl Drawer {
         grid_width: u32,
         grid_height: u32,
         grid_spacing: u32,
+        view_scale: f32,
     ) -> Result<Self> {
         let line_count = grid_width * grid_height;
         let aspect_ratio: f32 = (width as f32) / (height as f32);
@@ -224,23 +225,20 @@ impl Drawer {
         )
         .unwrap();
 
-        let projection_matrix = [
-            2.0 / (width as f32),
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            2.0 / (height as f32),
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            2.0 / 1.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            1.0,
+        let half_width = (width as f32) / 2.0;
+        let half_height = (height as f32) / 2.0;
+        let ortho_projection_matrix = glm::ortho(
+            -half_width,
+            half_width,
+            -half_height,
+            half_height,
+            -1.0,
+            1.0
+        );
+        let projection_matrix = glm::scale(
+            &ortho_projection_matrix,
+            &glm::vec3(view_scale, view_scale, 1.0),
+        );
         ];
 
         Ok(Self {
@@ -271,7 +269,6 @@ impl Drawer {
             draw_endpoints_pass,
             draw_texture_pass,
 
-            view_scale: 1.4,
             projection_matrix,
         })
     }
@@ -321,7 +318,7 @@ impl Drawer {
                     },
                     Uniform {
                         name: "uProjection",
-                        value: UniformValue::Mat4(self.projection_matrix),
+                        value: UniformValue::Mat4(self.projection_matrix.as_slice()),
                     },
                     Uniform {
                         name: "velocityTexture",
@@ -387,12 +384,8 @@ impl Drawer {
                         value: UniformValue::Vec3(self.color),
                     },
                     Uniform {
-                        name: "uViewScale",
-                        value: UniformValue::Float(self.view_scale),
-                    },
-                    Uniform {
                         name: "uProjection",
-                        value: UniformValue::Mat4(self.projection_matrix),
+                        value: UniformValue::Mat4(self.projection_matrix.as_slice()),
                     },
                 ],
                 None,
@@ -450,12 +443,8 @@ impl Drawer {
                         value: UniformValue::Vec3(self.color),
                     },
                     Uniform {
-                        name: "uViewScale",
-                        value: UniformValue::Float(self.view_scale),
-                    },
-                    Uniform {
                         name: "uProjection",
-                        value: UniformValue::Mat4(self.projection_matrix),
+                        value: UniformValue::Mat4(self.projection_matrix.as_slice()),
                     },
                 ],
                 None,
@@ -482,25 +471,3 @@ impl Drawer {
     }
 }
 
-fn get_projection(field_of_view: f32, aspect_ratio: f32, near: f32, far: f32) -> [f32; 16] {
-    let f = (field_of_view * 0.5).tan();
-    let range_inv = 1.0 / (near - far);
-    [
-        f / aspect_ratio,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        f,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        (near + far) * range_inv,
-        1.0,
-        0.0,
-        0.0,
-        near * far * range_inv * 2.0,
-        0.0,
-    ]
-}
