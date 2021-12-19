@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://flux.sandydoo.me/">
-    <img width="100%" src="https://assets.sandydoo.me/flux/social-header.gif" alt="Flux" />
+    <img width="100%" src="https://github.com/sandydoo/gif-storage/blob/main/flux/social-header.gif" alt="Flux" />
   </a>
 
   <p align="center"><i>An ode to the macOS Drift screensaver that runs in the browser.</i></p>
