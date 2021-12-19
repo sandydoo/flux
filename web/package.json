@@ -8,6 +8,8 @@
   "devDependencies": {
     "@wasm-tool/wasm-pack-plugin": "1.6.0",
     "copy-webpack-plugin": "^10.0.0",
+    "elm": "^0.19.1-5",
+    "elm-hot": "^1.1.6",
     "gh-pages": "^3.2.3",
     "html-webpack-plugin": "^5.5.0",
     "webpack": "^5.62.1",

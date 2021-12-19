@@ -49,7 +49,7 @@ pub fn start() -> Result<(), JsValue> {
         depth: false,
         stencil: false,
         desynchronized: false,
-        antialias: true,
+        antialias: false,
         fail_if_major_performance_caveat: false,
         power_preference: "high-performance",
         premultiplied_alpha: true,
