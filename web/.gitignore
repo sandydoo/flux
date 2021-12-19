@@ -1,2 +1,10 @@
+# Javascript
 /node_modules
 .pnpm-debug.log
+
+# Rust
+/flux-wasm
+
+# Release
+/dist
+

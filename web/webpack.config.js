@@ -5,17 +5,18 @@ const WasmPackPlugin = require('@wasm-tool/wasm-pack-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
 
 module.exports = {
-  entry: './index.js',
+  entry: './src/index.js',
   output: {
     path: path.resolve(__dirname, 'dist'),
     filename: 'index.js',
   },
   plugins: [
     new HtmlWebpackPlugin({
-      template: 'index.html',
+      template: 'src/index.html',
     }),
     new WasmPackPlugin({
-      crateDirectory: path.resolve(__dirname, '.'),
+      crateDirectory: path.resolve(__dirname, '../flux'),
+      outDir: path.join(__dirname, 'flux-wasm'),
     }),
     new CopyPlugin({
       patterns: [
