@@ -94,7 +94,7 @@ impl Drawer {
 
         let line_state = data::new_line_state(grid_width, grid_height, grid_spacing);
         let line_state_buffers =
-            render::TransformFeedbackBuffer::new_with_f32(&context, &line_state, GL::STATIC_DRAW)?;
+            render::TransformFeedbackBuffer::new_with_f32(&context, &line_state, GL::DYNAMIC_DRAW)?;
 
         let circle_vertices = Buffer::from_f32(
             &context,
