@@ -20,8 +20,8 @@ static PLACE_LINES_FRAG_SHADER: &'static str = include_str!("./shaders/place_lin
 pub struct Drawer {
     context: Context,
 
-    width: u32,
-    height: u32,
+    screen_width: u32,
+    screen_height: u32,
     aspect_ratio: f32,
 
     grid_width: u32,
@@ -30,7 +30,9 @@ pub struct Drawer {
     line_width: f32,
     line_length: f32,
     line_begin_offset: f32,
-    color: [f32; 3],
+
+    // A 6-color hue wheel. Each color gets π/3 or 60° of space.
+    color_wheel: [f32; 18],
 
     line_state_buffers: render::TransformFeedbackBuffer,
     line_index_buffer: render::Buffer,
@@ -47,15 +49,26 @@ pub struct Drawer {
 impl Drawer {
     pub fn new(
         context: &Context,
-        width: u32,
-        height: u32,
-        grid_width: u32,
-        grid_height: u32,
+        screen_width: u32,
+        screen_height: u32,
         grid_spacing: u32,
         view_scale: f32,
     ) -> Result<Self> {
-        let line_count = grid_width * grid_height;
-        let aspect_ratio: f32 = (width as f32) / (height as f32);
+        let base_units = 1000;
+        let grid_width: u32;
+        let grid_height: u32;
+        let aspect_ratio: f32 = (screen_width as f32) / (screen_height as f32);
+
+        // landscape
+        if aspect_ratio > 1.0 {
+            grid_width = base_units;
+            grid_height = ((grid_width as f32) / aspect_ratio).floor() as u32;
+
+        // portrait
+        } else {
+            grid_height = base_units;
+            grid_width = ((grid_height as f32) * aspect_ratio).floor() as u32;
+        }
 
         let line_vertices = Buffer::from_f32(
             &context,
@@ -66,11 +79,12 @@ impl Drawer {
 
         let basepoint_buffer = Buffer::from_f32(
             &context,
-            &data::new_points(width, height, grid_spacing),
+            &data::new_points(grid_width, grid_height, grid_spacing),
             GL::ARRAY_BUFFER,
             GL::STATIC_DRAW,
         )?;
 
+        let line_count = (grid_width / grid_spacing) * (grid_height / grid_spacing);
         let mut line_indices = Vec::with_capacity(line_count as usize);
         for i in 0..line_count {
             line_indices.push(i as u16);
@@ -78,7 +92,7 @@ impl Drawer {
         let line_index_buffer =
             Buffer::from_u16(&context, &line_indices, GL::ARRAY_BUFFER, GL::STATIC_DRAW)?;
 
-        let line_state = data::new_line_state(width, height, grid_spacing);
+        let line_state = data::new_line_state(grid_width, grid_height, grid_spacing);
         let line_state_buffers =
             render::TransformFeedbackBuffer::new_with_f32(&context, &line_state, GL::STATIC_DRAW)?;
 
@@ -112,6 +126,7 @@ impl Drawer {
                     "vEndpointVector".to_string(),
                     "vVelocityVector".to_string(),
                     "vLineWidth".to_string(),
+                    "vColor".to_string(),
                 ],
                 mode: GL::INTERLEAVED_ATTRIBS,
             },
@@ -225,8 +240,9 @@ impl Drawer {
         )
         .unwrap();
 
-        let half_width = (width as f32) / 2.0;
-        let half_height = (height as f32) / 2.0;
+        // Projection
+        let half_width = (grid_width as f32) / 2.0;
+        let half_height = (grid_height as f32) / 2.0;
         let ortho_projection_matrix = glm::ortho(
             -half_width,
             half_width,
@@ -235,30 +251,34 @@ impl Drawer {
             -1.0,
             1.0
         );
+
         let projection_matrix = glm::scale(
             &ortho_projection_matrix,
             &glm::vec3(view_scale, view_scale, 1.0),
         );
+
+        // Colors
+        let color_wheel = [
+            60.219 / 255.0, 37.2487 / 255.0, 66.4301 / 255.0,
+            170.962 / 255.0, 54.4873 / 255.0, 50.9661 / 255.0,
+            230.299 / 255.0, 39.2759 / 255.0, 5.54531 / 255.0,
+            242.924 / 255.0, 94.3563 / 255.0, 22.4186 / 255.0,
+            242.435 / 255.0, 156.752 / 255.0, 58.9794 / 255.0,
+            135.291 / 255.0, 152.793 / 255.0, 182.473 / 255.0,
         ];
 
         Ok(Self {
             context: context.clone(),
-            width,
-            height,
+            screen_width,
+            screen_height,
             aspect_ratio,
             grid_width,
             grid_height,
             line_count,
-            line_width: 10.0,
+            line_width: 8.0,
             line_length: 300.0,
             line_begin_offset: 0.4,
-            // pink
-            // 0.99215686, 0.67058824, 0.57254902
-            // yellow
-            // 0.98431373, 0.71764706, 0.19215686
-            // cyan
-            // 0.48235294, 0.69803922, 0.89411765
-            color: [0.48235294, 0.69803922, 0.89411765],
+            color_wheel,
 
             line_state_buffers,
             line_index_buffer,
@@ -283,7 +303,7 @@ impl Drawer {
                             name: "iEndpointVector".to_string(),
                             size: 2,
                             type_: GL::FLOAT,
-                            stride: 5 * 4,
+                            stride: 8 * 4,
                             offset: 0 * 4,
                             ..Default::default()
                         },
@@ -294,7 +314,7 @@ impl Drawer {
                             name: "iVelocityVector".to_string(),
                             size: 2,
                             type_: GL::FLOAT,
-                            stride: 5 * 4,
+                            stride: 8 * 4,
                             offset: 2 * 4,
                             ..Default::default()
                         },
@@ -321,6 +341,10 @@ impl Drawer {
                         value: UniformValue::Mat4(self.projection_matrix.as_slice()),
                     },
                     Uniform {
+                        name: "uColorWheel[0]",
+                        value: UniformValue::Vec3Array(&self.color_wheel),
+                    },
+                    Uniform {
                         name: "velocityTexture",
                         value: UniformValue::Texture2D(&texture.texture, 0),
                     },
@@ -335,7 +359,7 @@ impl Drawer {
 
     pub fn draw_lines(&self) -> () {
         self.context
-            .viewport(0, 0, self.width as i32, self.height as i32);
+            .viewport(0, 0, self.screen_width as i32, self.screen_height as i32);
 
         self.context.enable(GL::BLEND);
         self.context.blend_func(GL::SRC_ALPHA, GL::ONE);
@@ -349,7 +373,7 @@ impl Drawer {
                             name: "iEndpointVector".to_string(),
                             size: 2,
                             type_: GL::FLOAT,
-                            stride: 5 * 4,
+                            stride: 8 * 4,
                             offset: 0 * 4,
                             divisor: 1,
                         },
@@ -360,8 +384,19 @@ impl Drawer {
                             name: "iLineWidth".to_string(),
                             size: 1,
                             type_: GL::FLOAT,
-                            stride: 5 * 4,
+                            stride: 8 * 4,
                             offset: 4 * 4,
+                            divisor: 1,
+                        },
+                    },
+                    VertexBuffer {
+                        buffer: self.line_state_buffers.current().clone(),
+                        binding: BindingInfo {
+                            name: "iColor".to_string(),
+                            size: 3,
+                            type_: GL::FLOAT,
+                            stride: 8 * 4,
+                            offset: 5 * 4,
                             divisor: 1,
                         },
                     },
@@ -380,10 +415,6 @@ impl Drawer {
                         value: UniformValue::Float(self.line_begin_offset),
                     },
                     Uniform {
-                        name: "uColor",
-                        value: UniformValue::Vec3(self.color),
-                    },
-                    Uniform {
                         name: "uProjection",
                         value: UniformValue::Mat4(self.projection_matrix.as_slice()),
                     },
@@ -398,7 +429,7 @@ impl Drawer {
 
     pub fn draw_endpoints(&self) -> () {
         self.context
-            .viewport(0, 0, self.width as i32, self.height as i32);
+            .viewport(0, 0, self.screen_width as i32, self.screen_height as i32);
 
         self.context.enable(GL::BLEND);
         self.context.blend_func(GL::SRC_ALPHA, GL::ONE);
@@ -412,7 +443,7 @@ impl Drawer {
                             name: "iEndpointVector".to_string(),
                             size: 2,
                             type_: GL::FLOAT,
-                            stride: 5 * 4,
+                            stride: 8 * 4,
                             offset: 0 * 4,
                             divisor: 1,
                         },
@@ -423,8 +454,19 @@ impl Drawer {
                             name: "iLineWidth".to_string(),
                             size: 1,
                             type_: GL::FLOAT,
-                            stride: 5 * 4,
+                            stride: 8 * 4,
                             offset: 4 * 4,
+                            divisor: 1,
+                        },
+                    },
+                    VertexBuffer {
+                        buffer: self.line_state_buffers.current().clone(),
+                        binding: BindingInfo {
+                            name: "iColor".to_string(),
+                            size: 3,
+                            type_: GL::FLOAT,
+                            stride: 8 * 4,
+                            offset: 5 * 4,
                             divisor: 1,
                         },
                     },
@@ -437,10 +479,6 @@ impl Drawer {
                     Uniform {
                         name: "uLineLength",
                         value: UniformValue::Float(self.line_length),
-                    },
-                    Uniform {
-                        name: "uColor",
-                        value: UniformValue::Vec3(self.color),
                     },
                     Uniform {
                         name: "uProjection",
@@ -457,7 +495,7 @@ impl Drawer {
 
     pub fn draw_texture(&self, texture: &Framebuffer) -> () {
         self.context
-            .viewport(0, 0, self.width as i32, self.height as i32);
+            .viewport(0, 0, self.screen_width as i32, self.screen_height as i32);
 
         self.draw_texture_pass
             .draw(

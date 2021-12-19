@@ -483,6 +483,11 @@ impl Program {
                 &value,
             ),
 
+            UniformValue::Vec3Array(ref value) => context.uniform3fv_with_f32_array(
+                self.get_uniform_location(&uniform.name).as_ref(),
+                &value,
+            ),
+
             UniformValue::Mat4(value) => context.uniform_matrix4fv_with_f32_array(
                 self.get_uniform_location(&uniform.name).as_ref(),
                 false,
@@ -539,6 +544,8 @@ pub enum UniformValue<'a> {
     Float(f32),
     Vec2([f32; 2]),
     Vec3([f32; 3]),
+    // TODO: use nalgebra types here
+    Vec3Array(&'a[f32]),
     Mat4(&'a[f32]),
     Texture2D(&'a WebGlTexture, u32),
 }

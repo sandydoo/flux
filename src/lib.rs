@@ -98,8 +98,6 @@ pub fn start() -> Result<(), JsValue> {
         &context,
         width,
         height,
-        width / grid_spacing,
-        height / grid_spacing,
         grid_spacing,
         view_scale,
     )

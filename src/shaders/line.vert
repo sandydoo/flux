@@ -9,13 +9,14 @@ in vec2 basepoint;
 in vec2 iEndpointVector;
 in vec2 iVelocityVector;
 in float iLineWidth;
+in vec3 iColor;
 
 uniform float uLineWidth;
 uniform float uLineLength;
-uniform mediump vec3 uColor;
 uniform mat4 uProjection;
 
 out vec2 vVertex;
+out vec3 vColor;
 out float vTotalOpacity;
 
 mat4 scale(vec3 v) {
@@ -37,5 +38,6 @@ void main() {
   gl_Position = uProjection * vec4(point, 0.0, 1.0);
 
   vVertex = lineVertex;
+  vColor = iColor;
   vTotalOpacity = smoothstep(30.0, 80.0, length(endpoint - basepoint));
 }
