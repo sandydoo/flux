@@ -1,5 +1,7 @@
 use std::cell::{Ref, RefCell};
 use std::collections::HashMap;
+use std::hash::BuildHasherDefault;
+use fnv::FnvHasher;
 use std::fmt;
 use std::rc::Rc;
 use thiserror::Error;
@@ -350,8 +352,8 @@ impl DoubleFramebuffer {
 pub struct Program {
     context: Context,
     program: WebGlProgram,
-    attributes: HashMap<String, AttributeInfo>,
-    uniforms: HashMap<String, UniformInfo>,
+    attributes: HashMap<String, AttributeInfo, BuildHasherDefault<FnvHasher>>,
+    uniforms: HashMap<String, UniformInfo, BuildHasherDefault<FnvHasher>>,
 }
 
 impl Program {
@@ -408,7 +410,7 @@ impl Program {
         context.delete_shader(Some(&fragment_shader));
 
         // Get attribute locations
-        let mut attributes = HashMap::new();
+        let mut attributes = HashMap::with_hasher(Default::default());
         let attribute_count = context
             .get_program_parameter(&program, GL::ACTIVE_ATTRIBUTES)
             .as_f64()
@@ -427,7 +429,7 @@ impl Program {
         }
 
         // Get uniform locations
-        let mut uniforms = HashMap::new();
+        let mut uniforms = HashMap::with_hasher(Default::default());
         let uniform_count = context
             .get_program_parameter(&program, GL::ACTIVE_UNIFORMS)
             .as_f64()
