@@ -68,7 +68,7 @@ void main() {
   vEndpointVector *= clampTo(currentLength, 1.0);
 
   // TODO: change width based on length AND velocity direction
-  vLineWidth = 0.1 + 0.9 * smoothstep(0.1, 1.0, currentLength);
+  vLineWidth = 0.15 + 0.9 * smoothstep(0.1, 0.9, currentLength);
 
   float angle = mod(
     PI * currentLength + (PI + atan(iEndpointVector.y, iEndpointVector.x)),
