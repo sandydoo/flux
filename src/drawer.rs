@@ -275,8 +275,8 @@ impl Drawer {
             grid_width,
             grid_height,
             line_count,
-            line_width: 8.0,
-            line_length: 300.0,
+            line_width: 6.0,
+            line_length: 220.0,
             line_begin_offset: 0.4,
             color_wheel,
 

@@ -27,15 +27,17 @@ pub fn start() -> Result<(), JsValue> {
     let html_canvas = document.get_element_by_id("canvas").unwrap();
     let html_canvas: web_sys::HtmlCanvasElement =
         html_canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
-    // TODO: should we handle non-standard pixel ratios?
-    let pixel_ratio = window.device_pixel_ratio().ceil() as u32;
-    let width = pixel_ratio * html_canvas.client_width() as u32;
-    let height = pixel_ratio * html_canvas.client_height() as u32;
+
+    let pixel_ratio: f64 = window.device_pixel_ratio();
+    let client_width = html_canvas.client_width() as u32;
+    let client_height = html_canvas.client_height() as u32;
+    let width = (pixel_ratio * (client_width as f64)).floor() as u32;
+    let height = (pixel_ratio * (client_height as f64)).floor() as u32;
     html_canvas.set_width(width);
     html_canvas.set_height(height);
 
     // Get offscreen canvas to decouple ourselves from the DOM.
-    // Performance is much better, but the only browser that has implemeted it
+    // Performance is much better, but the only browser that has it implemented
     // is Chrome.
     // let canvas = html_canvas.transfer_control_to_offscreen()?;
     let canvas = html_canvas;
@@ -70,30 +72,35 @@ pub fn start() -> Result<(), JsValue> {
     let context = Rc::new(gl);
 
     // Settings
-    let grid_spacing: u32 = 20 * pixel_ratio;
-    let grid_width: u32 = 128;
-    let grid_height: u32 = 128;
-
-    let fluid_simulation_fps: f32 = 15.0;
     let viscosity: f32 = 1.2;
-    let velocity_dissipation: f32 = 0.2;
-    let adjust_advection: f32 = 10.0;
+    let velocity_dissipation: f32 = 0.3;
+    let adjust_advection: f32 = 18.0;
+    let fluid_width: u32 = 128;
+    let fluid_height: u32 = 128;
+    let fluid_simulation_fps: f32 = 15.0;
 
     let max_frame_time: f32 = 1.0 / 10.0;
     let fluid_frame_time: f32 = 1.0 / fluid_simulation_fps;
 
+    let grid_spacing: u32 = 12;
     let view_scale: f32 = 1.4;
+
     // TODO: deal with result
     let fluid = Fluid::new(
         &context,
-        grid_width,
-        grid_height,
+        fluid_width,
+        fluid_height,
         viscosity,
         velocity_dissipation,
     )
     .unwrap();
 
-    let mut noise = Noise::new(&context, grid_width, grid_height).unwrap();
+    let mut noise = Noise::new(
+        &context,
+        2 * fluid_width,
+        2 * fluid_height,
+    ).unwrap();
+
     let drawer = Drawer::new(
         &context,
         width,
