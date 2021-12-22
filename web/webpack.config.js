@@ -5,11 +5,22 @@ const WasmPackPlugin = require('@wasm-tool/wasm-pack-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
 
 module.exports = {
+
   entry: './src/index.js',
+
   output: {
     path: path.resolve(__dirname, 'dist'),
     filename: 'index.js',
   },
+
+  module: {
+    rules: [{
+      test: /\.elm$/,
+      exclude: [/elm-stuff/],
+      use: 'elm-webpack-loader',
+    }],
+  },
+
   plugins: [
     new HtmlWebpackPlugin({
       template: 'src/index.html',
@@ -24,7 +35,13 @@ module.exports = {
       ],
     }),
   ],
+
   mode: 'development',
+
+  // devServer: {
+  //   hot: true,
+  // },
+
   experiments: {
     asyncWebAssembly: true,
   },

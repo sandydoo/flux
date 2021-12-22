@@ -42,6 +42,22 @@ pub struct Fluid {
 }
 
 impl Fluid {
+    pub fn set_viscosity(&mut self, new_value: f32) -> () {
+        self.viscosity = new_value;
+    }
+
+    pub fn set_velocity_dissipation(&mut self, new_value: f32) -> () {
+        self.velocity_dissipation = new_value;
+    }
+
+    pub fn set_diffusion_iterations(&mut self, new_value: u32) -> () {
+        self.diffusion_iterations = new_value;
+    }
+
+    pub fn set_pressure_iterations(&mut self, new_value: u32) -> () {
+        self.pressure_iterations = new_value;
+    }
+
     pub fn new(
         context: &Context,
         grid_width: u32,

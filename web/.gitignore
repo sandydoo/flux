@@ -2,6 +2,9 @@
 /node_modules
 .pnpm-debug.log
 
+# Elm
+/elm-stuff
+
 # Rust
 /flux-wasm
 
