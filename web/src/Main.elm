@@ -106,6 +106,24 @@ updateSettings msg settings =
 -- VIEW
 
 
+type alias Control value =
+    { title : String
+    , description : String
+    , input : Input value
+    }
+
+
+type Input number
+    = Slider
+        { min : number
+        , max : number
+        , step : number
+        , value : number
+        , onInput : String -> Msg
+        , toString : number -> String
+        }
+
+
 view : Model -> Html Msg
 view model =
     Html.div
@@ -155,151 +173,129 @@ viewSettings settings =
         [ HA.class "control-list" ]
         [ Html.div
             [ HA.class "col-span-2-md" ]
-            [ Html.button [ Event.onClick Toggle, HA.class "text-secondary" ] [ Html.text "← Back" ]
+            [ Html.button
+                [ Event.onClick Toggle, HA.class "text-secondary" ]
+                [ Html.text "← Back" ]
             , Html.h2 [] [ Html.text "Fluid simulation" ]
             ]
-        , Html.li [ HA.class "control" ]
-            [ Html.label
-                [ HA.for "viscosity" ]
-                [ Html.h3
-                    [ HA.class "control-title" ]
-                    [ Html.text "Viscosity" ]
-                , Html.p
-                    [ HA.class "control-description" ]
-                    [ Html.text
-                        """
-                            A viscous fluid resists any change to its velocity.
-                            It spreads out and diffuses any force applied to it.
-                            """
-                    ]
-                ]
-            , Html.div [ HA.class "control-slider" ]
-                [ Html.input
-                    [ HA.id "viscosity"
-                    , HA.type_ "range"
-                    , HA.min "0.1"
-                    , HA.max "4.0"
-                    , HA.step "0.1"
-                    , HA.value <| formatFloat settings.viscosity
-                    , Event.onInput
-                        (\value ->
+        , viewControl <|
+            Control
+                "Viscosity"
+                """
+                A viscous fluid resists any change to its velocity.
+                It spreads out and diffuses any force applied to it.
+                """
+                (Slider
+                    { min = 0.1
+                    , max = 4.0
+                    , step = 0.1
+                    , value = settings.viscosity
+                    , onInput =
+                        \value ->
                             String.toFloat value
                                 |> Maybe.withDefault 0.0
                                 |> SetViscosity
                                 |> SaveSetting
-                        )
-                    ]
-                    []
-                , Html.span
-                    [ HA.class "control-value" ]
-                    [ Html.text <| formatFloat settings.viscosity ]
-                ]
-            ]
-        , Html.li [ HA.class "control" ]
-            [ Html.label
-                [ HA.for "velocity-dissipation" ]
-                [ Html.h3
-                    [ HA.class "control-title" ]
-                    [ Html.text "Velocity dissipation" ]
-                , Html.p
-                    [ HA.class "control-description" ]
-                    [ Html.text "Velocity should decrease, or dissipate, as it travels through a fluid." ]
-                ]
-            , Html.div [ HA.class "control-slider" ]
-                [ Html.input
-                    [ HA.id "velocity-dissipation"
-                    , HA.type_ "range"
-                    , HA.min "0.0"
-                    , HA.max "2.0"
-                    , HA.step "0.1"
-                    , HA.value <| formatFloat settings.velocityDissipation
-                    , Event.onInput
-                        (\value ->
+                    , toString = formatFloat
+                    }
+                )
+        , viewControl <|
+            Control
+                "Velocity Diffusion"
+                """
+                Velocity should decrease, or dissipate, as it travels through a fluid.
+                """
+                (Slider
+                    { min = 0.0
+                    , max = 2.0
+                    , step = 0.1
+                    , value = settings.velocityDissipation
+                    , onInput =
+                        \value ->
                             String.toFloat value
                                 |> Maybe.withDefault 0.0
                                 |> SetVelocityDissipation
                                 |> SaveSetting
-                        )
-                    ]
-                    []
-                , Html.span
-                    [ HA.class "control-value" ]
-                    [ Html.text <| formatFloat settings.velocityDissipation ]
-                ]
-            ]
-        , Html.li [ HA.class "control" ]
-            [ Html.label
-                [ HA.for "diffusion-iterations" ]
-                [ Html.h3
-                    [ HA.class "control-title" ]
-                    [ Html.text "Diffusion iterations" ]
-                , Html.p
-                    [ HA.class "control-description" ]
-                    [ Html.text
-                        """
-                            Viscous fluids dissipate external forces and velocity through a process called “diffusion”.
-                            Each iteration enchances this effect and the diffusion strength is controlled by the fluid’s viscosity.
-                            """
-                    ]
-                ]
-            , Html.div [ HA.class "control-slider" ]
-                [ Html.input
-                    [ HA.id "diffusion-iterations"
-                    , HA.type_ "range"
-                    , HA.min "0"
-                    , HA.max "60"
-                    , HA.step "1"
-                    , HA.value <| String.fromInt settings.diffusionIterations
-                    , Event.onInput
-                        (\value ->
+                    , toString = formatFloat
+                    }
+                )
+        , viewControl <|
+            Control
+                "Diffusion iterations"
+                """
+                Viscous fluids dissipate velocity through a process called “diffusion”.
+                Each iteration enchances this effect and the diffusion strength is controlled by the fluid’s viscosity.
+                """
+                (Slider
+                    { min = 0
+                    , max = 30
+                    , step = 1
+                    , value = settings.diffusionIterations
+                    , onInput =
+                        \value ->
                             String.toInt value
                                 |> Maybe.withDefault 0
                                 |> SetDiffusionIterations
                                 |> SaveSetting
-                        )
-                    ]
-                    []
-                , Html.span
-                    [ HA.class "control-value" ]
-                    [ Html.text <| String.fromInt settings.diffusionIterations ]
-                ]
-            ]
-        , Html.li [ HA.class "control" ]
-            [ Html.label
-                [ HA.for "pressure-iterations" ]
-                [ Html.h3
-                    [ HA.class "control-title" ]
-                    [ Html.text "Pressure iterations" ]
-                , Html.p
-                    [ HA.class "control-description" ]
-                    [ Html.text
-                        """
-                            Applying a force to fluid creates pressure as the fluid pushes back.
-                            Calculating pressure is expensive, but the fluid will look unrealistic with fewer than 20 iterations.
-                            """
-                    ]
-                ]
-            , Html.div [ HA.class "control-slider" ]
-                [ Html.input
-                    [ HA.id "pressure-iterations"
-                    , HA.type_ "range"
-                    , HA.min "0"
-                    , HA.max "60"
-                    , HA.step "1"
-                    , HA.value <| String.fromInt settings.pressureIterations
-                    , Event.onInput
-                        (\value ->
+                    , toString = String.fromInt
+                    }
+                )
+        , viewControl <|
+            Control
+                "Pressure iterations"
+                """
+                Applying a force to fluid creates pressure as the fluid pushes back.
+                Calculating pressure is expensive, but the fluid will look unrealistic with fewer than 20 iterations.
+                """
+                (Slider
+                    { min = 0
+                    , max = 60
+                    , step = 1
+                    , value = settings.pressureIterations
+                    , onInput =
+                        \value ->
                             String.toInt value
                                 |> Maybe.withDefault 0
                                 |> SetPressureIterations
                                 |> SaveSetting
-                        )
-                    ]
-                    []
-                , Html.span
-                    [ HA.class "control-value" ]
-                    [ Html.text <| String.fromInt settings.pressureIterations ]
-                ]
+                    , toString = String.fromInt
+                    }
+                )
+        ]
+
+
+viewControl : Control number -> Html Msg
+viewControl { title, description, input } =
+    let
+        id =
+            toKebabcase title
+    in
+    Html.li [ HA.class "control" ]
+        [ Html.label
+            [ HA.for id ]
+            [ Html.h3
+                [ HA.class "control-title" ]
+                [ Html.text title ]
+            , Html.p
+                [ HA.class "control-description" ]
+                [ Html.text description ]
+            , Html.div [ HA.class "control-slider" ] <|
+                case input of
+                    Slider slider ->
+                        [ Html.input
+                            [ HA.id id
+                            , HA.type_ "range"
+                            , HA.min <| slider.toString slider.min
+                            , HA.max <| slider.toString slider.max
+                            , HA.step <| slider.toString slider.step
+                            , HA.value <| slider.toString slider.value
+                            , Event.onInput slider.onInput
+                            ]
+                            []
+                        , Html.span
+                            [ HA.class "control-value" ]
+                            [ Html.text <| slider.toString slider.value ]
+                        ]
             ]
         ]
 
@@ -319,3 +315,17 @@ formatFloat value =
         , zeroSuffix = ""
         }
         value
+
+
+toKebabcase : String -> String
+toKebabcase =
+    let
+        -- This only converts titles separated by spaces
+        kebabify char =
+            if char == ' ' then
+                '-'
+
+            else
+                Char.toLower char
+    in
+    String.map kebabify
