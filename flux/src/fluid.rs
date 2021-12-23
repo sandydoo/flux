@@ -1,10 +1,12 @@
-use crate::{data, render};
+use crate::{data, render, settings};
 use render::{
     BindingInfo, Buffer, Context, DoubleFramebuffer, Framebuffer, Indices, TextureOptions, Uniform,
     UniformValue, VertexBuffer,
 };
+use settings::Settings;
 
 use std::cell::Ref;
+use std::rc::Rc;
 
 use web_sys::WebGl2RenderingContext as GL;
 
@@ -19,13 +21,8 @@ static SUBTRACT_GRADIENT_FRAG_SHADER: &'static str =
 static CURL_FRAG_SHADER: &'static str = include_str!("./shaders/curl.frag");
 
 pub struct Fluid {
-    viscosity: f32,
-    velocity_dissipation: f32,
-    diffusion_iterations: u32,
-    pressure_iterations: u32,
+    settings: Rc<Settings>,
 
-    grid_width: u32,
-    grid_height: u32,
     texel_size: [f32; 2],
     grid_size: f32,
 
@@ -42,14 +39,17 @@ pub struct Fluid {
 }
 
 impl Fluid {
+    pub fn update_settings(&mut self, new_settings: &Rc<Settings>) -> () {
+        self.settings = new_settings.clone();
+    }
+
     pub fn new(
         context: &Context,
-        grid_width: u32,
-        grid_height: u32,
-        viscosity: f32,
-        velocity_dissipation: f32,
+        settings: &Rc<Settings>
     ) -> Result<Self> {
         let grid_size: f32 = 1.0;
+        let grid_width = settings.fluid_width;
+        let grid_height = settings.fluid_height;
         let texel_size = [1.0 / grid_width as f32, 1.0 / grid_height as f32];
 
         let texture_options: TextureOptions = TextureOptions {
@@ -206,13 +206,8 @@ impl Fluid {
         .unwrap();
 
         Ok(Self {
-            viscosity,
-            velocity_dissipation,
-            diffusion_iterations: 10,
-            pressure_iterations: 30,
+            settings: Rc::clone(settings),
 
-            grid_width,
-            grid_height,
             texel_size,
             grid_size,
 
@@ -248,7 +243,7 @@ impl Fluid {
                     },
                     Uniform {
                         name: "dissipation",
-                        value: UniformValue::Float(self.velocity_dissipation),
+                        value: UniformValue::Float(self.settings.velocity_dissipation),
                     },
                     Uniform {
                         name: "inputTexture",
@@ -273,7 +268,7 @@ impl Fluid {
     }
 
     pub fn diffuse(&self, timestep: f32) -> () {
-        let center_factor = self.grid_size.powf(2.0) / (self.viscosity * timestep);
+        let center_factor = self.grid_size.powf(2.0) / (self.settings.viscosity * timestep);
         let stencil_factor = 1.0 / (4.0 + center_factor);
 
         let uniforms = vec![
@@ -295,7 +290,7 @@ impl Fluid {
             self.diffusion_pass.set_uniform(&uniform);
         }
 
-        for _ in 0..self.diffusion_iterations {
+        for _ in 0..self.settings.diffusion_iterations {
             self.diffusion_pass
                 .draw_to(
                     &self.velocity_textures.next(),
@@ -378,7 +373,7 @@ impl Fluid {
             self.pressure_pass.set_uniform(&uniform);
         }
 
-        for _ in 0..self.pressure_iterations {
+        for _ in 0..self.settings.pressure_iterations {
             self.pressure_pass
                 .draw_to(
                     &self.pressure_textures.next(),
