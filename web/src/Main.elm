@@ -75,7 +75,7 @@ update msg model =
                     updateSettings settingToUpdate model.settings
             in
             ( { model | settings = newSettings }
-            , setSettings model.settings
+            , setSettings newSettings
             )
 
 
