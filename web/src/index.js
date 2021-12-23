@@ -10,6 +10,9 @@ import { Elm } from './Main.elm';
 let settings = {
   viscosity: 1.2,
   velocityDissipation: 0.2,
+  adjustAdvection: 18.0,
+  fluidWidth: 128,
+  fluidHeight: 128,
   diffusionIterations: 10,
   pressureIterations: 30,
 };

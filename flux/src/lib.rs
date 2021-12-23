@@ -3,82 +3,67 @@ mod drawer;
 mod fluid;
 mod noise;
 mod render;
+mod settings;
 mod web;
 
 use drawer::Drawer;
 use fluid::Fluid;
 use noise::Noise;
+use settings::Settings;
 use web::ContextOptions;
 
-use std::cell::RefCell;
 use std::rc::Rc;
 
-use serde::{Deserialize, Serialize};
-use wasm_bindgen::closure::Closure;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::WebGl2RenderingContext as GL;
 
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct Settings {
-    pub viscosity: f32,
-    pub velocity_dissipation: f32,
-    pub diffusion_iterations: u32,
-    pub pressure_iterations: u32,
-}
-
 #[wasm_bindgen]
-struct Flux {
+pub struct Flux {
     fluid: Fluid,
     drawer: Drawer,
     noise: Noise,
-    settings: Settings,
+    settings: Rc<Settings>,
 
     context: Rc<GL>,
     elapsed_time: f32,
     last_timestamp: f32,
     frame_time: f32,
+    fluid_frame_time: f32,
+    max_frame_time: f32,
 }
 
 #[wasm_bindgen]
 impl Flux {
     #[wasm_bindgen(setter)]
     pub fn set_settings(&mut self, settings_object: &JsValue) -> () {
-        self.settings = settings_object.into_serde().unwrap();
+        let new_settings: Settings = settings_object.into_serde().unwrap();
+        self.settings = Rc::new(new_settings);
+        self.fluid.update_settings(&self.settings);
     }
 
     #[wasm_bindgen(constructor)]
     pub fn new(settings_object: &JsValue) -> Flux {
         let (context, width, height) = get_rendering_context().unwrap();
 
-        let settings: Settings = settings_object.into_serde().unwrap();
+        let settings = Rc::new(settings_object.into_serde().unwrap());
 
         // Settings
-        let viscosity: f32 = settings.viscosity;
-        let velocity_dissipation: f32 = settings.velocity_dissipation;
-        let adjust_advection: f32 = 18.0;
-        let fluid_width: u32 = 128;
-        let fluid_height: u32 = 128;
         let fluid_simulation_fps: f32 = 15.0;
-
-        let max_frame_time: f32 = 1.0 / 10.0;
         let fluid_frame_time: f32 = 1.0 / fluid_simulation_fps;
 
         let grid_spacing: u32 = 12;
         let view_scale: f32 = 1.4;
 
         // TODO: deal with result
-        let mut fluid = Fluid::new(
+        let fluid = Fluid::new(&context, &settings).unwrap();
+
+        let mut noise = Noise::new(
             &context,
-            fluid_width,
-            fluid_height,
-            viscosity,
-            velocity_dissipation,
+            2 * settings.fluid_width,
+            2 * settings.fluid_height,
         )
         .unwrap();
-
-        let mut noise = Noise::new(&context, 2 * fluid_width, 2 * fluid_height).unwrap();
 
         let drawer = Drawer::new(&context, width, height, grid_spacing, view_scale).unwrap();
 
@@ -97,6 +82,8 @@ impl Flux {
             elapsed_time: 0.0,
             last_timestamp: 0.0,
             frame_time: 0.0,
+            fluid_frame_time,
+            max_frame_time: 1.0 / 10.0,
         }
     }
 
@@ -104,31 +91,23 @@ impl Flux {
         self.context.clear_color(0.0, 0.0, 0.0, 1.0);
         self.context.clear(GL::COLOR_BUFFER_BIT);
 
-        // TODO: fix
-        self.fluid.set_viscosity(self.settings.viscosity);
-        self.fluid.set_velocity_dissipation(self.settings.velocity_dissipation);
-        self.fluid.set_diffusion_iterations(self.settings.diffusion_iterations);
-        self.fluid.set_pressure_iterations(self.settings.pressure_iterations);
-
-        // TODO: fix
-        let adjust_advection: f32 = 15.0;
-        let max_frame_time: f32 = 1.0 / 10.0;
-        let fluid_frame_time: f32 = 1.0 / 15.0;
-
-        let timestep = max_frame_time.min(0.001 * (timestamp - self.last_timestamp));
+        let timestep = self
+            .max_frame_time
+            .min(0.001 * (timestamp - self.last_timestamp));
         self.last_timestamp = timestamp;
         self.elapsed_time += timestep;
         self.frame_time += timestep;
 
-        while self.frame_time >= fluid_frame_time {
+        while self.frame_time >= self.fluid_frame_time {
             self.noise.generate(self.elapsed_time);
 
             // Convection
-            self.fluid.advect(fluid_frame_time);
+            self.fluid.advect(self.fluid_frame_time);
 
-            self.noise.blend_noise_into(&self.fluid.get_velocity_textures(), fluid_frame_time);
+            self.noise
+                .blend_noise_into(&self.fluid.get_velocity_textures(), self.fluid_frame_time);
 
-            self.fluid.diffuse(fluid_frame_time);
+            self.fluid.diffuse(self.fluid_frame_time);
 
             // TODO: this needs a second pass. See GPU Gems.
             // fluid.curl(fluid_frame_time);
@@ -137,7 +116,7 @@ impl Flux {
             self.fluid.solve_pressure();
             self.fluid.subtract_gradient();
 
-            self.frame_time -= fluid_frame_time;
+            self.frame_time -= self.fluid_frame_time;
         }
 
         // Debugging
@@ -147,7 +126,10 @@ impl Flux {
 
         // TODO: the line animation is still dependent on the client’s fps. Is
         // this worth fixing?
-        self.drawer.place_lines(timestep * adjust_advection, &self.fluid.get_velocity());
+        self.drawer.place_lines(
+            timestep * self.settings.adjust_advection,
+            &self.fluid.get_velocity(),
+        );
         self.drawer.draw_lines();
         self.drawer.draw_endpoints();
     }
