@@ -126,10 +126,9 @@ type Input number
 
 view : Model -> Html Msg
 view model =
-    Html.div
-        [ HA.id "controls" ]
+    Html.div []
         [ Html.div
-            [ HA.class "controls"
+            [ HA.class "control-panel"
             , HA.class <|
                 if model.isOpen then
                     "visible"
@@ -137,7 +136,10 @@ view model =
                 else
                     ""
             ]
-            [ viewSettings model.settings ]
+            [ Html.div
+                [ HA.class "control-container" ]
+                [ viewSettings model.settings ]
+            ]
         , Html.footer []
             [ Html.ul [ HA.class "nav" ]
                 [ Html.li []
@@ -201,7 +203,7 @@ viewSettings settings =
                 )
         , viewControl <|
             Control
-                "Velocity Diffusion"
+                "Velocity diffusion"
                 """
                 Velocity should decrease, or dissipate, as it travels through a fluid.
                 """
