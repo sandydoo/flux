@@ -1,10 +1,12 @@
-use crate::{data, render};
+use crate::{data, render, settings};
 use render::{
     BindingInfo, Buffer, Context, Framebuffer, Indices, Uniform, UniformValue, VertexBuffer,
 };
+use settings::Settings;
 
 use web_sys::WebGl2RenderingContext as GL;
 extern crate nalgebra_glm as glm;
+use std::rc::Rc;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -19,6 +21,7 @@ static PLACE_LINES_FRAG_SHADER: &'static str = include_str!("./shaders/place_lin
 
 pub struct Drawer {
     context: Context,
+    settings: Rc<Settings>,
 
     screen_width: u32,
     screen_height: u32,
@@ -27,9 +30,6 @@ pub struct Drawer {
     grid_width: u32,
     grid_height: u32,
     line_count: u32,
-    line_width: f32,
-    line_length: f32,
-    line_begin_offset: f32,
 
     // A 6-color hue wheel. Each color gets π/3 or 60° of space.
     color_wheel: [f32; 18],
@@ -47,10 +47,15 @@ pub struct Drawer {
 }
 
 impl Drawer {
+    pub fn update_settings(&mut self, new_settings: &Rc<Settings>) -> () {
+        self.settings = new_settings.clone();
+    }
+
     pub fn new(
         context: &Context,
         screen_width: u32,
         screen_height: u32,
+        settings: &Rc<Settings>,
         grid_spacing: u32,
         view_scale: f32,
     ) -> Result<Self> {
@@ -249,7 +254,7 @@ impl Drawer {
             -half_height,
             half_height,
             -1.0,
-            1.0
+            1.0,
         );
 
         let projection_matrix = glm::scale(
@@ -269,15 +274,14 @@ impl Drawer {
 
         Ok(Self {
             context: context.clone(),
+            settings: settings.clone(),
+
             screen_width,
             screen_height,
             aspect_ratio,
             grid_width,
             grid_height,
             line_count,
-            line_width: 6.0,
-            line_length: 220.0,
-            line_begin_offset: 0.4,
             color_wheel,
 
             line_state_buffers,
@@ -404,15 +408,15 @@ impl Drawer {
                 &vec![
                     Uniform {
                         name: "uLineWidth",
-                        value: UniformValue::Float(self.line_width),
+                        value: UniformValue::Float(self.settings.line_width),
                     },
                     Uniform {
                         name: "uLineLength",
-                        value: UniformValue::Float(self.line_length),
+                        value: UniformValue::Float(self.settings.line_length),
                     },
                     Uniform {
                         name: "uLineBeginOffset",
-                        value: UniformValue::Float(self.line_begin_offset),
+                        value: UniformValue::Float(self.settings.line_begin_offset),
                     },
                     Uniform {
                         name: "uProjection",
@@ -474,11 +478,11 @@ impl Drawer {
                 &vec![
                     Uniform {
                         name: "uLineWidth",
-                        value: UniformValue::Float(self.line_width),
+                        value: UniformValue::Float(self.settings.line_width),
                     },
                     Uniform {
                         name: "uLineLength",
-                        value: UniformValue::Float(self.line_length),
+                        value: UniformValue::Float(self.settings.line_length),
                     },
                     Uniform {
                         name: "uProjection",
@@ -508,4 +512,3 @@ impl Drawer {
             .unwrap();
     }
 }
-

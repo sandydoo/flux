@@ -10,5 +10,9 @@ pub struct Settings {
     pub fluid_height: u32,
     pub diffusion_iterations: u32,
     pub pressure_iterations: u32,
+
+    pub line_length: f32,
+    pub line_width: f32,
+    pub line_begin_offset: f32,
 }
 

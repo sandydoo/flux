@@ -40,6 +40,9 @@ type alias Settings =
     , velocityDissipation : Float
     , diffusionIterations : Int
     , pressureIterations : Int
+    , lineLength : Float
+    , lineWidth : Float
+    , lineBeginOffset : Float
     }
 
 
@@ -84,6 +87,9 @@ type SettingMsg
     | SetVelocityDissipation Float
     | SetDiffusionIterations Int
     | SetPressureIterations Int
+    | SetLineLength Float
+    | SetLineWidth Float
+    | SetLineBeginOffset Float
 
 
 updateSettings : SettingMsg -> Settings -> Settings
@@ -100,6 +106,15 @@ updateSettings msg settings =
 
         SetPressureIterations newPressureIterations ->
             { settings | pressureIterations = newPressureIterations }
+
+        SetLineLength newLineLength ->
+            { settings | lineLength = newLineLength }
+
+        SetLineWidth newLineWidth ->
+            { settings | lineWidth = newLineWidth }
+
+        SetLineBeginOffset newLineBeginOffset ->
+            { settings | lineBeginOffset = newLineBeginOffset }
 
 
 
@@ -198,7 +213,7 @@ viewSettings settings =
                                 |> Maybe.withDefault 0.0
                                 |> SetViscosity
                                 |> SaveSetting
-                    , toString = formatFloat
+                    , toString = formatFloat 1
                     }
                 )
         , viewControl <|
@@ -218,7 +233,7 @@ viewSettings settings =
                                 |> Maybe.withDefault 0.0
                                 |> SetVelocityDissipation
                                 |> SaveSetting
-                    , toString = formatFloat
+                    , toString = formatFloat 1
                     }
                 )
         , viewControl <|
@@ -263,6 +278,69 @@ viewSettings settings =
                     , toString = String.fromInt
                     }
                 )
+        , Html.div
+            [ HA.class "col-span-2-md" ]
+            [ Html.h2 [] [ Html.text "Look" ] ]
+        , viewControl <|
+            Control
+                "Line length"
+                """
+                The maximum length of a line.
+                """
+                (Slider
+                    { min = 1.0
+                    , max = 500.0
+                    , step = 1.0
+                    , value = settings.lineLength
+                    , onInput =
+                        \value ->
+                            String.toFloat value
+                                |> Maybe.withDefault 0.0
+                                |> SetLineLength
+                                |> SaveSetting
+                    , toString = formatFloat 0
+                    }
+                )
+        , viewControl <|
+            Control
+                "Line width"
+                """
+                The maximum width of a line.
+                """
+                (Slider
+                    { min = 1.0
+                    , max = 20.0
+                    , step = 0.1
+                    , value = settings.lineWidth
+                    , onInput =
+                        \value ->
+                            String.toFloat value
+                                |> Maybe.withDefault 0.0
+                                |> SetLineWidth
+                                |> SaveSetting
+                    , toString = formatFloat 1
+                    }
+                )
+        , viewControl <|
+            Control
+                "Line fade offset"
+                """
+                The point along a line when it begins to fade out.
+                """
+                (Slider
+                    { min = 0.0
+                    , max = 1.0
+                    , step = 0.01
+                    , value = settings.lineBeginOffset
+                    , onInput =
+                        \value ->
+                            String.toFloat value
+                                |> Maybe.withDefault 0.0
+                                |> SetLineBeginOffset
+                                |> SaveSetting
+                    , toString = formatFloat 2
+                    }
+                )
         ]
 
 
@@ -302,10 +380,10 @@ viewControl { title, description, input } =
         ]
 
 
-formatFloat : Float -> String
-formatFloat value =
+formatFloat : Int -> Float -> String
+formatFloat decimals value =
     F.format
-        { decimals = F.Exact 1
+        { decimals = F.Exact decimals
         , system = F.Western
         , thousandSeparator = ","
         , decimalSeparator = "."
