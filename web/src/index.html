@@ -180,9 +180,7 @@
         padding: 4rem 3rem;
         border-radius: 13px;
         border: 1px solid rgb(10, 10, 20);
-        background-color: rgba(5, 5, 7, 0.7);
-        -webkit-backdrop-filter: blur(12px);
-        backdrop-filter: blur(12px);
+        background-color: rgba(5, 5, 7, 0.98);
         max-height: calc(100vh - 2 * 4rem - 0.6rem);
         max-width: 660px;
         overflow-y: scroll;
@@ -190,6 +188,13 @@
         position: relative;
         z-index: 100;
         align-self: flex-start;
+      }
+
+      @supports (backdrop-filter: none) {
+        .control-container {
+          backdrop-filter: blur(12px);
+          background-color: rgba(5, 5, 7, 0.7);
+        }
       }
 
       .visible {
