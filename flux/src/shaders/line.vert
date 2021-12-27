@@ -39,5 +39,5 @@ void main() {
 
   vVertex = lineVertex;
   vColor = iColor;
-  vTotalOpacity = smoothstep(30.0, 80.0, length(endpoint - basepoint));
+  vTotalOpacity = smoothstep(0.15, 0.4, length(endpoint - basepoint) / uLineLength);
 }

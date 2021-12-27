@@ -15,6 +15,10 @@ let settings = {
   fluidHeight: 128,
   diffusionIterations: 10,
   pressureIterations: 30,
+
+  lineLength: 200.0,
+  lineWidth: 6.0,
+  lineBeginOffset: 0.4,
 };
 
 // Set up Elm UI

@@ -9,5 +9,5 @@ in float vTotalOpacity;
 out vec4 fragColor;
 
 void main() {
-  fragColor = vec4(vColor, 0.9 * vTotalOpacity);
+  fragColor = vec4(vColor, vTotalOpacity);
 }

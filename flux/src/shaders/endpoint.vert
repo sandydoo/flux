@@ -73,5 +73,5 @@ void main() {
   vPosition = vertex;
   vColor = iColor;
   vSize = height;
-  vTotalOpacity = smoothstep(20.0, 50.0, length(endpoint - basepoint));
+  vTotalOpacity = smoothstep(0.1, 0.25, height);
 }
