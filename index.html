@@ -141,33 +141,46 @@
         background-color: black;
       }
 
-      #controls {
-        position: fixed;
-        top: 0;
-        right: 0;
-        height: 100%;
-        width: 100%;
-
+      .control-panel {
         display: flex;
-        flex-direction: column;
+        flex-direction: row;
+
+        /* do not touch opacity. it breaks backdrop-filter in chrome/firefox */
+        visibility: hidden;
+        opacity: 1;
+        transition: 0.3s opacity, 0.3s visibility;
+
+        margin-left: 0.3rem;
+        margin-right: 0.3rem;
       }
 
       .active {
         color: var(--body-color);
       }
 
-      .controls {
-        margin: auto;
-        /* do not touch opacity. it breaks backdrop-filter in chrome/firefox */
-        visibility: hidden;
-        transition: 0.3s visibility;
-        overflow-y: scroll;
-        height: 100%;
+      .control-container {
+        opacity: 0;
+        transition: 0.3s opacity;
 
-        display: flex;
-        align-items: center;
+        margin: 0.3rem auto;
+        padding: 4rem 3rem;
+        border-radius: 13px;
+        border: 1px solid rgb(10, 10, 20);
+        background-color: rgba(5, 5, 7, 0.98);
+        max-height: calc(100vh - 2 * 4rem - 0.6rem);
+        max-width: 660px;
+        overflow-y: scroll;
+
         position: relative;
-        z-index: 10;
+        z-index: 100;
+        align-self: flex-start;
+      }
+
+      @supports (backdrop-filter: none) {
+        .control-container {
+          backdrop-filter: blur(12px);
+          background-color: rgba(5, 5, 7, 0.7);
+        }
       }
 
       .visible {
@@ -176,26 +189,13 @@
       }
 
       .control-list {
-        margin: 0.3rem;
-        padding: 4rem 3rem;
-        border-radius: 13px;
-        border: 1px solid rgb(10, 10, 20);
-        background-color: rgba(5, 5, 7, 0.7);
-        -webkit-backdrop-filter: blur(12px);
-        backdrop-filter: blur(12px);
-
-        align-self: flex-start;
         display: grid;
         grid-template-columns: 1fr;
         gap: 2.6rem;
-        max-width: 660px;
-
-        opacity: 0;
-        transition: 0.3s opacity, 0.3s visibility;
       }
 
       /* workaround for backdrop-filter not working when the parent element has an opacity less than 1 */
-      .visible .control-list {
+      .visible .control-container {
         opacity: 1;
       }
 
@@ -271,8 +271,11 @@
           grid-column: span 2;
         }
 
-        .control-list {
+        .control-container {
           align-self: center;
+        }
+
+        .control-list {
           grid-template-columns: 1fr 1fr;
         }
 
