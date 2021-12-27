@@ -1,11 +1,13 @@
 port module Main exposing (..)
 
 import Browser
+import Browser.Events as BrowserEvent
 import FormatNumber as F
 import FormatNumber.Locales as F
 import Html exposing (Html)
 import Html.Attributes as HA
 import Html.Events as Event
+import Json.Decode as Decode
 
 
 
@@ -20,7 +22,7 @@ main =
     Browser.element
         { init = init
         , update = update
-        , subscriptions = \_ -> Sub.none
+        , subscriptions = subscriptions
         , view = view
         }
 
@@ -59,14 +61,14 @@ init initialSettings =
 
 
 type Msg
-    = Toggle
+    = ToggleControls
     | SaveSetting SettingMsg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        Toggle ->
+        ToggleControls ->
             ( { model | isOpen = not model.isOpen }, Cmd.none )
 
         SaveSetting settingToUpdate ->
@@ -100,6 +102,32 @@ updateSettings msg settings =
 
         SetPressureIterations newPressureIterations ->
             { settings | pressureIterations = newPressureIterations }
+
+
+
+-- SUBSCRIPTIONS
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    if model.isOpen then
+        BrowserEvent.onKeyDown toggleControlsOnEscape
+
+    else
+        Sub.none
+
+
+toggleControlsOnEscape : Decode.Decoder Msg
+toggleControlsOnEscape =
+    Decode.field "key" Decode.string
+        |> Decode.andThen
+            (\string ->
+                if string == "Escape" then
+                    Decode.succeed ToggleControls
+
+                else
+                    Decode.fail ""
+            )
 
 
 
@@ -144,7 +172,7 @@ view model =
             [ Html.ul [ HA.class "nav" ]
                 [ Html.li []
                     [ Html.button
-                        [ Event.onClick Toggle
+                        [ Event.onClick ToggleControls
                         , HA.class <|
                             if model.isOpen then
                                 "active"
@@ -176,7 +204,7 @@ viewSettings settings =
         [ Html.div
             [ HA.class "col-span-2-md" ]
             [ Html.button
-                [ Event.onClick Toggle, HA.class "text-secondary" ]
+                [ Event.onClick ToggleControls, HA.class "text-secondary" ]
                 [ Html.text "← Back" ]
             , Html.h2 [] [ Html.text "Fluid simulation" ]
             ]
