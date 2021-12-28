@@ -10,7 +10,7 @@ use drawer::Drawer;
 use fluid::Fluid;
 use noise::Noise;
 use settings::Settings;
-use web::ContextOptions;
+use web::{Canvas, ContextOptions};
 
 use std::rc::Rc;
 
@@ -153,11 +153,7 @@ fn get_rendering_context() -> Result<(Rc<GL>, u32, u32), JsValue> {
     html_canvas.set_width(width);
     html_canvas.set_height(height);
 
-    // Get offscreen canvas to decouple ourselves from the DOM.
-    // Performance is much better, but the only browser that has it implemented
-    // is Chrome.
-    // let canvas = html_canvas.transfer_control_to_offscreen()?;
-    let canvas = html_canvas;
+    let canvas = Canvas::new(html_canvas);
 
     let options = ContextOptions {
         // Disabling alpha can lead to poor performance on some platforms.
