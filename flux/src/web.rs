@@ -24,6 +24,38 @@ impl ContextOptions {
     }
 }
 
+// An offscreen canvas decouples our canvas from the DOM. Not having to sync
+// with the DOM greatly improves performance, but browser support is poor.
+// AFAIK, Chrome is the only browser that has implemented the feature.
+pub enum Canvas {
+    OnscreenCanvas(web_sys::HtmlCanvasElement),
+    OffscreenCanvas(web_sys::OffscreenCanvas),
+}
+
+impl Canvas {
+    pub fn new(html_canvas: web_sys::HtmlCanvasElement) -> Self {
+        match html_canvas.transfer_control_to_offscreen() {
+            Ok(offscreen_canvas) => Canvas::OffscreenCanvas(offscreen_canvas),
+            Err(_) => Canvas::OnscreenCanvas(html_canvas),
+        }
+    }
+
+    pub fn get_context_with_context_options(
+        &self,
+        context_id: &str,
+        context_options: &JsValue,
+    ) -> Result<Option<js_sys::Object>, JsValue> {
+        match self {
+            Canvas::OnscreenCanvas(canvas) => {
+                canvas.get_context_with_context_options(context_id, context_options)
+            }
+            Canvas::OffscreenCanvas(canvas) => {
+                canvas.get_context_with_context_options(context_id, context_options)
+            }
+        }
+    }
+}
+
 pub fn window() -> Window {
     web_sys::window().expect("The global `window` doesn’t exist")
 }
