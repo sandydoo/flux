@@ -1,9 +1,18 @@
 {
+  "name": "flux",
+  "description": "An ode to the macOS Drift screensaver that runs in the browser",
+  "version": "0.0.1",
   "author": "Sander Melnikov <hey@sandydoo.me>",
+  "license": "MIT",
+  "private": true,
   "scripts": {
     "build": "webpack --mode production",
     "serve": "webpack serve",
     "deploy": "pnpm build && gh-pages -d dist"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sandydoo/flux/web/"
   },
   "devDependencies": {
     "@wasm-tool/wasm-pack-plugin": "1.6.0",
