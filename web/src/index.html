@@ -13,6 +13,8 @@
 
     <style>
       :root {
+        color-scheme: dark;
+
         --body-color: #f0ffff;
         --body-secondary-color: #99a2a2;
         --body-sub-color: #272929;
@@ -36,6 +38,7 @@
         height: 100%;
         width: 100%;
         background-color: black;
+        overflow: hidden;
       }
 
       body {
@@ -183,7 +186,7 @@
         background-color: rgba(5, 5, 7, 0.98);
         max-height: calc(100vh - 2 * 4rem - 0.6rem);
         max-width: 660px;
-        overflow-y: scroll;
+        overflow-y: auto;
 
         position: relative;
         z-index: 100;
