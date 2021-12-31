@@ -14,6 +14,7 @@ in vec3 iColor;
 uniform float uLineWidth;
 uniform float uLineLength;
 uniform mat4 uProjection;
+uniform mat4 uView;
 
 out vec2 vVertex;
 out vec3 vColor;
@@ -35,7 +36,7 @@ void main() {
   vec2 yBasis = normalize(vec2(-xBasis.y, xBasis.x));
   vec2 point = basepoint + xBasis * lineVertex.x + yBasis * (iLineWidth * uLineWidth) * lineVertex.y;
 
-  gl_Position = uProjection * vec4(point, 0.0, 1.0);
+  gl_Position = uProjection * uView * vec4(point, 0.0, 1.0);
 
   vVertex = lineVertex;
   vColor = iColor;
