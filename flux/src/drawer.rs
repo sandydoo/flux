@@ -44,6 +44,7 @@ pub struct Drawer {
     draw_texture_pass: render::RenderPass,
 
     projection_matrix: glm::TMat4<f32>,
+    view_matrix: glm::TMat4<f32>,
 }
 
 impl Drawer {
@@ -248,7 +249,7 @@ impl Drawer {
         // Projection
         let half_width = (grid_width as f32) / 2.0;
         let half_height = (grid_height as f32) / 2.0;
-        let ortho_projection_matrix = glm::ortho(
+        let projection_matrix = glm::ortho(
             -half_width,
             half_width,
             -half_height,
@@ -257,10 +258,7 @@ impl Drawer {
             1.0,
         );
 
-        let projection_matrix = glm::scale(
-            &ortho_projection_matrix,
-            &glm::vec3(view_scale, view_scale, 1.0),
-        );
+        let view_matrix = glm::scale(&glm::identity(), &glm::vec3(view_scale, view_scale, 1.0));
 
         // Colors
         let color_wheel = [
@@ -294,6 +292,7 @@ impl Drawer {
             draw_texture_pass,
 
             projection_matrix,
+            view_matrix,
         })
     }
 
@@ -422,6 +421,10 @@ impl Drawer {
                         name: "uProjection",
                         value: UniformValue::Mat4(self.projection_matrix.as_slice()),
                     },
+                    Uniform {
+                        name: "uView",
+                        value: UniformValue::Mat4(self.view_matrix.as_slice()),
+                    },
                 ],
                 None,
                 self.line_count,
@@ -487,6 +490,10 @@ impl Drawer {
                     Uniform {
                         name: "uProjection",
                         value: UniformValue::Mat4(self.projection_matrix.as_slice()),
+                    },
+                    Uniform {
+                        name: "uView",
+                        value: UniformValue::Mat4(self.view_matrix.as_slice()),
                     },
                 ],
                 None,

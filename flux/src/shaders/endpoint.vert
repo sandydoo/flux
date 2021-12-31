@@ -6,6 +6,7 @@ precision highp sampler2D;
 uniform float uLineWidth;
 uniform float uLineLength;
 uniform mat4 uProjection;
+uniform mat4 uView;
 
 in vec2 vertex;
 in vec2 basepoint;
@@ -68,7 +69,7 @@ void main() {
     0.0, 0.0, 0.0, 1.0
   );
 
-  gl_Position = uProjection * translate(vec3(endpoint, 0.0)) * rotateZ(angle) * modelMatrix * vec4(vertex, 0.0, 1.0);
+  gl_Position = uProjection * uView * translate(vec3(endpoint, 0.0)) * rotateZ(angle) * modelMatrix * vec4(vertex, 0.0, 1.0);
 
   vPosition = vertex;
   vColor = iColor;

@@ -66,7 +66,8 @@ impl Flux {
         )
         .unwrap();
 
-        let drawer = Drawer::new(&context, width, height, &settings, grid_spacing, view_scale).unwrap();
+        let drawer =
+            Drawer::new(&context, width, height, &settings, grid_spacing, view_scale).unwrap();
 
         noise.generate(0.0);
         noise.blend_noise_into(&fluid.get_velocity_textures(), fluid_frame_time);
