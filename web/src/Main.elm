@@ -45,6 +45,15 @@ type alias Settings =
     , lineLength : Float
     , lineWidth : Float
     , lineBeginOffset : Float
+    , noiseChannel1 : Noise
+    , noiseChannel2 : Noise
+    }
+
+
+type alias Noise =
+    { scale : Float
+    , multiplier : Float
+    , blendDuration : Float
     }
 
 
@@ -92,6 +101,14 @@ type SettingMsg
     | SetLineLength Float
     | SetLineWidth Float
     | SetLineBeginOffset Float
+    | SetNoiseChannel1 NoiseMsg
+    | SetNoiseChannel2 NoiseMsg
+
+
+type NoiseMsg
+    = SetNoiseScale Float
+    | SetNoiseMultiplier Float
+    | SetNoiseBlendDuration Float
 
 
 updateSettings : SettingMsg -> Settings -> Settings
@@ -117,6 +134,25 @@ updateSettings msg settings =
 
         SetLineBeginOffset newLineBeginOffset ->
             { settings | lineBeginOffset = newLineBeginOffset }
+
+        SetNoiseChannel1 noiseMsg ->
+            { settings | noiseChannel1 = updateNoise noiseMsg settings.noiseChannel1 }
+
+        SetNoiseChannel2 noiseMsg ->
+            { settings | noiseChannel2 = updateNoise noiseMsg settings.noiseChannel2 }
+
+
+updateNoise : NoiseMsg -> Noise -> Noise
+updateNoise msg noise =
+    case msg of
+        SetNoiseScale newScale ->
+            { noise | scale = newScale }
+
+        SetNoiseMultiplier newMultiplier ->
+            { noise | multiplier = newMultiplier }
+
+        SetNoiseBlendDuration newBlendDuration ->
+            { noise | blendDuration = newBlendDuration }
 
 
 
@@ -367,6 +403,75 @@ viewSettings settings =
                                 |> SetLineBeginOffset
                                 |> SaveSetting
                     , toString = formatFloat 2
+                    }
+                )
+        , Html.div
+            [ HA.class "col-span-2-md" ]
+            [ Html.h2 [] [ Html.text "Noise" ] ]
+        , viewNoiseChannel "Channel 1" SetNoiseChannel1 settings.noiseChannel1
+        , viewNoiseChannel "Channel 2" SetNoiseChannel2 settings.noiseChannel2
+        ]
+
+
+viewNoiseChannel title setNoiseChannel noiseChannel =
+    Html.div
+        [ HA.class "control-list-single" ]
+        [ Html.h4 [] [ Html.text title ]
+        , viewControl <|
+            Control
+                "Scale"
+                ""
+                (Slider
+                    { min = 0.1
+                    , max = 30.0
+                    , step = 0.1
+                    , value = noiseChannel.scale
+                    , onInput =
+                        \value ->
+                            String.toFloat value
+                                |> Maybe.withDefault 0.0
+                                |> SetNoiseScale
+                                |> setNoiseChannel
+                                |> SaveSetting
+                    , toString = formatFloat 1
+                    }
+                )
+        , viewControl <|
+            Control
+                "Strength"
+                ""
+                (Slider
+                    { min = 0.0
+                    , max = 3.0
+                    , step = 0.1
+                    , value = noiseChannel.multiplier
+                    , onInput =
+                        \value ->
+                            String.toFloat value
+                                |> Maybe.withDefault 0.0
+                                |> SetNoiseMultiplier
+                                |> setNoiseChannel
+                                |> SaveSetting
+                    , toString = formatFloat 1
+                    }
+                )
+        , viewControl <|
+            Control
+                "Blend duration"
+                ""
+                (Slider
+                    { min = 0.1
+                    , max = 10.0
+                    , step = 0.1
+                    , value = noiseChannel.blendDuration
+                    , onInput =
+                        \value ->
+                            String.toFloat value
+                                |> Maybe.withDefault 0.0
+                                |> SetNoiseBlendDuration
+                                |> setNoiseChannel
+                                |> SaveSetting
+                    , toString = formatFloat 1
                     }
                 )
         ]
