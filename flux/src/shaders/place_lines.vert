@@ -54,7 +54,7 @@ void main() {
   vVelocityVector = iVelocityVector + deltaVelocity * deltaT;
   // vVelocityVector = currentVelocityVector;
 
-  float stiffness = 0.02;
+  float stiffness = 0.05;
   vec2 backpressure = -stiffness * iEndpointVector;
   // backpressure *= clampTo(length(backpressure), 0.0);
   vVelocityVector -= backpressure * deltaT;

@@ -4,6 +4,8 @@ precision highp float;
 precision highp sampler2D;
 
 uniform float deltaT;
+uniform float uMultiplier;
+uniform float uBlendProgress;
 uniform sampler2D inputTexture;
 uniform mediump sampler2D noiseTexture;
 
@@ -26,7 +28,7 @@ void main() {
   force *= 0.5 * C;
 
   vec2 inputValue = texture(inputTexture, textureCoord).xy;
-  inputValue += force * deltaT;
+  inputValue += uBlendProgress * uMultiplier * force * deltaT;
 
   fragColor = vec4(inputValue, 0.0, 1.0);
 }

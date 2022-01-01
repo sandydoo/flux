@@ -8,17 +8,28 @@ import { Elm } from './Main.elm';
 // having two ports and setting up a chain of callbacks when starting
 // everything up. Messy.
 let settings = {
-  viscosity: 1.2,
-  velocityDissipation: 0.2,
-  adjustAdvection: 18.0,
+  viscosity: 0.2,
+  velocityDissipation: 0.01,
+  adjustAdvection: 26.0,
   fluidWidth: 128,
   fluidHeight: 128,
-  diffusionIterations: 10,
+  diffusionIterations: 5,
   pressureIterations: 30,
 
   lineLength: 200.0,
-  lineWidth: 6.0,
+  lineWidth: 8.0,
   lineBeginOffset: 0.4,
+
+  noiseChannel1: {
+    scale: 1.2,
+    multiplier: 1.0,
+    blendDuration: 4.0,
+  },
+  noiseChannel2: {
+    scale: 10.0,
+    multiplier: 0.8,
+    blendDuration: 2.0,
+  },
 };
 
 // Set up Elm UI

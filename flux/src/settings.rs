@@ -14,5 +14,15 @@ pub struct Settings {
     pub line_length: f32,
     pub line_width: f32,
     pub line_begin_offset: f32,
+
+    pub noise_channel_1: Noise,
+    pub noise_channel_2: Noise,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Noise {
+    pub scale: f32,
+    pub multiplier: f32,
+    pub blend_duration: f32,
+}
