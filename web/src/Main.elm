@@ -19,7 +19,7 @@ import Json.Encode as Encode
 port setSettings : Encode.Value -> Cmd msg
 
 
-main : Program Encode.Value Model Msg
+main : Program () Model Msg
 main =
     Browser.element
         { init = init
@@ -72,23 +72,49 @@ type alias Noise =
     }
 
 
-init : Encode.Value -> ( Model, Cmd Msg )
-init rawSettings =
+defaultSettings : Settings
+defaultSettings =
+    { viscosity = 0.4
+    , velocityDissipation = 0.0
+    , fluidWidth = 128
+    , fluidHeight = 128
+    , diffusionIterations = 5
+    , pressureIterations = 30
+    , colorScheme = Plasma
+    , lineLength = 200.0
+    , lineWidth = 8.0
+    , lineBeginOffset = 0.4
+    , adjustAdvection = 5.0
+    , noiseChannel1 =
+        { scale = 1.2
+        , multiplier = 1.8
+        , offset1 = 1.0
+        , offset2 = 10.0
+        , offsetIncrement = 10.0
+        , blendDuration = 10.0
+        }
+    , noiseChannel2 =
+        { scale = 20.0
+        , multiplier = 0.4
+        , offset1 = 1.0
+        , offset2 = 1.0
+        , offsetIncrement = 0.1
+        , blendDuration = 0.6
+        }
+    }
+
+
+init : () -> ( Model, Cmd Msg )
+init _ =
     let
-        initialSettings =
-            case Decode.decodeValue settingsDecoder rawSettings of
-                Ok settings ->
-                    settings
-
-                Err msg ->
-                    Debug.todo ("Hey! Check the settings object!\n" ++ Decode.errorToString msg)
-
         model =
             { isOpen = False
-            , settings = initialSettings
+            , settings = defaultSettings
             }
     in
-    ( model, Cmd.none )
+    ( model
+    , setSettings (encodeSettings model.settings)
+    )
 
 
 

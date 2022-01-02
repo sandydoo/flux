@@ -1,66 +1,27 @@
 import  { Flux } from '../flux-wasm';
 import { Elm } from './Main.elm';
 
+// Initialize Flux and return a closure to update the settings
+const sendToFlux = function (settings) {
+  const flux = new Flux(settings);
 
-// Settings object shared between WASM and Elm
-//
-// It would’ve been nice to have Elm be the source of truth, but that means
-// having two ports and setting up a chain of callbacks when starting
-// everything up. Messy.
-let settings = {
-  viscosity: 0.4,
-  velocityDissipation: 0.0,
-  fluidWidth: 128,
-  fluidHeight: 128,
-  diffusionIterations: 5,
-  pressureIterations: 30,
+  function animate(timestamp) {
+    flux.animate(timestamp);
+    window.requestAnimationFrame(animate);
+  }
 
-  colorScheme: "Plasma",
+  window.requestAnimationFrame(animate);
 
-  lineLength: 200.0,
-  lineWidth: 8.0,
-  lineBeginOffset: 0.4,
-  adjustAdvection: 5.0,
-
-  noiseChannel1: {
-    scale: 1.2,
-    multiplier: 1.8,
-    offset1: 1.0,
-    offset2: 10.0,
-    offsetIncrement: 10.0,
-    blendDuration: 10.0,
-  },
-  noiseChannel2: {
-    scale: 20.0,
-    multiplier: 0.4,
-    offset1: 1.0,
-    offset2: 1.0,
-    offsetIncrement: 0.1,
-    blendDuration: 0.6,
-  },
+  return (settings) => flux.settings = settings;
 };
 
 // Set up Elm UI
 const ui = Elm.Main.init({
   node: document.getElementById('controls'),
-  flags: settings,
 });
 
-// Update shared settings
+// Update settings
 ui.ports.setSettings.subscribe(function (newSettings) {
-  Object.assign(settings, newSettings);
-  flux.settings = settings;
+  sendToFlux(newSettings);
 });
-
-
-// Set up WASM
-const flux = new Flux(settings);
-
-function animate(timestamp) {
-  flux.animate(timestamp);
-  window.requestAnimationFrame(animate);
-}
-
-// Start drawing
-window.requestAnimationFrame(animate);
 
