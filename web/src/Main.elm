@@ -8,16 +8,18 @@ import Html exposing (Html)
 import Html.Attributes as HA
 import Html.Events as Event
 import Json.Decode as Decode
+import Json.Decode.Pipeline as Decode
+import Json.Encode as Encode
 
 
 
 -- PORTS
 
 
-port setSettings : Settings -> Cmd msg
+port setSettings : Encode.Value -> Cmd msg
 
 
-main : Program Settings Model Msg
+main : Program Encode.Value Model Msg
 main =
     Browser.element
         { init = init
@@ -39,16 +41,23 @@ type alias Model =
 
 type alias Settings =
     { viscosity : Float
-    , adjustAdvection : Float
     , velocityDissipation : Float
     , diffusionIterations : Int
     , pressureIterations : Int
+    , colorScheme : ColorScheme
     , lineLength : Float
     , lineWidth : Float
     , lineBeginOffset : Float
+    , adjustAdvection : Float
     , noiseChannel1 : Noise
     , noiseChannel2 : Noise
     }
+
+
+type ColorScheme
+    = Plasma
+    | Poolside
+    | Pollen
 
 
 type alias Noise =
@@ -61,15 +70,23 @@ type alias Noise =
     }
 
 
-init : Settings -> ( Model, Cmd Msg )
-init initialSettings =
+init : Encode.Value -> ( Model, Cmd Msg )
+init rawSettings =
     let
+        initialSettings =
+            case Decode.decodeValue settingsDecoder rawSettings of
+                Ok settings ->
+                    settings
+
+                Err msg ->
+                    Debug.todo ("Hey! Check the settings object!\n" ++ Decode.errorToString msg)
+
         model =
             { isOpen = False
             , settings = initialSettings
             }
     in
-    ( model, setSettings model.settings )
+    ( model, Cmd.none )
 
 
 
@@ -93,7 +110,7 @@ update msg model =
                     updateSettings settingToUpdate model.settings
             in
             ( { model | settings = newSettings }
-            , setSettings newSettings
+            , setSettings (encodeSettings newSettings)
             )
 
 
@@ -444,7 +461,8 @@ viewSettings settings =
                                 |> SaveSetting
                     , toString = formatFloat 1
                     }
-                )        , Html.div
+                )
+        , Html.div
             [ HA.class "col-span-2-md" ]
             [ Html.h2 [] [ Html.text "Noise" ] ]
         , viewNoiseChannel "Channel 1" SetNoiseChannel1 settings.noiseChannel1
@@ -641,3 +659,109 @@ toKebabcase =
                 Char.toLower char
     in
     String.map kebabify
+
+
+
+-- JSON
+
+
+encodeSettings : Settings -> Encode.Value
+encodeSettings settings =
+    Encode.object
+        [ ( "viscosity", Encode.float settings.viscosity )
+        , ( "velocityDissipation", Encode.float settings.velocityDissipation )
+        , ( "diffusionIterations", Encode.int settings.diffusionIterations )
+        , ( "pressureIterations", Encode.int settings.pressureIterations )
+        , ( "colorScheme", encodeColorScheme settings.colorScheme )
+        , ( "lineLength", Encode.float settings.lineLength )
+        , ( "lineWidth", Encode.float settings.lineWidth )
+        , ( "lineBeginOffset", Encode.float settings.lineBeginOffset)
+        , ( "adjustAdvection", Encode.float settings.adjustAdvection )
+        , ( "noiseChannel1", encodeNoise settings.noiseChannel1 )
+        , ( "noiseChannel2", encodeNoise settings.noiseChannel2 )
+        ]
+
+
+settingsDecoder =
+    Decode.succeed Settings
+        |> Decode.required "viscosity" Decode.float
+        |> Decode.required "velocityDissipation" Decode.float
+        |> Decode.required "diffusionIterations" Decode.int
+        |> Decode.required "pressureIterations" Decode.int
+        |> Decode.required "colorScheme" colorSchemeDecoder
+        |> Decode.required "lineLength" Decode.float
+        |> Decode.required "lineWidth" Decode.float
+        |> Decode.required "lineBeginOffset" Decode.float
+        |> Decode.required "adjustAdvection" Decode.float
+        |> Decode.required "noiseChannel1" noiseDecoder
+        |> Decode.required "noiseChannel2" noiseDecoder
+
+
+encodeColorScheme : ColorScheme -> Encode.Value
+encodeColorScheme =
+    colorSchemeToString >> Encode.string
+
+
+colorSchemeToString colorscheme =
+    case colorscheme of
+        Plasma ->
+            "Plasma"
+
+        Poolside ->
+            "Poolside"
+
+        Pollen ->
+            "Pollen"
+
+
+colorSchemeFromString : String -> Maybe ColorScheme
+colorSchemeFromString string =
+    case string of
+        "Plasma" ->
+            Just Plasma
+
+        "Poolside" ->
+            Just Poolside
+
+        "Pollen" ->
+            Just Pollen
+
+        _ ->
+            Nothing
+
+
+colorSchemeDecoder : Decode.Decoder ColorScheme
+colorSchemeDecoder =
+    Decode.string
+        |> Decode.andThen
+            (\value ->
+                case colorSchemeFromString value of
+                    Just colorscheme ->
+                        Decode.succeed colorscheme
+
+                    Nothing ->
+                        Decode.fail "Not a supported colorscheme"
+            )
+
+
+encodeNoise : Noise -> Encode.Value
+encodeNoise noise =
+    Encode.object
+        [ ( "scale", Encode.float noise.scale )
+        , ( "multiplier", Encode.float noise.multiplier )
+        , ( "offset1", Encode.float noise.offset1 )
+        , ( "offset2", Encode.float noise.offset2 )
+        , ( "offsetIncrement", Encode.float noise.offsetIncrement )
+        , ( "blendDuration", Encode.float noise.blendDuration )
+        ]
+
+
+noiseDecoder : Decode.Decoder Noise
+noiseDecoder =
+    Decode.succeed Noise
+        |> Decode.required "scale" Decode.float
+        |> Decode.required "multiplier" Decode.float
+        |> Decode.required "offset1" Decode.float
+        |> Decode.required "offset2" Decode.float
+        |> Decode.required "offsetIncrement" Decode.float
+        |> Decode.required "blendDuration" Decode.float

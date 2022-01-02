@@ -15,6 +15,8 @@ let settings = {
   diffusionIterations: 5,
   pressureIterations: 30,
 
+  colorScheme: "Plasma",
+
   lineLength: 200.0,
   lineWidth: 8.0,
   lineBeginOffset: 0.4,
