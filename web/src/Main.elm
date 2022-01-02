@@ -39,6 +39,7 @@ type alias Model =
 
 type alias Settings =
     { viscosity : Float
+    , adjustAdvection : Float
     , velocityDissipation : Float
     , diffusionIterations : Int
     , pressureIterations : Int
@@ -104,6 +105,7 @@ type SettingMsg
     | SetLineLength Float
     | SetLineWidth Float
     | SetLineBeginOffset Float
+    | SetAdjustAdvection Float
     | SetNoiseChannel1 NoiseMsg
     | SetNoiseChannel2 NoiseMsg
 
@@ -140,6 +142,9 @@ updateSettings msg settings =
 
         SetLineBeginOffset newLineBeginOffset ->
             { settings | lineBeginOffset = newLineBeginOffset }
+
+        SetAdjustAdvection newAdjustAdvection ->
+            { settings | adjustAdvection = newAdjustAdvection }
 
         SetNoiseChannel1 noiseMsg ->
             { settings | noiseChannel1 = updateNoise noiseMsg settings.noiseChannel1 }
@@ -420,7 +425,26 @@ viewSettings settings =
                     , toString = formatFloat 2
                     }
                 )
-        , Html.div
+        , viewControl <|
+            Control
+                "Adjust advection"
+                """
+                Adjust how quickly the lines respond to changes in the fluid.
+                """
+                (Slider
+                    { min = 0.1
+                    , max = 20.0
+                    , step = 0.1
+                    , value = settings.adjustAdvection
+                    , onInput =
+                        \value ->
+                            String.toFloat value
+                                |> Maybe.withDefault 0.0
+                                |> SetAdjustAdvection
+                                |> SaveSetting
+                    , toString = formatFloat 1
+                    }
+                )        , Html.div
             [ HA.class "col-span-2-md" ]
             [ Html.h2 [] [ Html.text "Noise" ] ]
         , viewNoiseChannel "Channel 1" SetNoiseChannel1 settings.noiseChannel1
