@@ -121,6 +121,7 @@ type SettingMsg
     | SetVelocityDissipation Float
     | SetDiffusionIterations Int
     | SetPressureIterations Int
+    | SetColorScheme ColorScheme
     | SetLineLength Float
     | SetLineWidth Float
     | SetLineBeginOffset Float
@@ -152,6 +153,9 @@ updateSettings msg settings =
 
         SetPressureIterations newPressureIterations ->
             { settings | pressureIterations = newPressureIterations }
+
+        SetColorScheme newColorScheme ->
+            { settings | colorScheme = newColorScheme }
 
         SetLineLength newLineLength ->
             { settings | lineLength = newLineLength }
@@ -296,8 +300,15 @@ viewSettings settings =
             [ Html.button
                 [ Event.onClick ToggleControls, HA.class "text-secondary" ]
                 [ Html.text "← Back" ]
-            , Html.h2 [] [ Html.text "Fluid simulation" ]
+            , Html.h2 [] [ Html.text "Colors" ]
             ]
+        , viewButtonGroup (SetColorScheme >> SaveSetting)
+            settings.colorScheme
+            [ ( "Plasma", Plasma )
+            , ( "Poolside", Poolside )
+            , ( "Pollen", Pollen )
+            ]
+        , Html.h2 [ HA.class "col-span-2-md" ] [ Html.text "Fluid simulation" ]
         , viewControl <|
             Control
                 "Viscosity"
@@ -470,6 +481,31 @@ viewSettings settings =
         , viewNoiseChannel "Channel 1" SetNoiseChannel1 settings.noiseChannel1
         , viewNoiseChannel "Channel 2" SetNoiseChannel2 settings.noiseChannel2
         ]
+
+
+viewButtonGroup : (value -> msg) -> value -> List ( String, value ) -> Html msg
+viewButtonGroup onClick active options =
+    let
+        isActive : value -> String
+        isActive value =
+            if value == active then
+                "active"
+
+            else
+                ""
+    in
+    Html.div [ HA.class "button-group col-span-2-md" ] <|
+        List.map
+            (\( name, value ) ->
+                Html.button
+                    [ HA.type_ "button"
+                    , HA.class "button"
+                    , HA.class (isActive value)
+                    , Event.onClick (onClick value)
+                    ]
+                    [ Html.text name ]
+            )
+            options
 
 
 viewNoiseChannel title setNoiseChannel noiseChannel =
@@ -679,7 +715,7 @@ encodeSettings settings =
         , ( "colorScheme", encodeColorScheme settings.colorScheme )
         , ( "lineLength", Encode.float settings.lineLength )
         , ( "lineWidth", Encode.float settings.lineWidth )
-        , ( "lineBeginOffset", Encode.float settings.lineBeginOffset)
+        , ( "lineBeginOffset", Encode.float settings.lineBeginOffset )
         , ( "adjustAdvection", Encode.float settings.adjustAdvection )
         , ( "noiseChannel1", encodeNoise settings.noiseChannel1 )
         , ( "noiseChannel2", encodeNoise settings.noiseChannel2 )

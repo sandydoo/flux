@@ -60,6 +60,25 @@
         padding: 0;
       }
 
+      .button-group {
+        display: flex;
+        align-items: center;
+        justify-content: space-evenly;
+      }
+
+      .button {
+        background-color: rgba(20, 20, 20, 0.7);
+        border: 1px solid var(--body-sub-color);
+        border-radius: 0.6em;
+        padding: 0.8em 1.5em;
+        font-weight: 600;
+        transition: border 0.15s ease-in-out;
+      }
+
+      .button.active {
+        border-color: var(--body-color);
+      }
+
       input[type=range] {
         -webkit-appearance: none;
         background: transparent;
