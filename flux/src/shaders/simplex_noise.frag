@@ -3,6 +3,9 @@ precision mediump float;
 
 uniform vec2 uResolution;
 uniform float deltaT;
+uniform float uFrequency;
+uniform float uOffset1;
+uniform float uOffset2;
 
 out vec4 fragColor;
 
@@ -101,27 +104,9 @@ void main() {
   vec2 st = gl_FragCoord.xy / uResolution.xy;
   st.x *= uResolution.x / uResolution.y;
 
-  // Large-scale noise
-  float frequency = 0.9;
-  float amplitude = 0.30;
-  float sx = snoise(vec3(st * frequency, 0.3 * deltaT)) * amplitude;
-  float sy = snoise(vec3(st * frequency, 0.3 * deltaT)) * amplitude;
+  float sx = snoise(vec3(st * uFrequency, uOffset1));
+  float sy = snoise(vec3(st * uFrequency, uOffset2));
 
-  // Smaller high-frequency jiggle
-  float noiseFrequency = 30.0;
-  float noiseAmplitude = 0.08;
-  float rx = snoise(vec3(st * noiseFrequency, 0.4 * deltaT)) * noiseAmplitude;
-  float ry = snoise(vec3(st * noiseFrequency, 0.4 * deltaT)) * noiseAmplitude;
-
-  float multiplier = 1.0;
-  float noiseAmount = 0.7;
-  float jiggleAmount = 1.0 - noiseAmount;
-
-  fragColor = multiplier *
-    vec4(jiggleAmount * rx + noiseAmount * sx,
-         jiggleAmount * ry + noiseAmount * sy,
-         0.0,
-         1.0
-    );
+  fragColor = vec4(sx, sy, 0.0, 1.0);
 }
 

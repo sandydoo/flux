@@ -8,8 +8,8 @@ mod web;
 
 use drawer::Drawer;
 use fluid::Fluid;
-use noise::Noise;
-use settings::Settings;
+use noise::NoiseInjector;
+use settings::{Noise, Settings};
 use web::{Canvas, ContextOptions};
 
 use std::rc::Rc;
@@ -22,7 +22,8 @@ use web_sys::WebGl2RenderingContext as GL;
 pub struct Flux {
     fluid: Fluid,
     drawer: Drawer,
-    noise: Noise,
+    noise_channel_1: NoiseInjector,
+    noise_channel_2: NoiseInjector,
     settings: Rc<Settings>,
 
     context: Rc<GL>,
@@ -39,8 +40,13 @@ impl Flux {
     pub fn set_settings(&mut self, settings_object: &JsValue) -> () {
         let new_settings: Settings = settings_object.into_serde().unwrap();
         self.settings = Rc::new(new_settings);
+
         self.fluid.update_settings(&self.settings);
         self.drawer.update_settings(&self.settings);
+        self.noise_channel_1
+            .update_noise(self.settings.noise_channel_1.clone());
+        self.noise_channel_2
+            .update_noise(self.settings.noise_channel_2.clone());
     }
 
     #[wasm_bindgen(constructor)]
@@ -54,30 +60,39 @@ impl Flux {
         let fluid_frame_time: f32 = 1.0 / fluid_simulation_fps;
 
         let grid_spacing: u32 = 12;
-        let view_scale: f32 = 1.4;
+        let view_scale: f32 = 2.0;
 
         // TODO: deal with result
         let fluid = Fluid::new(&context, &settings).unwrap();
 
-        let mut noise = Noise::new(
-            &context,
-            2 * settings.fluid_width,
-            2 * settings.fluid_height,
-        )
-        .unwrap();
-
         let drawer =
             Drawer::new(&context, width, height, &settings, grid_spacing, view_scale).unwrap();
 
-        noise.generate(0.0);
-        noise.blend_noise_into(&fluid.get_velocity_textures(), fluid_frame_time);
-        // Finish setup before running the main rendering loop
+        let mut noise_channel_1 = NoiseInjector::new(
+            &context,
+            drawer.grid_width,
+            drawer.grid_height,
+            settings.noise_channel_1.clone(),
+        )
+        .unwrap();
+
+        let mut noise_channel_2 = NoiseInjector::new(
+            &context,
+            drawer.grid_width,
+            drawer.grid_height,
+            settings.noise_channel_2.clone(),
+        )
+        .unwrap();
+
+        noise_channel_1.generate_now(0.0);
+        noise_channel_2.generate_now(0.0);
         context.flush();
 
         Flux {
             fluid,
             drawer,
-            noise,
+            noise_channel_1,
+            noise_channel_2,
             settings,
 
             context,
@@ -100,14 +115,18 @@ impl Flux {
         self.elapsed_time += timestep;
         self.frame_time += timestep;
 
-        while self.frame_time >= self.fluid_frame_time {
-            self.noise.generate(self.elapsed_time);
+        self.noise_channel_1.generate(self.elapsed_time);
+        self.noise_channel_2.generate(self.elapsed_time);
 
+        self.noise_channel_1
+            .blend_noise_into(&self.fluid.get_velocity_textures(), self.elapsed_time);
+
+        self.noise_channel_2
+            .blend_noise_into(&self.fluid.get_velocity_textures(), self.elapsed_time);
+
+        while self.frame_time >= self.fluid_frame_time {
             // Convection
             self.fluid.advect(self.fluid_frame_time);
-
-            self.noise
-                .blend_noise_into(&self.fluid.get_velocity_textures(), self.fluid_frame_time);
 
             self.fluid.diffuse(self.fluid_frame_time);
 
@@ -122,9 +141,10 @@ impl Flux {
         }
 
         // Debugging
-        // drawer.draw_texture(&noise.get_noise());
-        // drawer.draw_texture(&fluid.get_velocity());
-        // drawer.draw_texture(&fluid.get_pressure());
+        // self.drawer.draw_texture(&self.noise_channel_1.get_noise());
+        // self.drawer.draw_texture(&self.noise_channel_2.get_noise());
+        // self.drawer.draw_texture(&self.fluid.get_velocity());
+        // self.drawer.draw_texture(&self.fluid.get_pressure());
 
         // TODO: the line animation is still dependent on the client’s fps. Is
         // this worth fixing?

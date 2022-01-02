@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
     pub viscosity: f32,
@@ -14,5 +14,18 @@ pub struct Settings {
     pub line_length: f32,
     pub line_width: f32,
     pub line_begin_offset: f32,
+
+    pub noise_channel_1: Noise,
+    pub noise_channel_2: Noise,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Noise {
+    pub scale: f32,
+    pub multiplier: f32,
+    pub offset_1: f32,
+    pub offset_2: f32,
+    pub offset_increment: f32,
+    pub blend_duration: f32,
+}
