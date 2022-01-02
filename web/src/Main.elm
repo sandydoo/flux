@@ -297,7 +297,7 @@ viewSettings settings =
                 )
         , viewControl <|
             Control
-                "Velocity diffusion"
+                "Velocity dissipation"
                 """
                 Velocity should decrease, or dissipate, as it travels through a fluid.
                 """
