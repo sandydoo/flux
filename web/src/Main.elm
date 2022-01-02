@@ -53,6 +53,9 @@ type alias Settings =
 type alias Noise =
     { scale : Float
     , multiplier : Float
+    , offset1 : Float
+    , offset2 : Float
+    , offsetIncrement : Float
     , blendDuration : Float
     }
 
@@ -108,6 +111,9 @@ type SettingMsg
 type NoiseMsg
     = SetNoiseScale Float
     | SetNoiseMultiplier Float
+    | SetNoiseOffset1 Float
+    | SetNoiseOffset2 Float
+    | SetNoiseOffsetIncrement Float
     | SetNoiseBlendDuration Float
 
 
@@ -150,6 +156,15 @@ updateNoise msg noise =
 
         SetNoiseMultiplier newMultiplier ->
             { noise | multiplier = newMultiplier }
+
+        SetNoiseOffset1 newOffset ->
+            { noise | offset1 = newOffset }
+
+        SetNoiseOffset2 newOffset ->
+            { noise | offset2 = newOffset }
+
+        SetNoiseOffsetIncrement newOffsetIncrement ->
+            { noise | offsetIncrement = newOffsetIncrement }
 
         SetNoiseBlendDuration newBlendDuration ->
             { noise | blendDuration = newBlendDuration }
@@ -416,7 +431,10 @@ viewSettings settings =
 viewNoiseChannel title setNoiseChannel noiseChannel =
     Html.div
         [ HA.class "control-list-single" ]
-        [ Html.h4 [] [ Html.text title ]
+        [ Html.div []
+            [ Html.h4 [] [ Html.text title ]
+            , Html.p [ HA.class "control-description" ] [ Html.text "Simplex noise" ]
+            ]
         , viewControl <|
             Control
                 "Scale"
@@ -450,6 +468,63 @@ viewNoiseChannel title setNoiseChannel noiseChannel =
                             String.toFloat value
                                 |> Maybe.withDefault 0.0
                                 |> SetNoiseMultiplier
+                                |> setNoiseChannel
+                                |> SaveSetting
+                    , toString = formatFloat 1
+                    }
+                )
+        , viewControl <|
+            Control
+                "Offset 1"
+                ""
+                (Slider
+                    { min = 0.0
+                    , max = 100.0
+                    , step = 1.0
+                    , value = noiseChannel.offset1
+                    , onInput =
+                        \value ->
+                            String.toFloat value
+                                |> Maybe.withDefault 0.0
+                                |> SetNoiseOffset1
+                                |> setNoiseChannel
+                                |> SaveSetting
+                    , toString = formatFloat 1
+                    }
+                )
+        , viewControl <|
+            Control
+                "Offset 2"
+                ""
+                (Slider
+                    { min = 0.0
+                    , max = 100.0
+                    , step = 1.0
+                    , value = noiseChannel.offset2
+                    , onInput =
+                        \value ->
+                            String.toFloat value
+                                |> Maybe.withDefault 0.0
+                                |> SetNoiseOffset2
+                                |> setNoiseChannel
+                                |> SaveSetting
+                    , toString = formatFloat 1
+                    }
+                )
+        , viewControl <|
+            Control
+                "Offset increment"
+                ""
+                (Slider
+                    { min = 0.0
+                    , max = 1000.0
+                    , step = 1.0
+                    , value = noiseChannel.offsetIncrement
+                    , onInput =
+                        \value ->
+                            String.toFloat value
+                                |> Maybe.withDefault 0.0
+                                |> SetNoiseOffsetIncrement
                                 |> setNoiseChannel
                                 |> SaveSetting
                     , toString = formatFloat 1

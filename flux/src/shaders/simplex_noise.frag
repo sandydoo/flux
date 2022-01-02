@@ -4,6 +4,8 @@ precision mediump float;
 uniform vec2 uResolution;
 uniform float deltaT;
 uniform float uFrequency;
+uniform float uOffset1;
+uniform float uOffset2;
 
 out vec4 fragColor;
 
@@ -102,8 +104,8 @@ void main() {
   vec2 st = gl_FragCoord.xy / uResolution.xy;
   st.x *= uResolution.x / uResolution.y;
 
-  float sx = snoise(vec3(st * uFrequency, deltaT));
-  float sy = snoise(vec3(st * uFrequency, deltaT));
+  float sx = snoise(vec3(st * uFrequency, uOffset1));
+  float sy = snoise(vec3(st * uFrequency, uOffset2));
 
   fragColor = vec4(sx, sy, 0.0, 1.0);
 }

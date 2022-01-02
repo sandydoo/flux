@@ -19,6 +19,8 @@ pub struct NoiseInjector {
 
     pub blend_begin_time: f32,
     last_blend_progress: f32,
+    offset1: f32,
+    offset2: f32,
 
     texture: Framebuffer,
     generate_noise_pass: RenderPass,
@@ -104,6 +106,8 @@ impl NoiseInjector {
 
             blend_begin_time: 0.0,
             last_blend_progress: 0.0,
+            offset1: noise.offset_1,
+            offset2: noise.offset_2,
 
             texture,
             generate_noise_pass,
@@ -124,8 +128,16 @@ impl NoiseInjector {
                         value: UniformValue::Vec2([width as f32, height as f32]),
                     },
                     Uniform {
-                        name: "deltaT",
-                        value: UniformValue::Float(elapsed_time),
+                        name: "uOffset1",
+                        value: UniformValue::Float(self.offset1),
+                    },
+                    Uniform {
+                        name: "uOffset2",
+                        value: UniformValue::Float(self.offset2),
+                    },
+                    Uniform {
+                        name: "uOffsetIncrement",
+                        value: UniformValue::Float(self.noise.offset_increment),
                     },
                     Uniform {
                         name: "uFrequency",
@@ -138,6 +150,8 @@ impl NoiseInjector {
 
         self.blend_begin_time = elapsed_time;
         self.last_blend_progress = 0.0;
+        self.offset1 += self.noise.offset_increment;
+        self.offset2 += self.noise.offset_increment;
     }
 
     pub fn generate(&mut self, elapsed_time: f32) -> () {
