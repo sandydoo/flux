@@ -42,24 +42,16 @@ vec3 getColor(vec3 wheel[6], float angle) {
 }
 
 void main() {
-  float maxAcceleration = 0.05;
-  float maxVelocity = 1.0;
-
   vec2 basepointInClipSpace = (uProjection * vec4(basepoint, 0.0, 1.0)).xy;
   vec2 currentVelocityVector = texture(velocityTexture, basepointInClipSpace * 0.5 + 0.5).xy;
 
   vec2 deltaVelocity = currentVelocityVector - iVelocityVector;
-  deltaVelocity *= clampTo(length(deltaVelocity), maxAcceleration);
 
   vVelocityVector = iVelocityVector + deltaVelocity * deltaT;
-  // vVelocityVector = currentVelocityVector;
 
-  float stiffness = 0.05;
+  float stiffness = 0.4;
   vec2 backpressure = -stiffness * iEndpointVector;
-  // backpressure *= clampTo(length(backpressure), 0.0);
   vVelocityVector -= backpressure * deltaT;
-
-  // vVelocityVector *= clampTo(length(vVelocityVector), maxVelocity);
 
   // advect forward
   vEndpointVector = iEndpointVector - vVelocityVector * deltaT;

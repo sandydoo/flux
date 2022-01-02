@@ -118,17 +118,11 @@ impl Flux {
         self.noise_channel_1.generate(self.elapsed_time);
         self.noise_channel_2.generate(self.elapsed_time);
 
-        self.noise_channel_1.blend_noise_into(
-            &self.fluid.get_velocity_textures(),
-            self.fluid_frame_time,
-            self.elapsed_time,
-        );
+        self.noise_channel_1
+            .blend_noise_into(&self.fluid.get_velocity_textures(), self.elapsed_time);
 
-        self.noise_channel_2.blend_noise_into(
-            &self.fluid.get_velocity_textures(),
-            self.fluid_frame_time,
-            self.elapsed_time,
-        );
+        self.noise_channel_2
+            .blend_noise_into(&self.fluid.get_velocity_textures(), self.elapsed_time);
 
         while self.frame_time >= self.fluid_frame_time {
             // Convection

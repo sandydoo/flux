@@ -28,7 +28,7 @@ void main() {
   force *= 0.5 * C;
 
   vec2 inputValue = texture(inputTexture, textureCoord).xy;
-  inputValue += uBlendProgress * uMultiplier * force * deltaT;
+  inputValue += uBlendProgress * uMultiplier * force;
 
   fragColor = vec4(inputValue, 0.0, 1.0);
 }

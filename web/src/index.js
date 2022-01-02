@@ -8,9 +8,9 @@ import { Elm } from './Main.elm';
 // having two ports and setting up a chain of callbacks when starting
 // everything up. Messy.
 let settings = {
-  adjustAdvection: 26.0,
   viscosity: 0.4,
   velocityDissipation: 0.0,
+  adjustAdvection: 3.0,
   fluidWidth: 128,
   fluidHeight: 128,
   diffusionIterations: 5,

@@ -162,12 +162,7 @@ impl NoiseInjector {
         }
     }
 
-    pub fn blend_noise_into(
-        &mut self,
-        textures: &DoubleFramebuffer,
-        timestep: f32,
-        elapsed_time: f32,
-    ) -> () {
+    pub fn blend_noise_into(&mut self, textures: &DoubleFramebuffer, elapsed_time: f32) -> () {
         let blend_progress: f32 =
             ((elapsed_time - self.blend_begin_time) / self.noise.blend_duration).clamp(0.0, 1.0);
 
@@ -183,10 +178,6 @@ impl NoiseInjector {
                             1.0 / self.texture.width as f32,
                             1.0 / self.texture.height as f32,
                         ]),
-                    },
-                    Uniform {
-                        name: "deltaT",
-                        value: UniformValue::Float(timestep),
                     },
                     Uniform {
                         name: "uMultiplier",
