@@ -42,6 +42,8 @@ type alias Model =
 type alias Settings =
     { viscosity : Float
     , velocityDissipation : Float
+    , fluidWidth : Int
+    , fluidHeight : Int
     , diffusionIterations : Int
     , pressureIterations : Int
     , colorScheme : ColorScheme
@@ -670,6 +672,8 @@ encodeSettings settings =
     Encode.object
         [ ( "viscosity", Encode.float settings.viscosity )
         , ( "velocityDissipation", Encode.float settings.velocityDissipation )
+        , ( "fluidWidth", Encode.int settings.fluidWidth )
+        , ( "fluidHeight", Encode.int settings.fluidHeight )
         , ( "diffusionIterations", Encode.int settings.diffusionIterations )
         , ( "pressureIterations", Encode.int settings.pressureIterations )
         , ( "colorScheme", encodeColorScheme settings.colorScheme )
@@ -686,6 +690,8 @@ settingsDecoder =
     Decode.succeed Settings
         |> Decode.required "viscosity" Decode.float
         |> Decode.required "velocityDissipation" Decode.float
+        |> Decode.required "fluidWidth" Decode.int
+        |> Decode.required "fluidHeight" Decode.int
         |> Decode.required "diffusionIterations" Decode.int
         |> Decode.required "pressureIterations" Decode.int
         |> Decode.required "colorScheme" colorSchemeDecoder
