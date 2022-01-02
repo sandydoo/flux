@@ -16,6 +16,9 @@ import Json.Encode as Encode
 -- PORTS
 
 
+port initFlux : Encode.Value -> Cmd msg
+
+
 port setSettings : Encode.Value -> Cmd msg
 
 
@@ -113,7 +116,7 @@ init _ =
             }
     in
     ( model
-    , setSettings (encodeSettings model.settings)
+    , initFlux (encodeSettings model.settings)
     )
 
 
