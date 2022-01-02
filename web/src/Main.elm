@@ -518,7 +518,7 @@ viewNoiseChannel title setNoiseChannel noiseChannel =
                 (Slider
                     { min = 0.0
                     , max = 1000.0
-                    , step = 1.0
+                    , step = 0.1
                     , value = noiseChannel.offsetIncrement
                     , onInput =
                         \value ->

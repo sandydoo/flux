@@ -5,7 +5,6 @@ use render::{
 };
 use settings::Noise;
 
-use std::rc::Rc;
 use web_sys::WebGl2RenderingContext as GL;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -15,9 +14,9 @@ static SIMPLEX_NOISE_FRAG_SHADER: &'static str = include_str!("./shaders/simplex
 static BLEND_NOISE_FRAG_SHADER: &'static str = include_str!("./shaders/blend_noise.frag");
 
 pub struct NoiseInjector {
-    noise: Rc<Noise>,
+    noise: Noise,
 
-    pub blend_begin_time: f32,
+    blend_begin_time: f32,
     last_blend_progress: f32,
     offset1: f32,
     offset2: f32,
@@ -28,11 +27,11 @@ pub struct NoiseInjector {
 }
 
 impl NoiseInjector {
-    pub fn update_noise(&mut self, new_noise: &Rc<Noise>) -> () {
+    pub fn update_noise(&mut self, new_noise: Noise) -> () {
         self.noise = new_noise.clone();
     }
 
-    pub fn new(context: &Context, width: u32, height: u32, noise: &Rc<Noise>) -> Result<Self> {
+    pub fn new(context: &Context, width: u32, height: u32, noise: Noise) -> Result<Self> {
         let texture_options: TextureOptions = TextureOptions {
             mag_filter: GL::LINEAR,
             min_filter: GL::LINEAR,

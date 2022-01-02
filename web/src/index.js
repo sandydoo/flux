@@ -10,7 +10,7 @@ import { Elm } from './Main.elm';
 let settings = {
   viscosity: 0.4,
   velocityDissipation: 0.0,
-  adjustAdvection: 3.0,
+  adjustAdvection: 5.0,
   fluidWidth: 128,
   fluidHeight: 128,
   diffusionIterations: 5,
@@ -22,19 +22,19 @@ let settings = {
 
   noiseChannel1: {
     scale: 1.2,
-    multiplier: 1.0,
+    multiplier: 1.8,
     offset1: 1.0,
     offset2: 10.0,
     offsetIncrement: 10.0,
     blendDuration: 10.0,
   },
   noiseChannel2: {
-    scale: 10.0,
+    scale: 20.0,
     multiplier: 0.4,
     offset1: 1.0,
     offset2: 1.0,
-    offsetIncrement: 1.0,
-    blendDuration: 2.0,
+    offsetIncrement: 0.1,
+    blendDuration: 0.6,
   },
 };
 

@@ -27,9 +27,9 @@ pub struct Drawer {
     screen_height: u32,
     aspect_ratio: f32,
 
-    grid_width: u32,
-    grid_height: u32,
-    line_count: u32,
+    pub grid_width: u32,
+    pub grid_height: u32,
+    pub line_count: u32,
 
     // A 6-color hue wheel. Each color gets π/3 or 60° of space.
     color_wheel: [f32; 18],

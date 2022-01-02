@@ -44,9 +44,9 @@ impl Flux {
         self.fluid.update_settings(&self.settings);
         self.drawer.update_settings(&self.settings);
         self.noise_channel_1
-            .update_noise(&Rc::new(self.settings.noise_channel_1.clone()));
+            .update_noise(self.settings.noise_channel_1.clone());
         self.noise_channel_2
-            .update_noise(&Rc::new(self.settings.noise_channel_2.clone()));
+            .update_noise(self.settings.noise_channel_2.clone());
     }
 
     #[wasm_bindgen(constructor)]
@@ -65,24 +65,24 @@ impl Flux {
         // TODO: deal with result
         let fluid = Fluid::new(&context, &settings).unwrap();
 
+        let drawer =
+            Drawer::new(&context, width, height, &settings, grid_spacing, view_scale).unwrap();
+
         let mut noise_channel_1 = NoiseInjector::new(
             &context,
-            settings.fluid_width,
-            settings.fluid_height,
-            &Rc::new(settings.noise_channel_1.clone()),
+            drawer.grid_width,
+            drawer.grid_height,
+            settings.noise_channel_1.clone(),
         )
         .unwrap();
 
         let mut noise_channel_2 = NoiseInjector::new(
             &context,
-            settings.fluid_width,
-            settings.fluid_height,
-            &Rc::new(settings.noise_channel_2.clone()),
+            drawer.grid_width,
+            drawer.grid_height,
+            settings.noise_channel_2.clone(),
         )
         .unwrap();
-
-        let drawer =
-            Drawer::new(&context, width, height, &settings, grid_spacing, view_scale).unwrap();
 
         noise_channel_1.generate_now(0.0);
         noise_channel_2.generate_now(0.0);

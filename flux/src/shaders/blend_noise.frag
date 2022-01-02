@@ -23,9 +23,10 @@ void main() {
   float T = texture(noiseTexture, vT).x;
   float B = texture(noiseTexture, vB).x;
   vec2 C = texture(noiseTexture, textureCoord).xy;
-  vec2 force = 0.5 * vec2(abs(T) - abs(B), abs(R) - abs(L));
+  // TODO play around with these values
+  vec2 force = 0.7 * vec2(abs(T) - abs(B), abs(R) - abs(L));
   force /= length(force) + 0.0001;
-  force *= 0.5 * C;
+  force *= 0.7 * C;
 
   vec2 inputValue = texture(inputTexture, textureCoord).xy;
   inputValue += uBlendProgress * uMultiplier * force;
