@@ -50,6 +50,7 @@ pub struct Drawer {
 impl Drawer {
     pub fn update_settings(&mut self, new_settings: &Rc<Settings>) -> () {
         self.settings = new_settings.clone();
+        self.color_wheel = settings::color_wheel_from_scheme(&new_settings.color_scheme);
     }
 
     pub fn new(
@@ -260,16 +261,6 @@ impl Drawer {
 
         let view_matrix = glm::scale(&glm::identity(), &glm::vec3(view_scale, view_scale, 1.0));
 
-        // Colors
-        let color_wheel = [
-            60.219 / 255.0, 37.2487 / 255.0, 66.4301 / 255.0,
-            170.962 / 255.0, 54.4873 / 255.0, 50.9661 / 255.0,
-            230.299 / 255.0, 39.2759 / 255.0, 5.54531 / 255.0,
-            242.924 / 255.0, 94.3563 / 255.0, 22.4186 / 255.0,
-            242.435 / 255.0, 156.752 / 255.0, 58.9794 / 255.0,
-            135.291 / 255.0, 152.793 / 255.0, 182.473 / 255.0,
-        ];
-
         Ok(Self {
             context: context.clone(),
             settings: settings.clone(),
@@ -280,7 +271,7 @@ impl Drawer {
             grid_width,
             grid_height,
             line_count,
-            color_wheel,
+            color_wheel: settings::color_wheel_from_scheme(&settings.color_scheme),
 
             line_state_buffers,
             line_index_buffer,
