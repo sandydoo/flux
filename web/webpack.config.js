@@ -4,45 +4,53 @@ const webpack = require('webpack');
 const WasmPackPlugin = require('@wasm-tool/wasm-pack-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
 
-module.exports = {
+module.exports = (env, argv) => {
+  const skipWasmPack = env['skip-wasm-pack'] ?? false;
+  console.log(env);
 
-  entry: './src/index.js',
+  let config = {
+    entry: './src/index.js',
 
-  output: {
-    path: path.resolve(__dirname, 'dist'),
-    filename: 'index.js',
-  },
+    output: {
+      path: path.resolve(__dirname, 'dist'),
+      filename: 'index.js',
+    },
 
-  module: {
-    rules: [{
-      test: /\.elm$/,
-      exclude: [/elm-stuff/],
-      use: 'elm-webpack-loader',
-    }],
-  },
+    module: {
+      rules: [{
+        test: /\.elm$/,
+        exclude: [/elm-stuff/],
+        use: 'elm-webpack-loader',
+      }],
+    },
 
-  plugins: [
-    new HtmlWebpackPlugin({
-      template: 'src/index.html',
-    }),
-    new WasmPackPlugin({
-      crateDirectory: path.resolve(__dirname, '../flux'),
-      outDir: path.join(__dirname, 'flux-wasm'),
-    }),
-    new CopyPlugin({
-      patterns: [
-        { from: 'public' },
-      ],
-    }),
-  ],
+    plugins: [
+      new HtmlWebpackPlugin({
+        template: 'src/index.html',
+      }),
 
-  mode: 'development',
+      new CopyPlugin({
+        patterns: [
+          { from: 'public' },
+        ],
+      }),
+    ],
 
-  // devServer: {
-  //   hot: true,
-  // },
+    mode: 'development',
 
-  experiments: {
-    asyncWebAssembly: true,
-  },
+    experiments: {
+      asyncWebAssembly: true,
+    },
+  };
+
+  if (!skipWasmPack) {
+    config.plugins.push(
+      new WasmPackPlugin({
+        crateDirectory: path.resolve(__dirname, '../flux'),
+        outDir: path.join(__dirname, 'flux-wasm'),
+      }),
+    );
+  }
+
+  return config;
 };
