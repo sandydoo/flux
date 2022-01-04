@@ -18,32 +18,55 @@ I’ve been enamoured of the Drift screensaver ever since it came out with macOS
 This is an attempt at capturing that magic and bottling it up in a more portable vessel. This isn’t a port though. The source code for the original is locked up in a spaceship somewhere in Cupertino. Instead, consider this a delicate blend of detective work and artistic liberty. It’s WebGL2 for now, but [WebGPU](https://github.com/gfx-rs/wgpu) is shaping up nicely, so native ports aren’t off the books.
 
 
-## Prerequisites
+## Build
+
+### Using Nix
+
+Build a new release in the `result` folder:
+
+```sh
+nix build
+```
+
+Or open a development shell with all the neccessary tools:
+
+```sh
+nix develop
+
+cd web
+yarn serve
+```
+
+### Manual build
+
+There’s a few things you’re going to have to install.
 
 - rustc with `wasm32-unknown-unknown` as a target
 - cargo
+- wasm-pack
 - node
-- pnpm
+- pnpm or yarn
+- elm
 
-
-## Install
-
-These instructions cover macOS. Your mileage may vary.
+How you get these dependencies depends on the operating system you’re running. Here’s an example for macOS and Linux using rustup:
 
 ```sh
 rustup toolchain install stable
 rustup target wasm32-unknown-unknown
 
+cd web
 pnpm install
 ```
 
-
-## Develop
-
+Run a development server from the `web` folder:
 ```sh
 pnpm serve
 ```
 
+Build a release:
+```sh
+pnpm build
+```
 
 ## License
 
