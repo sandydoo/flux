@@ -8,7 +8,7 @@
   "scripts": {
     "build": "webpack --mode production",
     "serve": "webpack serve",
-    "deploy": "pnpm build && gh-pages -d dist"
+    "deploy": "webpack --mode production && gh-pages -d dist"
   },
   "repository": {
     "type": "git",

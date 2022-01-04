@@ -10,7 +10,7 @@ let
         "yarn.lock"
       ];
     };
-    publishBinsFor = [ "webpack" ];
+    publishBinsFor = [ "webpack" "gh-pages" ];
   };
 
   packageJson = ''
