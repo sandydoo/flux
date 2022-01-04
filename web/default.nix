@@ -51,12 +51,11 @@ pkgs.stdenv.mkDerivation rec {
     ln -sf ${nodeDependencies}/libexec/*/node_modules ./web
   '';
 
-  # Do we want to use elm2nix?
-  # configurePhase = pkgs.elmPackages.fetchElmDeps {
-  #   elmPackages = import ./web/elm-srcs.nix;
-  #   elmVersion = "0.19.1";
-  #   registryDat = ./web/registry.dat;
-  # };
+  configurePhase = pkgs.elmPackages.fetchElmDeps {
+    elmPackages = import ./elm-srcs.nix;
+    elmVersion = "0.19.1";
+    registryDat = ./registry.dat;
+  };
 
   installPhase = ''
     mkdir -p $out
@@ -65,8 +64,6 @@ pkgs.stdenv.mkDerivation rec {
     wasm-bindgen --target bundler --out-dir ./flux-wasm ${flux-wasm}/lib/flux.wasm
     echo '${packageJson}' > ./flux-wasm/package.json
 
-    mkdir -p ./elm-home
-    export ELM_HOME=./elm-home
     webpack --mode production --output-path=$out --env skip-wasm-pack
   '';
 }
