@@ -42,6 +42,7 @@ pub struct Drawer {
     draw_lines_pass: render::RenderPass,
     draw_endpoints_pass: render::RenderPass,
     draw_texture_pass: render::RenderPass,
+    antialiasing_pass: render::MsaaPass,
 
     projection_matrix: glm::TMat4<f32>,
     view_matrix: glm::TMat4<f32>,
@@ -247,6 +248,11 @@ impl Drawer {
         )
         .unwrap();
 
+        let antialiasing_samples = 4;
+        let antialiasing_pass =
+            render::MsaaPass::new(context, screen_width, screen_height, antialiasing_samples)
+                .unwrap();
+
         // Projection
         let half_width = (grid_width as f32) / 2.0;
         let half_height = (grid_height as f32) / 2.0;
@@ -281,6 +287,7 @@ impl Drawer {
             draw_lines_pass,
             draw_endpoints_pass,
             draw_texture_pass,
+            antialiasing_pass,
 
             projection_matrix,
             view_matrix,
@@ -508,5 +515,12 @@ impl Drawer {
                 1,
             )
             .unwrap();
+    }
+
+    pub fn with_antialiasing<T>(&self, draw_call: T) -> ()
+    where
+        T: Fn() -> (),
+    {
+        self.antialiasing_pass.draw_to(draw_call);
     }
 }

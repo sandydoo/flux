@@ -105,9 +105,6 @@ impl Flux {
     }
 
     pub fn animate(&mut self, timestamp: f32) {
-        self.context.clear_color(0.0, 0.0, 0.0, 1.0);
-        self.context.clear(GL::COLOR_BUFFER_BIT);
-
         let timestep = self
             .max_frame_time
             .min(0.001 * (timestamp - self.last_timestamp));
@@ -152,8 +149,13 @@ impl Flux {
             timestep * self.settings.adjust_advection,
             &self.fluid.get_velocity(),
         );
-        self.drawer.draw_lines();
-        self.drawer.draw_endpoints();
+
+        self.drawer.with_antialiasing(|| {
+            self.context.clear_color(0.0, 0.0, 0.0, 1.0);
+            self.context.clear(GL::COLOR_BUFFER_BIT);
+            self.drawer.draw_lines();
+            self.drawer.draw_endpoints();
+        });
     }
 }
 
@@ -166,7 +168,7 @@ fn get_rendering_context() -> Result<(Rc<GL>, u32, u32), JsValue> {
     let html_canvas: web_sys::HtmlCanvasElement =
         html_canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
 
-    let pixel_ratio: f64 = window.device_pixel_ratio();
+    let pixel_ratio: f64 = window.device_pixel_ratio().min(1.5);
     let client_width = html_canvas.client_width() as u32;
     let client_height = html_canvas.client_height() as u32;
     let width = (pixel_ratio * (client_width as f64)).floor() as u32;
@@ -178,7 +180,7 @@ fn get_rendering_context() -> Result<(Rc<GL>, u32, u32), JsValue> {
 
     let options = ContextOptions {
         // Disabling alpha can lead to poor performance on some platforms.
-        // We’ll need it later when implementing MSAA
+        // We also need it for MSAA.
         alpha: true,
         depth: false,
         stencil: false,
