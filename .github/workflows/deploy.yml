@@ -21,8 +21,7 @@ jobs:
       run: nix build
 
     - name: Deploy to GitHub Pages
-      run: |
-        git remote set-url origin https://git:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
-        gh-pages -d result -u "github-actions-bot <support+actions@github.com>"
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: JamesIves/github-pages-deploy-action@4.1.8
+      with:
+        branch: gh-pages
+        folder: result
