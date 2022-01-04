@@ -1,16 +1,17 @@
+use fnv::FnvHasher;
 use std::cell::{Ref, RefCell};
 use std::collections::HashMap;
-use std::hash::BuildHasherDefault;
-use fnv::FnvHasher;
 use std::fmt;
+use std::hash::BuildHasherDefault;
 use std::rc::Rc;
 use thiserror::Error;
 
 use js_sys::WebAssembly;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{
-    WebGl2RenderingContext as GL, WebGlBuffer, WebGlFramebuffer, WebGlProgram, WebGlShader,
-    WebGlTexture, WebGlTransformFeedback, WebGlUniformLocation, WebGlVertexArrayObject,
+    WebGl2RenderingContext as GL, WebGlBuffer, WebGlFramebuffer, WebGlProgram, WebGlRenderbuffer,
+    WebGlShader, WebGlTexture, WebGlTransformFeedback, WebGlUniformLocation,
+    WebGlVertexArrayObject,
 };
 
 pub type Context = Rc<GL>;
@@ -21,6 +22,7 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 enum Problem {
     CannotCreateTexture(),
     CannotCreateFramebuffer(),
+    CannotCreateRenderbuffer(),
     CannotCreateShader(Option<String>),
     CannotCreateProgram(),
     CannotLinkProgram(String),
@@ -37,6 +39,7 @@ impl fmt::Display for Problem {
         let desc = match self {
             Problem::CannotCreateTexture() => "Cannot create texture".to_string(),
             Problem::CannotCreateFramebuffer() => "Cannot create framebuffer".to_string(),
+            Problem::CannotCreateRenderbuffer() => "Cannot create renderbuffer".to_string(),
             Problem::CannotCreateShader(maybe_desc) => maybe_desc.as_ref().unwrap().to_string(),
             Problem::CannotLinkProgram(error_message) => error_message.clone(),
             Problem::CannotFindAttributeBinding(name) => {
@@ -547,8 +550,8 @@ pub enum UniformValue<'a> {
     Vec2([f32; 2]),
     Vec3([f32; 3]),
     // TODO: use nalgebra types here
-    Vec3Array(&'a[f32]),
-    Mat4(&'a[f32]),
+    Vec3Array(&'a [f32]),
+    Mat4(&'a [f32]),
     Texture2D(&'a WebGlTexture, u32),
 }
 
@@ -926,4 +929,87 @@ pub fn bind_attributes(
     context.vertex_attrib_divisor(location, binding.divisor);
 
     Ok(())
+}
+
+pub struct MsaaPass {
+    context: Context,
+    width: u32,
+    height: u32,
+    framebuffer: WebGlFramebuffer,
+    renderbuffer: WebGlRenderbuffer,
+}
+
+impl MsaaPass {
+    pub fn new(context: &Context, width: u32, height: u32, samples: u32) -> Result<Self> {
+        let framebuffer = context
+            .create_framebuffer()
+            .ok_or(Problem::CannotCreateFramebuffer())?;
+        let renderbuffer = context
+            .create_renderbuffer()
+            .ok_or(Problem::CannotCreateRenderbuffer())?;
+        context.bind_framebuffer(GL::FRAMEBUFFER, Some(&framebuffer));
+        context.bind_renderbuffer(GL::RENDERBUFFER, Some(&renderbuffer));
+
+        let mut max_samples: u32 = 0;
+        if let Ok(raw_max_samples) = context.get_parameter(GL::MAX_SAMPLES) {
+            max_samples = raw_max_samples.as_f64().unwrap_or(0.0) as u32;
+        }
+
+        context.renderbuffer_storage_multisample(
+            GL::RENDERBUFFER,
+            samples.min(max_samples) as i32,
+            GL::RGBA8,
+            width as i32,
+            height as i32,
+        );
+        context.framebuffer_renderbuffer(
+            GL::FRAMEBUFFER,
+            GL::COLOR_ATTACHMENT0,
+            GL::RENDERBUFFER,
+            Some(&renderbuffer),
+        );
+        context.bind_framebuffer(GL::FRAMEBUFFER, None);
+        context.bind_renderbuffer(GL::RENDERBUFFER, None);
+
+        Ok(MsaaPass {
+            context: context.clone(),
+            width,
+            height,
+            framebuffer,
+            renderbuffer,
+        })
+    }
+
+    pub fn draw_to<T>(&self, draw_call: T) -> ()
+    where
+        T: Fn() -> (),
+    {
+        let width = self.width as i32;
+        let height = self.height as i32;
+
+        self.context
+            .bind_framebuffer(GL::DRAW_FRAMEBUFFER, Some(&self.framebuffer));
+
+        // Draw stuff
+        draw_call();
+
+        self.context.bind_framebuffer(GL::DRAW_FRAMEBUFFER, None);
+
+        self.context.disable(GL::BLEND);
+        self.context
+            .bind_framebuffer(GL::READ_FRAMEBUFFER, Some(&self.framebuffer));
+        self.context.blit_framebuffer(
+            0,
+            0,
+            width,
+            height,
+            0,
+            0,
+            width,
+            height,
+            GL::COLOR_BUFFER_BIT,
+            GL::LINEAR,
+        );
+        self.context.bind_framebuffer(GL::READ_FRAMEBUFFER, None);
+    }
 }
