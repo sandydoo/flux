@@ -320,17 +320,17 @@ impl Drawer {
                             ..Default::default()
                         },
                     },
-                    // VertexBuffer {
-                    //     buffer: self.line_state_buffers.current().clone(),
-                    //     binding: BindingInfo {
-                    //         name: "iLineWidth".to_string(),
-                    //         size: 1,
-                    //         type_: GL::FLOAT,
-                    //         stride: 5 * 4,
-                    //         offset: 4 * 4,
-                    //         ..Default::default()
-                    //     },
-                    // },
+                    VertexBuffer {
+                        buffer: self.line_state_buffers.current().clone(),
+                        binding: BindingInfo {
+                            name: "iLineWidth".to_string(),
+                            size: 1,
+                            type_: GL::FLOAT,
+                            stride: 8 * 4,
+                            offset: 4 * 4,
+                            ..Default::default()
+                        },
+                    },
                 ],
                 &vec![
                     Uniform {

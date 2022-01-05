@@ -84,15 +84,15 @@ defaultSettings =
     , diffusionIterations = 5
     , pressureIterations = 30
     , colorScheme = Plasma
-    , lineLength = 200.0
-    , lineWidth = 8.0
-    , lineBeginOffset = 0.4
+    , lineLength = 220.0
+    , lineWidth = 5.0
+    , lineBeginOffset = 0.5
     , adjustAdvection = 5.0
     , noiseChannel1 =
         { scale = 1.2
         , multiplier = 1.8
         , offset1 = 1.0
-        , offset2 = 10.0
+        , offset2 = 100.0
         , offsetIncrement = 10.0
         , blendDuration = 10.0
         }
@@ -101,8 +101,8 @@ defaultSettings =
         , multiplier = 0.4
         , offset1 = 1.0
         , offset2 = 1.0
-        , offsetIncrement = 0.1
-        , blendDuration = 0.6
+        , offsetIncrement = 0.3
+        , blendDuration = 0.9
         }
     }
 

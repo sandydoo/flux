@@ -59,8 +59,18 @@ void main() {
   float currentLength = length(vEndpointVector);
   vEndpointVector *= clampTo(currentLength, 1.0);
 
-  // TODO: change width based on length AND velocity direction
-  vLineWidth = 0.15 + 0.9 * smoothstep(0.1, 0.9, currentLength);
+  vec2 velocityDirection = normalize(-vVelocityVector);
+  vec2 lineDirection = normalize(vEndpointVector);
+  float directionAlignment = clamp(dot(lineDirection, velocityDirection), -1.0, 1.0);
+  float directionMultiplier = 0.5 * length(deltaVelocity);
+  float minWidth = max(0.2, 1.0 * currentLength);
+  float maxWidth = min(1.0, 5.0 * currentLength);
+
+  vLineWidth = clamp(
+    iLineWidth + directionMultiplier * deltaT * directionAlignment,
+    minWidth,
+    maxWidth
+  );
 
   float angle = mod(
     PI * currentLength + (PI + atan(iEndpointVector.y, iEndpointVector.x)),
