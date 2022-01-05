@@ -56,7 +56,7 @@ void main() {
   vec2 endpoint = basepoint + iEndpointVector * uLineLength;
 
   float width = iLineWidth;
-  float height = length(endpoint - basepoint) / uLineLength;
+  float height = length(iEndpointVector);
 
   vec2 direction = normalize(endpoint - basepoint);
   float angle = -atan(direction.y, direction.x) + PI / 2.0;
