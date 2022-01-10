@@ -61,6 +61,7 @@ impl Fluid {
             },
         )?
         .with_f32_data(&initial_velocity_data)?;
+
         let divergence_texture = render::Framebuffer::new(
             &context,
             grid_width,
@@ -73,6 +74,7 @@ impl Fluid {
             },
         )?
         .with_f32_data(&vec![0.0; (2 * grid_width * grid_height) as usize])?;
+
         let pressure_textures = render::DoubleFramebuffer::new(
             &context,
             grid_width,
@@ -92,15 +94,13 @@ impl Fluid {
             &data::PLANE_VERTICES.to_vec(),
             GL::ARRAY_BUFFER,
             GL::STATIC_DRAW,
-        )
-        .unwrap();
+        )?;
         let plane_indices = Buffer::from_u16(
             &context,
             &data::PLANE_INDICES.to_vec(),
             GL::ELEMENT_ARRAY_BUFFER,
             GL::STATIC_DRAW,
-        )
-        .unwrap();
+        )?;
 
         let advection_program =
             render::Program::new(&context, (FLUID_VERT_SHADER, ADVECTION_FRAG_SHADER))?;
@@ -127,8 +127,8 @@ impl Fluid {
                 primitive: GL::TRIANGLES,
             },
             advection_program,
-        )
-        .unwrap();
+        )?;
+
         let diffusion_pass = render::RenderPass::new(
             &context,
             vec![VertexBuffer {
@@ -145,8 +145,8 @@ impl Fluid {
                 primitive: GL::TRIANGLES,
             },
             pressure_program.clone(),
-        )
-        .unwrap();
+        )?;
+
         let divergence_pass = render::RenderPass::new(
             &context,
             vec![VertexBuffer {
@@ -163,8 +163,8 @@ impl Fluid {
                 primitive: GL::TRIANGLES,
             },
             divergence_program,
-        )
-        .unwrap();
+        )?;
+
         let pressure_pass = render::RenderPass::new(
             &context,
             vec![VertexBuffer {
@@ -181,8 +181,8 @@ impl Fluid {
                 primitive: GL::TRIANGLES,
             },
             pressure_program.clone(),
-        )
-        .unwrap();
+        )?;
+
         let subtract_gradient_pass = render::RenderPass::new(
             &context,
             vec![VertexBuffer {
@@ -199,8 +199,7 @@ impl Fluid {
                 primitive: GL::TRIANGLES,
             },
             subtract_gradient_program,
-        )
-        .unwrap();
+        )?;
 
         Ok(Self {
             settings: Rc::clone(settings),

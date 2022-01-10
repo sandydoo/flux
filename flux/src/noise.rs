@@ -7,8 +7,6 @@ use settings::Noise;
 
 use web_sys::WebGl2RenderingContext as GL;
 
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-
 static FLUID_VERT_SHADER: &'static str = include_str!("./shaders/fluid.vert");
 static SIMPLEX_NOISE_FRAG_SHADER: &'static str = include_str!("./shaders/simplex_noise.frag");
 static BLEND_NOISE_FRAG_SHADER: &'static str = include_str!("./shaders/blend_noise.frag");
@@ -31,7 +29,12 @@ impl NoiseInjector {
         self.noise = new_noise.clone();
     }
 
-    pub fn new(context: &Context, width: u32, height: u32, noise: Noise) -> Result<Self> {
+    pub fn new(
+        context: &Context,
+        width: u32,
+        height: u32,
+        noise: Noise,
+    ) -> Result<Self, render::Problem> {
         let texture = Framebuffer::new(
             &context,
             width,
@@ -51,15 +54,13 @@ impl NoiseInjector {
             &data::PLANE_VERTICES.to_vec(),
             GL::ARRAY_BUFFER,
             GL::STATIC_DRAW,
-        )
-        .unwrap();
+        )?;
         let plane_indices = Buffer::from_u16(
             &context,
             &data::PLANE_INDICES.to_vec(),
             GL::ELEMENT_ARRAY_BUFFER,
             GL::STATIC_DRAW,
-        )
-        .unwrap();
+        )?;
 
         let simplex_noise_program =
             Program::new(&context, (FLUID_VERT_SHADER, SIMPLEX_NOISE_FRAG_SHADER))?;
@@ -82,8 +83,7 @@ impl NoiseInjector {
                 primitive: GL::TRIANGLES,
             },
             simplex_noise_program,
-        )
-        .unwrap();
+        )?;
 
         let blend_noise_pass = RenderPass::new(
             &context,
@@ -101,8 +101,7 @@ impl NoiseInjector {
                 primitive: GL::TRIANGLES,
             },
             blend_noise_program,
-        )
-        .unwrap();
+        )?;
 
         Ok(Self {
             noise: noise.clone(),

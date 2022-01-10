@@ -8,8 +8,6 @@ use web_sys::WebGl2RenderingContext as GL;
 extern crate nalgebra_glm as glm;
 use std::rc::Rc;
 
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-
 static LINE_VERT_SHADER: &'static str = include_str!("./shaders/line.vert");
 static LINE_FRAG_SHADER: &'static str = include_str!("./shaders/line.frag");
 static ENDPOINT_VERT_SHADER: &'static str = include_str!("./shaders/endpoint.vert");
@@ -58,7 +56,7 @@ impl Drawer {
         settings: &Rc<Settings>,
         grid_spacing: u32,
         view_scale: f32,
-    ) -> Result<Self> {
+    ) -> Result<Self, render::Problem> {
         let base_units = 1000;
         let grid_width: u32;
         let grid_height: u32;
@@ -106,15 +104,13 @@ impl Drawer {
             &data::PLANE_VERTICES.to_vec(),
             GL::ARRAY_BUFFER,
             GL::STATIC_DRAW,
-        )
-        .unwrap();
+        )?;
         let plane_indices = Buffer::from_u16(
             &context,
             &data::PLANE_INDICES.to_vec(),
             GL::ELEMENT_ARRAY_BUFFER,
             GL::STATIC_DRAW,
-        )
-        .unwrap();
+        )?;
 
         let place_lines_program = render::Program::new_with_transform_feedback(
             &context,
@@ -149,8 +145,7 @@ impl Drawer {
             }],
             Indices::NoIndices(GL::POINTS),
             place_lines_program,
-        )
-        .unwrap();
+        )?;
 
         let draw_lines_pass = render::RenderPass::new(
             &context,
@@ -177,8 +172,7 @@ impl Drawer {
             ],
             Indices::NoIndices(GL::TRIANGLES),
             draw_lines_program,
-        )
-        .unwrap();
+        )?;
 
         let draw_endpoints_pass = render::RenderPass::new(
             &context,
@@ -205,8 +199,7 @@ impl Drawer {
             ],
             Indices::NoIndices(GL::TRIANGLE_FAN),
             draw_endpoints_program,
-        )
-        .unwrap();
+        )?;
 
         let draw_texture_pass = render::RenderPass::new(
             &context,
@@ -224,13 +217,11 @@ impl Drawer {
                 primitive: GL::TRIANGLES,
             },
             draw_texture_program,
-        )
-        .unwrap();
+        )?;
 
         let antialiasing_samples = 4;
         let antialiasing_pass =
-            render::MsaaPass::new(context, screen_width, screen_height, antialiasing_samples)
-                .unwrap();
+            render::MsaaPass::new(context, screen_width, screen_height, antialiasing_samples)?;
 
         // Projection
         let half_width = (grid_width as f32) / 2.0;

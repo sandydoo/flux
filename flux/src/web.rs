@@ -2,7 +2,7 @@ use serde::Serialize;
 use wasm_bindgen::JsValue;
 use web_sys::Window;
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ContextOptions {
     pub alpha: bool,
