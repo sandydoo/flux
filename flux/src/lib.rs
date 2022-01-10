@@ -9,7 +9,7 @@ mod web;
 use drawer::Drawer;
 use fluid::Fluid;
 use noise::NoiseInjector;
-use settings::{Noise, Settings};
+use settings::Settings;
 use web::{Canvas, ContextOptions};
 
 use std::rc::Rc;
@@ -50,23 +50,19 @@ impl Flux {
     }
 
     #[wasm_bindgen(constructor)]
-    pub fn new(settings_object: &JsValue) -> Flux {
-        let (context, width, height) = get_rendering_context().unwrap();
+    pub fn new(settings_object: &JsValue) -> Result<Flux, JsValue> {
+        let (context, width, height) = get_rendering_context()?;
 
-        let settings = Rc::new(settings_object.into_serde().unwrap());
+        let settings: Rc<Settings> = match settings_object.into_serde() {
+            Ok(settings) => Rc::new(settings),
+            Err(msg) => return Err(JsValue::from_str(&msg.to_string())),
+        };
 
-        // Settings
-        let fluid_simulation_fps: f32 = 15.0;
-        let fluid_frame_time: f32 = 1.0 / fluid_simulation_fps;
-
-        let grid_spacing: u32 = 12;
-        let view_scale: f32 = 2.0;
-
-        // TODO: deal with result
-        let fluid = Fluid::new(&context, &settings).unwrap();
+        let fluid_frame_time = 1.0 / settings.fluid_simulation_frame_rate;
+        let fluid = Fluid::new(&context, &settings).map_err(|msg| msg.to_string())?;
 
         let drawer =
-            Drawer::new(&context, width, height, &settings, grid_spacing, view_scale).unwrap();
+            Drawer::new(&context, width, height, &settings).map_err(|msg| msg.to_string())?;
 
         let mut noise_channel_1 = NoiseInjector::new(
             &context,
@@ -74,7 +70,7 @@ impl Flux {
             drawer.grid_height,
             settings.noise_channel_1.clone(),
         )
-        .unwrap();
+        .map_err(|msg| msg.to_string())?;
 
         let mut noise_channel_2 = NoiseInjector::new(
             &context,
@@ -82,13 +78,13 @@ impl Flux {
             drawer.grid_height,
             settings.noise_channel_2.clone(),
         )
-        .unwrap();
+        .map_err(|msg| msg.to_string())?;
 
         noise_channel_1.generate_now(0.0);
         noise_channel_2.generate_now(0.0);
         context.flush();
 
-        Flux {
+        Ok(Flux {
             fluid,
             drawer,
             noise_channel_1,
@@ -101,7 +97,7 @@ impl Flux {
             frame_time: 0.0,
             fluid_frame_time,
             max_frame_time: 1.0 / 10.0,
-        }
+        })
     }
 
     pub fn animate(&mut self, timestamp: f32) {
@@ -122,14 +118,8 @@ impl Flux {
             .blend_noise_into(&self.fluid.get_velocity_textures(), self.elapsed_time);
 
         while self.frame_time >= self.fluid_frame_time {
-            // Convection
-            self.fluid.advect(self.fluid_frame_time);
-
+            self.fluid.advect(self.fluid_frame_time); // Convection
             self.fluid.diffuse(self.fluid_frame_time);
-
-            // TODO: this needs a second pass. See GPU Gems.
-            // fluid.curl(fluid_frame_time);
-
             self.fluid.calculate_divergence();
             self.fluid.solve_pressure();
             self.fluid.subtract_gradient();

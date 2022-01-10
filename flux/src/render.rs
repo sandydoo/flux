@@ -8,9 +8,8 @@ use thiserror::Error;
 use js_sys::WebAssembly;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{
-    WebGl2RenderingContext as GL, WebGlBuffer, WebGlFramebuffer, WebGlProgram, WebGlRenderbuffer,
-    WebGlShader, WebGlTexture, WebGlTransformFeedback, WebGlUniformLocation,
-    WebGlVertexArrayObject,
+    WebGl2RenderingContext as GL, WebGlBuffer, WebGlFramebuffer, WebGlProgram, WebGlShader,
+    WebGlTexture, WebGlTransformFeedback, WebGlUniformLocation, WebGlVertexArrayObject,
 };
 
 pub type Context = Rc<GL>;
@@ -30,6 +29,12 @@ pub enum Problem {
 
     #[error("Cannot create renderbuffer")]
     CannotCreateRenderbuffer,
+
+    #[error("Cannot create transform feedback")]
+    CannotCreateTransformFeedback,
+
+    #[error("Cannot create vertex array object")]
+    CannotCreateVertexArrayObject,
 
     #[error("{}", match .0 {
         Some(n) => format!("Cannot create shader: {}", n),
@@ -55,9 +60,6 @@ pub enum Problem {
     #[error("Can’t find the attribute {0}")]
     CannotFindAttributeBinding(String),
 
-    #[error("Attribute {0} not active")]
-    AttribNotActive(String),
-
     #[error("The vertex buffers have different numbers of vertices")]
     VerticesCountMismatch,
 
@@ -73,6 +75,7 @@ pub struct Buffer {
     pub type_: u32,
 }
 
+#[allow(dead_code)]
 impl Buffer {
     pub fn from_f32(
         context: &Context,
@@ -309,7 +312,6 @@ impl Framebuffer {
 }
 
 pub struct DoubleFramebuffer {
-    context: Context,
     pub width: u32,
     pub height: u32,
     front: RefCell<Framebuffer>,
@@ -326,7 +328,6 @@ impl DoubleFramebuffer {
         let front = Framebuffer::new(&context, width, height, options)?;
         let back = Framebuffer::new(&context, width, height, options)?;
         Ok(Self {
-            context: context.clone(),
             width,
             height,
             front: RefCell::new(front),
@@ -353,11 +354,11 @@ impl DoubleFramebuffer {
         Ok(())
     }
 
-    pub fn clear_color_with(&self, color: [f32; 4]) -> Result<()> {
-        self.current().clear_color_with(color)?;
-        self.next().clear_color_with(color)?;
-        Ok(())
-    }
+    // pub fn clear_color_with(&self, color: [f32; 4]) -> Result<()> {
+    //     self.current().clear_color_with(color)?;
+    //     self.next().clear_color_with(color)?;
+    //     Ok(())
+    // }
 
     pub fn current(&self) -> Ref<Framebuffer> {
         self.front.borrow()
@@ -563,6 +564,7 @@ pub struct Attribute {
     pub divisor: u32,
 }
 
+#[allow(dead_code)]
 #[derive(Clone)]
 pub enum UniformValue<'a> {
     SignedInt(i32),
@@ -606,34 +608,6 @@ pub fn compile_shader(context: &GL, shader_type: u32, source: &str) -> Result<We
     }
 }
 
-pub fn link_program(
-    context: &GL,
-    vertex_shader: &WebGlShader,
-    fragment_shader: &WebGlShader,
-) -> Result<WebGlProgram> {
-    let program = context
-        .create_program()
-        .ok_or(Problem::CannotCreateProgram)?;
-
-    context.attach_shader(&program, vertex_shader);
-    context.attach_shader(&program, fragment_shader);
-    context.link_program(&program);
-
-    if context
-        .get_program_parameter(&program, GL::LINK_STATUS)
-        .as_bool()
-        .unwrap_or(false)
-    {
-        Ok(program)
-    } else {
-        Err(Problem::CannotLinkProgram(
-            context
-                .get_program_info_log(&program)
-                .unwrap_or(String::from("Unknown error creating program object")),
-        ))
-    }
-}
-
 pub struct VertexBuffer {
     pub buffer: Buffer,
     pub binding: BindingInfo,
@@ -662,7 +636,9 @@ pub struct TransformFeedbackBuffer {
 
 impl TransformFeedbackBuffer {
     pub fn new_with_f32(context: &Context, data: &Vec<f32>, usage: u32) -> Result<Self> {
-        let transform_feedback_buffer = context.create_transform_feedback().unwrap();
+        let transform_feedback_buffer = context
+            .create_transform_feedback()
+            .ok_or(Problem::CannotCreateTransformFeedback)?;
 
         let front = Buffer::from_f32(&context, &data, GL::ARRAY_BUFFER, usage)?;
         let back = Buffer::from_f32(&context, &data, GL::ARRAY_BUFFER, usage)?;
@@ -702,8 +678,9 @@ impl RenderPass {
         indices: Indices,
         program: Program,
     ) -> Result<Self> {
-        // TODO: fix unwrap
-        let vao = context.create_vertex_array().unwrap();
+        let vao = context
+            .create_vertex_array()
+            .ok_or(Problem::CannotCreateVertexArrayObject)?;
         context.bind_vertex_array(Some(&vao));
 
         for VertexBuffer {
@@ -738,8 +715,6 @@ impl RenderPass {
     pub fn draw(&self, uniforms: &Vec<Uniform>, instance_count: u32) -> Result<()> {
         self.draw_impl(vec![], &uniforms, None, instance_count)
     }
-
-    // pub fn draw_new(&self, vertex_buffers: Vec<VertexBuffer>, uniforms: Vec<Uniform>, instance_count: u32) -> Result<()> {}
 
     pub fn draw_impl(
         &self,
@@ -852,45 +827,6 @@ impl RenderPass {
         Ok(())
     }
 
-    // pub fn draw_to_buffer(
-    //     &self,
-    //     feedback_buffer: &TransformFeedbackBuffer,
-    //     uniforms: Vec<Uniform>,
-    // ) -> Result<()> {
-    //     self.draw_impl(uniforms, Some(feedback_buffer), 1);
-
-    //     // feedback_buffer.swap();
-
-    //     // self.context
-    //     //     .bind_buffer(GL::COPY_READ_BUFFER, Some(&feedback_buffer.next().id));
-    //     // self.context
-    //     //     .bind_buffer(GL::COPY_WRITE_BUFFER, Some(&feedback_buffer.current().id));
-    //     // self.context
-    //     //     .bind_buffer(GL::COPY_WRITE_BUFFER, Some(&feedback_buffer.current().id));
-    //     // self.context.buffer_data_with_array_buffer_view(
-    //     //     GL::COPY_WRITE_BUFFER,
-    //     //     &data_array,
-    //     //     GL::DYNAMIC_DRAW,
-    //     // );
-    //     // self.context.copy_buffer_sub_data_with_i32_and_i32_and_i32(
-    //     //     GL::TRANSFORM_FEEDBACK_BUFFER,
-    //     //     GL::COPY_WRITE_BUFFER,
-    //     //     0,
-    //     //     0,
-    //     //     (feedback_buffer.next().size) as i32,
-    //     //     // 1000,
-    //     // );
-    //     // self.context.bind_buffer(GL::COPY_READ_BUFFER, None);
-    //     // self.context.bind_buffer(GL::COPY_WRITE_BUFFER, None);
-    //     // self.context
-    //     //     .bind_buffer_base(GL::TRANSFORM_FEEDBACK_BUFFER, 0, None);
-    //     // self.context
-    //     //     .bind_transform_feedback(GL::TRANSFORM_FEEDBACK, None);
-    //     // self.context.finish();
-
-    //     Ok(())
-    // }
-
     pub fn draw_to(
         &self,
         framebuffer: &Framebuffer,
@@ -955,7 +891,6 @@ pub struct MsaaPass {
     width: u32,
     height: u32,
     framebuffer: WebGlFramebuffer,
-    renderbuffer: WebGlRenderbuffer,
 }
 
 impl MsaaPass {
@@ -995,7 +930,6 @@ impl MsaaPass {
             width,
             height,
             framebuffer,
-            renderbuffer,
         })
     }
 

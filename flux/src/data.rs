@@ -10,7 +10,6 @@ pub static PLANE_VERTICES: [f32; 12] = [
     -1.0, -1.0, 0.0, //
 ];
 
-pub static LINE_INDICES: [u16; 6] = [0, 1, 2, 2, 3, 0];
 pub static LINE_VERTICES: [f32; 12] = [
     0.0, -0.5, //
     1.0, -0.5, //

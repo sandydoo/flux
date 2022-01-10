@@ -8,8 +8,6 @@ use web_sys::WebGl2RenderingContext as GL;
 extern crate nalgebra_glm as glm;
 use std::rc::Rc;
 
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-
 static LINE_VERT_SHADER: &'static str = include_str!("./shaders/line.vert");
 static LINE_FRAG_SHADER: &'static str = include_str!("./shaders/line.frag");
 static ENDPOINT_VERT_SHADER: &'static str = include_str!("./shaders/endpoint.vert");
@@ -25,7 +23,6 @@ pub struct Drawer {
 
     screen_width: u32,
     screen_height: u32,
-    aspect_ratio: f32,
 
     pub grid_width: u32,
     pub grid_height: u32,
@@ -35,8 +32,6 @@ pub struct Drawer {
     color_wheel: [f32; 18],
 
     line_state_buffers: render::TransformFeedbackBuffer,
-    line_index_buffer: render::Buffer,
-    basepoint_buffer: render::Buffer,
 
     place_lines_pass: render::RenderPass,
     draw_lines_pass: render::RenderPass,
@@ -59,9 +54,7 @@ impl Drawer {
         screen_width: u32,
         screen_height: u32,
         settings: &Rc<Settings>,
-        grid_spacing: u32,
-        view_scale: f32,
-    ) -> Result<Self> {
+    ) -> Result<Self, render::Problem> {
         let base_units = 1000;
         let grid_width: u32;
         let grid_height: u32;
@@ -87,20 +80,14 @@ impl Drawer {
 
         let basepoint_buffer = Buffer::from_f32(
             &context,
-            &data::new_points(grid_width, grid_height, grid_spacing),
+            &data::new_points(grid_width, grid_height, settings.grid_spacing),
             GL::ARRAY_BUFFER,
             GL::STATIC_DRAW,
         )?;
 
-        let line_count = (grid_width / grid_spacing) * (grid_height / grid_spacing);
-        let mut line_indices = Vec::with_capacity(line_count as usize);
-        for i in 0..line_count {
-            line_indices.push(i as u16);
-        }
-        let line_index_buffer =
-            Buffer::from_u16(&context, &line_indices, GL::ARRAY_BUFFER, GL::STATIC_DRAW)?;
-
-        let line_state = data::new_line_state(grid_width, grid_height, grid_spacing);
+        let line_count =
+            (grid_width / settings.grid_spacing) * (grid_height / settings.grid_spacing);
+        let line_state = data::new_line_state(grid_width, grid_height, settings.grid_spacing);
         let line_state_buffers =
             render::TransformFeedbackBuffer::new_with_f32(&context, &line_state, GL::DYNAMIC_DRAW)?;
 
@@ -116,15 +103,13 @@ impl Drawer {
             &data::PLANE_VERTICES.to_vec(),
             GL::ARRAY_BUFFER,
             GL::STATIC_DRAW,
-        )
-        .unwrap();
+        )?;
         let plane_indices = Buffer::from_u16(
             &context,
             &data::PLANE_INDICES.to_vec(),
             GL::ELEMENT_ARRAY_BUFFER,
             GL::STATIC_DRAW,
-        )
-        .unwrap();
+        )?;
 
         let place_lines_program = render::Program::new_with_transform_feedback(
             &context,
@@ -148,30 +133,18 @@ impl Drawer {
 
         let place_lines_pass = render::RenderPass::new(
             &context,
-            vec![
-                VertexBuffer {
-                    buffer: basepoint_buffer.clone(),
-                    binding: BindingInfo {
-                        name: "basepoint".to_string(),
-                        size: 2,
-                        type_: GL::FLOAT,
-                        ..Default::default()
-                    },
+            vec![VertexBuffer {
+                buffer: basepoint_buffer.clone(),
+                binding: BindingInfo {
+                    name: "basepoint".to_string(),
+                    size: 2,
+                    type_: GL::FLOAT,
+                    ..Default::default()
                 },
-                // VertexBuffer {
-                //     buffer: line_index_buffer.clone(),
-                //     binding: BindingInfo {
-                //         name: "lineIndex".to_string(),
-                //         size: 1,
-                //         type_: GL::UNSIGNED_SHORT,
-                //         ..Default::default()
-                //     },
-                // },
-            ],
+            }],
             Indices::NoIndices(GL::POINTS),
             place_lines_program,
-        )
-        .unwrap();
+        )?;
 
         let draw_lines_pass = render::RenderPass::new(
             &context,
@@ -198,8 +171,7 @@ impl Drawer {
             ],
             Indices::NoIndices(GL::TRIANGLES),
             draw_lines_program,
-        )
-        .unwrap();
+        )?;
 
         let draw_endpoints_pass = render::RenderPass::new(
             &context,
@@ -226,8 +198,7 @@ impl Drawer {
             ],
             Indices::NoIndices(GL::TRIANGLE_FAN),
             draw_endpoints_program,
-        )
-        .unwrap();
+        )?;
 
         let draw_texture_pass = render::RenderPass::new(
             &context,
@@ -245,13 +216,11 @@ impl Drawer {
                 primitive: GL::TRIANGLES,
             },
             draw_texture_program,
-        )
-        .unwrap();
+        )?;
 
         let antialiasing_samples = 4;
         let antialiasing_pass =
-            render::MsaaPass::new(context, screen_width, screen_height, antialiasing_samples)
-                .unwrap();
+            render::MsaaPass::new(context, screen_width, screen_height, antialiasing_samples)?;
 
         // Projection
         let half_width = (grid_width as f32) / 2.0;
@@ -265,7 +234,10 @@ impl Drawer {
             1.0,
         );
 
-        let view_matrix = glm::scale(&glm::identity(), &glm::vec3(view_scale, view_scale, 1.0));
+        let view_matrix = glm::scale(
+            &glm::identity(),
+            &glm::vec3(settings.view_scale, settings.view_scale, 1.0),
+        );
 
         Ok(Self {
             context: context.clone(),
@@ -273,15 +245,12 @@ impl Drawer {
 
             screen_width,
             screen_height,
-            aspect_ratio,
             grid_width,
             grid_height,
             line_count,
             color_wheel: settings::color_wheel_from_scheme(&settings.color_scheme),
 
             line_state_buffers,
-            line_index_buffer,
-            basepoint_buffer,
 
             place_lines_pass,
             draw_lines_pass,
@@ -502,6 +471,7 @@ impl Drawer {
         self.context.disable(GL::BLEND);
     }
 
+    #[allow(dead_code)]
     pub fn draw_texture(&self, texture: &Framebuffer) -> () {
         self.context
             .viewport(0, 0, self.screen_width as i32, self.screen_height as i32);
