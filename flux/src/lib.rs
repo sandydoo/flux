@@ -53,23 +53,16 @@ impl Flux {
     pub fn new(settings_object: &JsValue) -> Result<Flux, JsValue> {
         let (context, width, height) = get_rendering_context()?;
 
-        let settings = match settings_object.into_serde() {
+        let settings: Rc<Settings> = match settings_object.into_serde() {
             Ok(settings) => Rc::new(settings),
             Err(msg) => return Err(JsValue::from_str(&msg.to_string())),
         };
 
-        // Settings
-        let fluid_simulation_fps: f32 = 15.0;
-        let fluid_frame_time: f32 = 1.0 / fluid_simulation_fps;
-
-        let grid_spacing: u32 = 12;
-        let view_scale: f32 = 2.0;
-
-        // TODO: deal with result
+        let fluid_frame_time = 1.0 / settings.fluid_simulation_frame_rate;
         let fluid = Fluid::new(&context, &settings).map_err(|msg| msg.to_string())?;
 
-        let drawer = Drawer::new(&context, width, height, &settings, grid_spacing, view_scale)
-            .map_err(|msg| msg.to_string())?;
+        let drawer =
+            Drawer::new(&context, width, height, &settings).map_err(|msg| msg.to_string())?;
 
         let mut noise_channel_1 = NoiseInjector::new(
             &context,

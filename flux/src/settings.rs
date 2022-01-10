@@ -7,6 +7,7 @@ pub struct Settings {
     pub velocity_dissipation: f32,
     pub fluid_width: u32,
     pub fluid_height: u32,
+    pub fluid_simulation_frame_rate: f32,
     pub diffusion_iterations: u32,
     pub pressure_iterations: u32,
 
@@ -16,6 +17,8 @@ pub struct Settings {
     pub line_width: f32,
     pub line_begin_offset: f32,
     pub adjust_advection: f32,
+    pub grid_spacing: u32,
+    pub view_scale: f32,
 
     pub noise_channel_1: Noise,
     pub noise_channel_2: Noise,

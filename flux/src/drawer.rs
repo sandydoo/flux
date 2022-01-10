@@ -54,8 +54,6 @@ impl Drawer {
         screen_width: u32,
         screen_height: u32,
         settings: &Rc<Settings>,
-        grid_spacing: u32,
-        view_scale: f32,
     ) -> Result<Self, render::Problem> {
         let base_units = 1000;
         let grid_width: u32;
@@ -82,13 +80,14 @@ impl Drawer {
 
         let basepoint_buffer = Buffer::from_f32(
             &context,
-            &data::new_points(grid_width, grid_height, grid_spacing),
+            &data::new_points(grid_width, grid_height, settings.grid_spacing),
             GL::ARRAY_BUFFER,
             GL::STATIC_DRAW,
         )?;
 
-        let line_count = (grid_width / grid_spacing) * (grid_height / grid_spacing);
-        let line_state = data::new_line_state(grid_width, grid_height, grid_spacing);
+        let line_count =
+            (grid_width / settings.grid_spacing) * (grid_height / settings.grid_spacing);
+        let line_state = data::new_line_state(grid_width, grid_height, settings.grid_spacing);
         let line_state_buffers =
             render::TransformFeedbackBuffer::new_with_f32(&context, &line_state, GL::DYNAMIC_DRAW)?;
 
@@ -235,7 +234,10 @@ impl Drawer {
             1.0,
         );
 
-        let view_matrix = glm::scale(&glm::identity(), &glm::vec3(view_scale, view_scale, 1.0));
+        let view_matrix = glm::scale(
+            &glm::identity(),
+            &glm::vec3(settings.view_scale, settings.view_scale, 1.0),
+        );
 
         Ok(Self {
             context: context.clone(),

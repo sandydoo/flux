@@ -47,6 +47,7 @@ type alias Settings =
     , velocityDissipation : Float
     , fluidWidth : Int
     , fluidHeight : Int
+    , fluidSimulationFrameRate : Int
     , diffusionIterations : Int
     , pressureIterations : Int
     , colorScheme : ColorScheme
@@ -54,6 +55,8 @@ type alias Settings =
     , lineWidth : Float
     , lineBeginOffset : Float
     , adjustAdvection : Float
+    , gridSpacing : Int
+    , viewScale : Float
     , noiseChannel1 : Noise
     , noiseChannel2 : Noise
     }
@@ -82,6 +85,7 @@ defaultSettings =
     , velocityDissipation = 0.0
     , fluidWidth = 128
     , fluidHeight = 128
+    , fluidSimulationFrameRate = 15
     , diffusionIterations = 5
     , pressureIterations = 30
     , colorScheme = Plasma
@@ -89,6 +93,8 @@ defaultSettings =
     , lineWidth = 6.0
     , lineBeginOffset = 0.5
     , adjustAdvection = 3.0
+    , gridSpacing = 12
+    , viewScale = 2.0
     , noiseChannel1 =
         { scale = 1.2
         , multiplier = 1.8
@@ -765,6 +771,7 @@ encodeSettings settings =
         , ( "velocityDissipation", Encode.float settings.velocityDissipation )
         , ( "fluidWidth", Encode.int settings.fluidWidth )
         , ( "fluidHeight", Encode.int settings.fluidHeight )
+        , ( "fluidSimulationFrameRate", Encode.int settings.fluidSimulationFrameRate )
         , ( "diffusionIterations", Encode.int settings.diffusionIterations )
         , ( "pressureIterations", Encode.int settings.pressureIterations )
         , ( "colorScheme", encodeColorScheme settings.colorScheme )
@@ -772,6 +779,8 @@ encodeSettings settings =
         , ( "lineWidth", Encode.float settings.lineWidth )
         , ( "lineBeginOffset", Encode.float settings.lineBeginOffset )
         , ( "adjustAdvection", Encode.float settings.adjustAdvection )
+        , ( "gridSpacing", Encode.int settings.gridSpacing )
+        , ( "viewScale", Encode.float settings.viewScale )
         , ( "noiseChannel1", encodeNoise settings.noiseChannel1 )
         , ( "noiseChannel2", encodeNoise settings.noiseChannel2 )
         ]
@@ -783,6 +792,7 @@ settingsDecoder =
         |> Decode.required "velocityDissipation" Decode.float
         |> Decode.required "fluidWidth" Decode.int
         |> Decode.required "fluidHeight" Decode.int
+        |> Decode.required "fluidSimulationFrameRate" Decode.int
         |> Decode.required "diffusionIterations" Decode.int
         |> Decode.required "pressureIterations" Decode.int
         |> Decode.required "colorScheme" colorSchemeDecoder
@@ -790,6 +800,8 @@ settingsDecoder =
         |> Decode.required "lineWidth" Decode.float
         |> Decode.required "lineBeginOffset" Decode.float
         |> Decode.required "adjustAdvection" Decode.float
+        |> Decode.required "gridSpacing" Decode.int
+        |> Decode.required "viewScale" Decode.float
         |> Decode.required "noiseChannel1" noiseDecoder
         |> Decode.required "noiseChannel2" noiseDecoder
 
