@@ -25,7 +25,6 @@ pub struct Drawer {
 
     screen_width: u32,
     screen_height: u32,
-    aspect_ratio: f32,
 
     pub grid_width: u32,
     pub grid_height: u32,
@@ -35,8 +34,6 @@ pub struct Drawer {
     color_wheel: [f32; 18],
 
     line_state_buffers: render::TransformFeedbackBuffer,
-    line_index_buffer: render::Buffer,
-    basepoint_buffer: render::Buffer,
 
     place_lines_pass: render::RenderPass,
     draw_lines_pass: render::RenderPass,
@@ -93,13 +90,6 @@ impl Drawer {
         )?;
 
         let line_count = (grid_width / grid_spacing) * (grid_height / grid_spacing);
-        let mut line_indices = Vec::with_capacity(line_count as usize);
-        for i in 0..line_count {
-            line_indices.push(i as u16);
-        }
-        let line_index_buffer =
-            Buffer::from_u16(&context, &line_indices, GL::ARRAY_BUFFER, GL::STATIC_DRAW)?;
-
         let line_state = data::new_line_state(grid_width, grid_height, grid_spacing);
         let line_state_buffers =
             render::TransformFeedbackBuffer::new_with_f32(&context, &line_state, GL::DYNAMIC_DRAW)?;
@@ -148,26 +138,15 @@ impl Drawer {
 
         let place_lines_pass = render::RenderPass::new(
             &context,
-            vec![
-                VertexBuffer {
-                    buffer: basepoint_buffer.clone(),
-                    binding: BindingInfo {
-                        name: "basepoint".to_string(),
-                        size: 2,
-                        type_: GL::FLOAT,
-                        ..Default::default()
-                    },
+            vec![VertexBuffer {
+                buffer: basepoint_buffer.clone(),
+                binding: BindingInfo {
+                    name: "basepoint".to_string(),
+                    size: 2,
+                    type_: GL::FLOAT,
+                    ..Default::default()
                 },
-                // VertexBuffer {
-                //     buffer: line_index_buffer.clone(),
-                //     binding: BindingInfo {
-                //         name: "lineIndex".to_string(),
-                //         size: 1,
-                //         type_: GL::UNSIGNED_SHORT,
-                //         ..Default::default()
-                //     },
-                // },
-            ],
+            }],
             Indices::NoIndices(GL::POINTS),
             place_lines_program,
         )
@@ -273,15 +252,12 @@ impl Drawer {
 
             screen_width,
             screen_height,
-            aspect_ratio,
             grid_width,
             grid_height,
             line_count,
             color_wheel: settings::color_wheel_from_scheme(&settings.color_scheme),
 
             line_state_buffers,
-            line_index_buffer,
-            basepoint_buffer,
 
             place_lines_pass,
             draw_lines_pass,
@@ -502,6 +478,7 @@ impl Drawer {
         self.context.disable(GL::BLEND);
     }
 
+    #[allow(dead_code)]
     pub fn draw_texture(&self, texture: &Framebuffer) -> () {
         self.context
             .viewport(0, 0, self.screen_width as i32, self.screen_height as i32);

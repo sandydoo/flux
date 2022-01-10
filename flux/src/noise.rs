@@ -207,6 +207,7 @@ impl NoiseInjector {
         self.last_blend_progress = blend_progress;
     }
 
+    #[allow(dead_code)]
     pub fn get_noise(&self) -> &Framebuffer {
         &self.texture
     }

@@ -1,6 +1,5 @@
 use serde::Serialize;
-use wasm_bindgen::prelude::Closure;
-use wasm_bindgen::{JsCast, JsValue};
+use wasm_bindgen::JsValue;
 use web_sys::Window;
 
 #[derive(Serialize)]
@@ -58,12 +57,6 @@ impl Canvas {
 
 pub fn window() -> Window {
     web_sys::window().expect("The global `window` doesn’t exist")
-}
-
-pub fn request_animation_frame(f: &Closure<dyn FnMut(f32)>) {
-    window()
-        .request_animation_frame(f.as_ref().unchecked_ref())
-        .expect("should register `requestAnimationFrame` OK");
 }
 
 // https://github.com/rustwasm/console_error_panic_hook#readme

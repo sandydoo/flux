@@ -9,7 +9,7 @@ mod web;
 use drawer::Drawer;
 use fluid::Fluid;
 use noise::NoiseInjector;
-use settings::{Noise, Settings};
+use settings::Settings;
 use web::{Canvas, ContextOptions};
 
 use std::rc::Rc;
@@ -122,14 +122,8 @@ impl Flux {
             .blend_noise_into(&self.fluid.get_velocity_textures(), self.elapsed_time);
 
         while self.frame_time >= self.fluid_frame_time {
-            // Convection
-            self.fluid.advect(self.fluid_frame_time);
-
+            self.fluid.advect(self.fluid_frame_time); // Convection
             self.fluid.diffuse(self.fluid_frame_time);
-
-            // TODO: this needs a second pass. See GPU Gems.
-            // fluid.curl(fluid_frame_time);
-
             self.fluid.calculate_divergence();
             self.fluid.solve_pressure();
             self.fluid.subtract_gradient();

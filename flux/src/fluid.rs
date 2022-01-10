@@ -18,7 +18,6 @@ static DIVERGENCE_FRAG_SHADER: &'static str = include_str!("./shaders/divergence
 static SOLVE_PRESSURE_FRAG_SHADER: &'static str = include_str!("./shaders/solve_pressure.frag");
 static SUBTRACT_GRADIENT_FRAG_SHADER: &'static str =
     include_str!("./shaders/subtract_gradient.frag");
-static CURL_FRAG_SHADER: &'static str = include_str!("./shaders/curl.frag");
 
 pub struct Fluid {
     settings: Rc<Settings>,
@@ -35,7 +34,6 @@ pub struct Fluid {
     divergence_pass: render::RenderPass,
     pressure_pass: render::RenderPass,
     subtract_gradient_pass: render::RenderPass,
-    curl_pass: render::RenderPass,
 }
 
 impl Fluid {
@@ -112,7 +110,6 @@ impl Fluid {
             render::Program::new(&context, (FLUID_VERT_SHADER, SOLVE_PRESSURE_FRAG_SHADER))?;
         let subtract_gradient_program =
             render::Program::new(&context, (FLUID_VERT_SHADER, SUBTRACT_GRADIENT_FRAG_SHADER))?;
-        let curl_program = render::Program::new(&context, (FLUID_VERT_SHADER, CURL_FRAG_SHADER))?;
 
         let advection_pass = render::RenderPass::new(
             &context,
@@ -204,24 +201,6 @@ impl Fluid {
             subtract_gradient_program,
         )
         .unwrap();
-        let curl_pass = render::RenderPass::new(
-            &context,
-            vec![VertexBuffer {
-                buffer: plane_vertices.clone(),
-                binding: BindingInfo {
-                    name: "position".to_string(),
-                    size: 3,
-                    type_: GL::FLOAT,
-                    ..Default::default()
-                },
-            }],
-            Indices::IndexBuffer {
-                buffer: plane_indices.clone(),
-                primitive: GL::TRIANGLES,
-            },
-            curl_program,
-        )
-        .unwrap();
 
         Ok(Self {
             settings: Rc::clone(settings),
@@ -238,7 +217,6 @@ impl Fluid {
             divergence_pass,
             pressure_pass,
             subtract_gradient_pass,
-            curl_pass,
         })
     }
 
@@ -445,50 +423,22 @@ impl Fluid {
         self.velocity_textures.swap();
     }
 
-    pub fn curl(&self, timestep: f32) -> () {
-        self.curl_pass
-            .draw_to(
-                &self.velocity_textures.next(),
-                &vec![
-                    Uniform {
-                        name: "uTexelSize",
-                        value: UniformValue::Vec2(self.texel_size),
-                    },
-                    Uniform {
-                        name: "deltaT",
-                        value: UniformValue::Float(timestep),
-                    },
-                    Uniform {
-                        name: "velocityTexture",
-                        value: UniformValue::Texture2D(
-                            &self.velocity_textures.current().texture,
-                            0,
-                        ),
-                    },
-                ],
-                1,
-            )
-            .unwrap();
-
-        self.velocity_textures.swap();
-    }
-
-    pub fn get_grid_size(&self) -> f32 {
-        self.grid_size
-    }
-
+    #[allow(dead_code)]
     pub fn get_velocity(&self) -> Ref<Framebuffer> {
         self.velocity_textures.current()
     }
 
+    #[allow(dead_code)]
     pub fn get_divergence(&self) -> &Framebuffer {
         &self.divergence_texture
     }
 
+    #[allow(dead_code)]
     pub fn get_pressure(&self) -> Ref<Framebuffer> {
         self.pressure_textures.current()
     }
 
+    #[allow(dead_code)]
     pub fn get_velocity_textures(&self) -> &DoubleFramebuffer {
         &self.velocity_textures
     }
