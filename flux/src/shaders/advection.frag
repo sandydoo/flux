@@ -9,7 +9,7 @@ uniform sampler2D inputTexture;
 uniform sampler2D velocityTexture;
 
 in vec2 textureCoord;
-out vec4 fragColor;
+out vec2 newVelocity;
 
 void main() {
   vec2 offset = vec2(0.0, 0.0);
@@ -33,7 +33,7 @@ void main() {
   vec2 velocity = scale * texture(velocityTexture, textureCoord + offset).xy;
 
   vec2 pastCoord = textureCoord - (epsilon * deltaT * velocity);
-  vec4 pastColor = texture(inputTexture, pastCoord);
+  vec2 pastVelocity = texture(inputTexture, pastCoord).rg;
   float decay = 1.0 + dissipation * deltaT;
-  fragColor = pastColor / decay;
+  newVelocity = pastVelocity / decay;
 }

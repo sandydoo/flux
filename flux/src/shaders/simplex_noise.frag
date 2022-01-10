@@ -7,7 +7,7 @@ uniform float uFrequency;
 uniform float uOffset1;
 uniform float uOffset2;
 
-out vec4 fragColor;
+out vec2 noise;
 
 vec3 mod289(vec3 x) {
   return x - floor(x * (1.0 / 289.0)) * 289.0;
@@ -107,6 +107,6 @@ void main() {
   float sx = snoise(vec3(st * uFrequency, uOffset1));
   float sy = snoise(vec3(st * uFrequency, uOffset2));
 
-  fragColor = vec4(sx, sy, 0.0, 1.0);
+  noise = vec2(sx, sy);
 }
 

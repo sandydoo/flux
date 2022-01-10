@@ -1,7 +1,6 @@
 use fnv::FnvHasher;
 use std::cell::{Ref, RefCell};
 use std::collections::HashMap;
-use std::fmt;
 use std::hash::BuildHasherDefault;
 use std::rc::Rc;
 use thiserror::Error;
@@ -16,47 +15,54 @@ use web_sys::{
 
 pub type Context = Rc<GL>;
 type GlDataType = u32;
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+type Result<T> = std::result::Result<T, Problem>;
 
 #[derive(Error, Debug)]
-enum Problem {
-    CannotCreateTexture(),
-    CannotCreateFramebuffer(),
-    CannotCreateRenderbuffer(),
-    CannotCreateShader(Option<String>),
-    CannotCreateProgram(),
-    CannotLinkProgram(String),
-    CannotWriteToTexture(),
-    WrongDataType(),
-    CannotFindAttributeBinding(String),
-    AttribNotActive(String),
-    VerticesCountMismatch(),
-    CannotBindUnsupportedVertexType(),
-}
+pub enum Problem {
+    #[error("Cannot create buffer")]
+    CannotCreateBuffer,
 
-impl fmt::Display for Problem {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let desc = match self {
-            Problem::CannotCreateTexture() => "Cannot create texture".to_string(),
-            Problem::CannotCreateFramebuffer() => "Cannot create framebuffer".to_string(),
-            Problem::CannotCreateRenderbuffer() => "Cannot create renderbuffer".to_string(),
-            Problem::CannotCreateShader(maybe_desc) => maybe_desc.as_ref().unwrap().to_string(),
-            Problem::CannotLinkProgram(error_message) => error_message.clone(),
-            Problem::CannotFindAttributeBinding(name) => {
-                format!("Can’t find the attribute {}", name)
-            }
-            Problem::AttribNotActive(name) => format!("Attribute {} not active", name),
-            Problem::VerticesCountMismatch() => {
-                "The vertex buffers have different numbers of vertices".to_string()
-            }
-            Problem::CannotBindUnsupportedVertexType() => {
-                "Vertex attribute type is not supported".to_string()
-            }
-            // TODO: fix
-            _ => "Something went wrong".to_string(),
-        };
-        fmt.write_str(desc.as_str())
-    }
+    #[error("Cannot create texture")]
+    CannotCreateTexture,
+
+    #[error("Cannot create framebuffer")]
+    CannotCreateFramebuffer,
+
+    #[error("Cannot create renderbuffer")]
+    CannotCreateRenderbuffer,
+
+    #[error("{}", match .0 {
+        Some(n) => format!("Cannot create shader: {}", n),
+        None => format!("Cannot create shader"),
+    })]
+    CannotCreateShader(Option<String>),
+
+    #[error("Cannot create program")]
+    CannotCreateProgram,
+
+    #[error("Cannot link program: {0}")]
+    CannotLinkProgram(String),
+
+    #[error("Cannot write to texture")]
+    CannotWriteToTexture,
+
+    #[error("Unexpected data size. Expected: {expected:?}. Actual: {actual:?} ")]
+    WrongDataSize { expected: usize, actual: usize },
+
+    #[error("Cannot write to texture")]
+    UnsupportedTextureFormat,
+
+    #[error("Can’t find the attribute {0}")]
+    CannotFindAttributeBinding(String),
+
+    #[error("Attribute {0} not active")]
+    AttribNotActive(String),
+
+    #[error("The vertex buffers have different numbers of vertices")]
+    VerticesCountMismatch,
+
+    #[error("Vertex attribute type is not supported")]
+    CannotBindUnsupportedVertexType,
 }
 
 #[derive(Clone, Debug)]
@@ -82,7 +88,7 @@ impl Buffer {
         let data_array = js_sys::Float32Array::new(&memory_buffer)
             .subarray(arr_location, arr_location + data.len() as u32);
 
-        let buffer = context.create_buffer().ok_or("failed to create buffer")?;
+        let buffer = context.create_buffer().ok_or(Problem::CannotCreateBuffer)?;
 
         context.bind_buffer(buffer_type, Some(&buffer));
         context.buffer_data_with_array_buffer_view(buffer_type, &data_array, usage);
@@ -110,7 +116,7 @@ impl Buffer {
         let data_array = js_sys::Uint16Array::new(&memory_buffer)
             .subarray(data_location, data_location + data.len() as u32);
 
-        let buffer = context.create_buffer().ok_or("failed to create buffer")?;
+        let buffer = context.create_buffer().ok_or(Problem::CannotCreateBuffer)?;
 
         context.bind_buffer(buffer_type, Some(&buffer));
         context.buffer_data_with_array_buffer_view(buffer_type, &data_array, usage);
@@ -138,7 +144,7 @@ impl Buffer {
         let data_array = js_sys::Uint16Array::new(&memory_buffer)
             .subarray(data_location, data_location + data.len() as u32);
 
-        let buffer = context.create_buffer().ok_or("failed to create buffer")?;
+        let buffer = context.create_buffer().ok_or(Problem::CannotCreateBuffer)?;
 
         context.bind_buffer(buffer_type, Some(&buffer));
         context.buffer_data_with_array_buffer_view(buffer_type, &data_array, usage);
@@ -159,6 +165,7 @@ pub struct TextureOptions {
     pub min_filter: GlDataType,
     pub wrap_s: GlDataType,
     pub wrap_t: GlDataType,
+    pub format: GlDataType,
 }
 
 impl Default for TextureOptions {
@@ -168,6 +175,7 @@ impl Default for TextureOptions {
             min_filter: GL::NEAREST,
             wrap_s: GL::CLAMP_TO_EDGE,
             wrap_t: GL::CLAMP_TO_EDGE,
+            format: GL::RGBA32F,
         }
     }
 }
@@ -179,6 +187,7 @@ pub struct Framebuffer {
     pub width: u32,
     pub height: u32,
     pub texture: WebGlTexture,
+    pub options: TextureOptions,
 }
 
 impl Framebuffer {
@@ -199,7 +208,7 @@ impl Framebuffer {
     ) -> Result<Self> {
         let texture = context
             .create_texture()
-            .ok_or(Problem::CannotCreateTexture())?;
+            .ok_or(Problem::CannotCreateTexture)?;
 
         context.bind_texture(GL::TEXTURE_2D, Some(&texture));
         context.tex_parameteri(
@@ -218,7 +227,7 @@ impl Framebuffer {
 
         let framebuffer = context
             .create_framebuffer()
-            .ok_or(Problem::CannotCreateFramebuffer())?;
+            .ok_or(Problem::CannotCreateFramebuffer)?;
 
         Ok(Self {
             context: context.clone(),
@@ -226,10 +235,26 @@ impl Framebuffer {
             width,
             height,
             texture,
+            options,
         })
     }
 
     pub fn with_f32_data(self, data: &Vec<f32>) -> Result<Self> {
+        let TextureFormat {
+            internal_format,
+            format,
+            type_,
+            size,
+        } = detect_texture_format(self.options.format)?;
+
+        let expected_size = size * ((self.width * self.height) as usize);
+        if data.len() != expected_size {
+            return Err(Problem::WrongDataSize {
+                expected: expected_size,
+                actual: data.len(),
+            });
+        }
+
         self.context
             .bind_texture(GL::TEXTURE_2D, Some(&self.texture));
         unsafe {
@@ -237,14 +262,14 @@ impl Framebuffer {
             self.context.tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_array_buffer_view(
                 GL::TEXTURE_2D,
                 0,
-                GL::RGBA32F as i32,
+                internal_format as i32,
                 self.width as i32,
                 self.height as i32,
                 0,
-                GL::RGBA,
-                GL::FLOAT,
+                format,
+                type_,
                 Some(&array),
-            ).or(Err(Box::new(Problem::CannotWriteToTexture())))?;
+            ).or(Err(Problem::CannotWriteToTexture))?;
         }
         self.context.bind_texture(GL::TEXTURE_2D, None);
 
@@ -310,10 +335,6 @@ impl DoubleFramebuffer {
     }
 
     pub fn with_f32_data(self, data: &Vec<f32>) -> Result<Self> {
-        if data.len() != (self.width * self.height * 4) as usize {
-            return Err(Box::new(Problem::WrongDataType()));
-        }
-
         // TODO: are these clones okay? The problem is that the builder pattern
         // doesn’t work well with RefCell in the DoubleBuffer. Another option is
         // to build with references and call a `finalize` method at the end.
@@ -382,7 +403,7 @@ impl Program {
 
         let program = context
             .create_program()
-            .ok_or(Problem::CannotCreateProgram())?;
+            .ok_or(Problem::CannotCreateProgram)?;
         context.attach_shader(&program, &vertex_shader);
         context.attach_shader(&program, &fragment_shader);
 
@@ -401,9 +422,9 @@ impl Program {
             .as_bool()
             .unwrap_or(false)
         {
-            return Err(Box::new(Problem::CannotLinkProgram(
+            return Err(Problem::CannotLinkProgram(
                 context.get_program_info_log(&program).unwrap().to_string(),
-            )));
+            ));
         }
 
         // Delete the shaders to free up memory
@@ -579,12 +600,9 @@ pub fn compile_shader(context: &GL, shader_type: u32, source: &str) -> Result<We
     {
         Ok(shader)
     } else {
-        Err(Box::new(Problem::CannotCreateShader(Some(
+        Err(Problem::CannotCreateShader(Some(
             context.get_shader_info_log(&shader).unwrap(),
-        ))))
-        // Err(Box::new(context
-        //     .get_shader_info_log(&shader)
-        //     .unwrap())
+        )))
     }
 }
 
@@ -595,7 +613,7 @@ pub fn link_program(
 ) -> Result<WebGlProgram> {
     let program = context
         .create_program()
-        .ok_or_else(|| String::from("Unable to create shader object"))?;
+        .ok_or(Problem::CannotCreateProgram)?;
 
     context.attach_shader(&program, vertex_shader);
     context.attach_shader(&program, fragment_shader);
@@ -608,10 +626,11 @@ pub fn link_program(
     {
         Ok(program)
     } else {
-        Err(Box::new(Problem::CannotCreateProgram()))
-        // Err(context
-        //     .get_program_info_log(&program)
-        //     .unwrap_or_else(|| String::from("Unknown error creating program object")))
+        Err(Problem::CannotLinkProgram(
+            context
+                .get_program_info_log(&program)
+                .unwrap_or(String::from("Unknown error creating program object")),
+        ))
     }
 }
 
@@ -803,7 +822,7 @@ impl RenderPass {
             Indices::NoIndices(primitive) => {
                 let vertices_count = match vertices_count {
                     Some(count) => count,
-                    None => return Err(Box::new(Problem::VerticesCountMismatch())),
+                    None => return Err(Problem::VerticesCountMismatch),
                 };
 
                 if instance_count > 1 {
@@ -923,7 +942,7 @@ pub fn bind_attributes(
                 binding.stride as i32,
                 binding.offset as i32,
             ),
-        _ => return Err(Box::new(Problem::CannotBindUnsupportedVertexType())),
+        _ => return Err(Problem::CannotBindUnsupportedVertexType),
     };
 
     context.vertex_attrib_divisor(location, binding.divisor);
@@ -943,10 +962,10 @@ impl MsaaPass {
     pub fn new(context: &Context, width: u32, height: u32, samples: u32) -> Result<Self> {
         let framebuffer = context
             .create_framebuffer()
-            .ok_or(Problem::CannotCreateFramebuffer())?;
+            .ok_or(Problem::CannotCreateFramebuffer)?;
         let renderbuffer = context
             .create_renderbuffer()
-            .ok_or(Problem::CannotCreateRenderbuffer())?;
+            .ok_or(Problem::CannotCreateRenderbuffer)?;
         context.bind_framebuffer(GL::FRAMEBUFFER, Some(&framebuffer));
         context.bind_renderbuffer(GL::RENDERBUFFER, Some(&renderbuffer));
 
@@ -1011,5 +1030,43 @@ impl MsaaPass {
             GL::LINEAR,
         );
         self.context.bind_framebuffer(GL::READ_FRAMEBUFFER, None);
+    }
+}
+
+struct TextureFormat {
+    internal_format: GlDataType,
+    format: GlDataType,
+    type_: GlDataType,
+    size: usize,
+}
+
+// https://www.khronos.org/registry/webgl/specs/latest/2.0/#TEXTURE_TYPES_FORMATS_FROM_DOM_ELEMENTS_TABLE
+fn detect_texture_format(internal_format: GlDataType) -> Result<TextureFormat> {
+    match internal_format {
+        GL::R32F => Ok(TextureFormat {
+            internal_format,
+            format: GL::RED,
+            type_: GL::FLOAT,
+            size: 1,
+        }),
+        GL::RG32F => Ok(TextureFormat {
+            internal_format,
+            format: GL::RG,
+            type_: GL::FLOAT,
+            size: 2,
+        }),
+        GL::RGB32F => Ok(TextureFormat {
+            internal_format,
+            format: GL::RGB,
+            type_: GL::FLOAT,
+            size: 3,
+        }),
+        GL::RGBA32F => Ok(TextureFormat {
+            internal_format,
+            format: GL::RGBA,
+            type_: GL::FLOAT,
+            size: 4,
+        }),
+        _ => Err(Problem::UnsupportedTextureFormat),
     }
 }

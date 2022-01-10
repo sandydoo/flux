@@ -43,32 +43,50 @@ impl Fluid {
         self.settings = new_settings.clone();
     }
 
-    pub fn new(
-        context: &Context,
-        settings: &Rc<Settings>
-    ) -> Result<Self> {
+    pub fn new(context: &Context, settings: &Rc<Settings>) -> Result<Self> {
         let grid_size: f32 = 1.0;
         let grid_width = settings.fluid_width;
         let grid_height = settings.fluid_height;
         let texel_size = [1.0 / grid_width as f32, 1.0 / grid_height as f32];
 
-        let texture_options: TextureOptions = TextureOptions {
-            mag_filter: GL::LINEAR,
-            min_filter: GL::LINEAR,
-            ..Default::default()
-        };
-
         // Framebuffers
-        let initial_velocity_data = vec![0.0; (4 * grid_width * grid_height) as usize];
-        let velocity_textures =
-            render::DoubleFramebuffer::new(&context, grid_width, grid_height, texture_options)?
-                .with_f32_data(&initial_velocity_data)?;
-        let divergence_texture =
-            render::Framebuffer::new(&context, grid_width, grid_height, texture_options)?
-                .with_f32_data(&vec![0.0; (grid_width * grid_height * 4) as usize])?;
-        let pressure_textures =
-            render::DoubleFramebuffer::new(&context, grid_width, grid_height, texture_options)?
-                .with_f32_data(&vec![0.0; (grid_width * grid_height * 4) as usize])?;
+        let initial_velocity_data = vec![0.0; (2 * grid_width * grid_height) as usize];
+        let velocity_textures = render::DoubleFramebuffer::new(
+            &context,
+            grid_width,
+            grid_height,
+            TextureOptions {
+                mag_filter: GL::LINEAR,
+                min_filter: GL::LINEAR,
+                format: GL::RG32F,
+                ..Default::default()
+            },
+        )?
+        .with_f32_data(&initial_velocity_data)?;
+        let divergence_texture = render::Framebuffer::new(
+            &context,
+            grid_width,
+            grid_height,
+            TextureOptions {
+                mag_filter: GL::LINEAR,
+                min_filter: GL::LINEAR,
+                format: GL::RG32F,
+                ..Default::default()
+            },
+        )?
+        .with_f32_data(&vec![0.0; (2 * grid_width * grid_height) as usize])?;
+        let pressure_textures = render::DoubleFramebuffer::new(
+            &context,
+            grid_width,
+            grid_height,
+            TextureOptions {
+                mag_filter: GL::LINEAR,
+                min_filter: GL::LINEAR,
+                format: GL::RG32F,
+                ..Default::default()
+            },
+        )?
+        .with_f32_data(&vec![0.0; (2 * grid_width * grid_height) as usize])?;
 
         // Geometry
         let plane_vertices = Buffer::from_f32(

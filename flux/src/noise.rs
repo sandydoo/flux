@@ -32,14 +32,18 @@ impl NoiseInjector {
     }
 
     pub fn new(context: &Context, width: u32, height: u32, noise: Noise) -> Result<Self> {
-        let texture_options: TextureOptions = TextureOptions {
-            mag_filter: GL::LINEAR,
-            min_filter: GL::LINEAR,
-            ..Default::default()
-        };
-
-        let texture = Framebuffer::new(&context, width, height, texture_options)?
-            .with_f32_data(&vec![0.0; (width * height * 4) as usize])?;
+        let texture = Framebuffer::new(
+            &context,
+            width,
+            height,
+            TextureOptions {
+                mag_filter: GL::LINEAR,
+                min_filter: GL::LINEAR,
+                format: GL::RG32F,
+                ..Default::default()
+            },
+        )?
+        .with_f32_data(&vec![0.0; (width * height * 2) as usize])?;
 
         // Geometry
         let plane_vertices = Buffer::from_f32(
