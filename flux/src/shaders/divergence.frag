@@ -10,7 +10,7 @@ in vec2 vL;
 in vec2 vR;
 in vec2 vT;
 in vec2 vB;
-out vec4 fragColor;
+out vec2 newDivergence;
 
 void main() {
   float L = texture(velocityTexture, vL).x;
@@ -25,5 +25,5 @@ void main() {
   if (vB.y < 0.0) { B = -velocity.y; }
 
   float div = halfEpsilon * (R - L + T - B);
-  fragColor = vec4(div, 0.0, 0.0, 1.0);
+  newDivergence = vec2(div, 0.0);
 }

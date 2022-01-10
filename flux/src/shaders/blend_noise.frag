@@ -14,7 +14,7 @@ in highp vec2 vL;
 in highp vec2 vR;
 in highp vec2 vT;
 in highp vec2 vB;
-out vec4 fragColor;
+out vec2 outputValue;
 
 // Add noise to a field with curl
 void main() {
@@ -29,7 +29,5 @@ void main() {
   force *= 0.7 * C;
 
   vec2 inputValue = texture(inputTexture, textureCoord).xy;
-  inputValue += uBlendProgress * uMultiplier * force;
-
-  fragColor = vec4(inputValue, 0.0, 1.0);
+  outputValue = inputValue + uBlendProgress * uMultiplier * force;
 }

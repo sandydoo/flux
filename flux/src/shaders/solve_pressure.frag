@@ -12,7 +12,7 @@ in vec2 vL;
 in vec2 vR;
 in vec2 vT;
 in vec2 vB;
-out vec4 fragColor;
+out vec2 newPressure;
 
 void main() {
   vec2 L = texture(pressureTexture, vL).xy;
@@ -21,6 +21,5 @@ void main() {
   vec2 B = texture(pressureTexture, vB).xy;
   vec2 divergence = texture(divergenceTexture, textureCoord).xy;
 
-  vec2 pressure = rBeta * (L + R + B + T + alpha * divergence);
-  fragColor = vec4(pressure, 0.0, 1.0);
+  newPressure = rBeta * (L + R + B + T + alpha * divergence);
 }

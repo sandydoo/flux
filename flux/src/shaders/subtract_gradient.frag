@@ -11,7 +11,7 @@ in vec2 vL;
 in vec2 vR;
 in vec2 vT;
 in vec2 vB;
-out vec4 fragColor;
+out vec2 newVelocity;
 
 void main() {
   vec2 velocity = texture(velocityTexture, textureCoord).xy;
@@ -21,6 +21,5 @@ void main() {
   float T = texture(pressureTexture, vT).x;
   float B = texture(pressureTexture, vB).x;
 
-  velocity.xy -= halfEpsilon * vec2(R - L, T - B);
-  fragColor = vec4(velocity, 0.0, 1.0);
+  newVelocity = velocity - halfEpsilon * vec2(R - L, T - B);
 }
