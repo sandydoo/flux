@@ -30,6 +30,12 @@ pub enum Problem {
     #[error("Cannot create renderbuffer")]
     CannotCreateRenderbuffer,
 
+    #[error("Cannot create transform feedback")]
+    CannotCreateTransformFeedback,
+
+    #[error("Cannot create vertex array object")]
+    CannotCreateVertexArrayObject,
+
     #[error("{}", match .0 {
         Some(n) => format!("Cannot create shader: {}", n),
         None => format!("Cannot create shader"),
@@ -630,7 +636,9 @@ pub struct TransformFeedbackBuffer {
 
 impl TransformFeedbackBuffer {
     pub fn new_with_f32(context: &Context, data: &Vec<f32>, usage: u32) -> Result<Self> {
-        let transform_feedback_buffer = context.create_transform_feedback().unwrap();
+        let transform_feedback_buffer = context
+            .create_transform_feedback()
+            .ok_or(Problem::CannotCreateTransformFeedback)?;
 
         let front = Buffer::from_f32(&context, &data, GL::ARRAY_BUFFER, usage)?;
         let back = Buffer::from_f32(&context, &data, GL::ARRAY_BUFFER, usage)?;
@@ -670,8 +678,9 @@ impl RenderPass {
         indices: Indices,
         program: Program,
     ) -> Result<Self> {
-        // TODO: fix unwrap
-        let vao = context.create_vertex_array().unwrap();
+        let vao = context
+            .create_vertex_array()
+            .ok_or(Problem::CannotCreateVertexArrayObject)?;
         context.bind_vertex_array(Some(&vao));
 
         for VertexBuffer {
