@@ -786,26 +786,6 @@ encodeSettings settings =
         ]
 
 
-settingsDecoder =
-    Decode.succeed Settings
-        |> Decode.required "viscosity" Decode.float
-        |> Decode.required "velocityDissipation" Decode.float
-        |> Decode.required "fluidWidth" Decode.int
-        |> Decode.required "fluidHeight" Decode.int
-        |> Decode.required "fluidSimulationFrameRate" Decode.int
-        |> Decode.required "diffusionIterations" Decode.int
-        |> Decode.required "pressureIterations" Decode.int
-        |> Decode.required "colorScheme" colorSchemeDecoder
-        |> Decode.required "lineLength" Decode.float
-        |> Decode.required "lineWidth" Decode.float
-        |> Decode.required "lineBeginOffset" Decode.float
-        |> Decode.required "adjustAdvection" Decode.float
-        |> Decode.required "gridSpacing" Decode.int
-        |> Decode.required "viewScale" Decode.float
-        |> Decode.required "noiseChannel1" noiseDecoder
-        |> Decode.required "noiseChannel2" noiseDecoder
-
-
 encodeColorScheme : ColorScheme -> Encode.Value
 encodeColorScheme =
     colorSchemeToString >> Encode.string
@@ -823,36 +803,6 @@ colorSchemeToString colorscheme =
             "Pollen"
 
 
-colorSchemeFromString : String -> Maybe ColorScheme
-colorSchemeFromString string =
-    case string of
-        "Plasma" ->
-            Just Plasma
-
-        "Poolside" ->
-            Just Poolside
-
-        "Pollen" ->
-            Just Pollen
-
-        _ ->
-            Nothing
-
-
-colorSchemeDecoder : Decode.Decoder ColorScheme
-colorSchemeDecoder =
-    Decode.string
-        |> Decode.andThen
-            (\value ->
-                case colorSchemeFromString value of
-                    Just colorscheme ->
-                        Decode.succeed colorscheme
-
-                    Nothing ->
-                        Decode.fail "Not a supported colorscheme"
-            )
-
-
 encodeNoise : Noise -> Encode.Value
 encodeNoise noise =
     Encode.object
@@ -864,15 +814,3 @@ encodeNoise noise =
         , ( "delay", Encode.float noise.delay )
         , ( "blendDuration", Encode.float noise.blendDuration )
         ]
-
-
-noiseDecoder : Decode.Decoder Noise
-noiseDecoder =
-    Decode.succeed Noise
-        |> Decode.required "scale" Decode.float
-        |> Decode.required "multiplier" Decode.float
-        |> Decode.required "offset1" Decode.float
-        |> Decode.required "offset2" Decode.float
-        |> Decode.required "offsetIncrement" Decode.float
-        |> Decode.required "delay" Decode.float
-        |> Decode.required "blendDuration" Decode.float
