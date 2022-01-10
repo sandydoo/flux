@@ -156,7 +156,7 @@ impl NoiseInjector {
     pub fn generate(&mut self, elapsed_time: f32) -> () {
         let time_since_last_update = elapsed_time - self.blend_begin_time;
 
-        if time_since_last_update >= self.noise.blend_duration {
+        if time_since_last_update >= self.noise.delay {
             self.generate_now(elapsed_time);
         }
     }

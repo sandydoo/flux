@@ -71,38 +71,41 @@ type alias Noise =
     , offset1 : Float
     , offset2 : Float
     , offsetIncrement : Float
+    , delay : Float
     , blendDuration : Float
     }
 
 
 defaultSettings : Settings
 defaultSettings =
-    { viscosity = 0.4
+    { viscosity = 1.0
     , velocityDissipation = 0.0
     , fluidWidth = 128
     , fluidHeight = 128
     , diffusionIterations = 5
     , pressureIterations = 30
     , colorScheme = Plasma
-    , lineLength = 220.0
-    , lineWidth = 5.0
+    , lineLength = 260.0
+    , lineWidth = 6.0
     , lineBeginOffset = 0.5
-    , adjustAdvection = 5.0
+    , adjustAdvection = 3.0
     , noiseChannel1 =
         { scale = 1.2
         , multiplier = 1.8
         , offset1 = 1.0
         , offset2 = 100.0
         , offsetIncrement = 10.0
-        , blendDuration = 10.0
+        , delay = 10.0
+        , blendDuration = 9.0
         }
     , noiseChannel2 =
         { scale = 20.0
-        , multiplier = 0.4
+        , multiplier = 1.6
         , offset1 = 1.0
-        , offset2 = 1.0
+        , offset2 = 100.0
         , offsetIncrement = 0.3
-        , blendDuration = 0.9
+        , delay = 0.5
+        , blendDuration = 3.0
         }
     }
 
@@ -165,6 +168,7 @@ type NoiseMsg
     | SetNoiseOffset1 Float
     | SetNoiseOffset2 Float
     | SetNoiseOffsetIncrement Float
+    | SetNoiseDelay Float
     | SetNoiseBlendDuration Float
 
 
@@ -222,6 +226,9 @@ updateNoise msg noise =
 
         SetNoiseOffsetIncrement newOffsetIncrement ->
             { noise | offsetIncrement = newOffsetIncrement }
+
+        SetNoiseDelay newDelay ->
+            { noise | delay = newDelay }
 
         SetNoiseBlendDuration newBlendDuration ->
             { noise | blendDuration = newBlendDuration }
@@ -641,6 +648,25 @@ viewNoiseChannel title setNoiseChannel noiseChannel =
                 )
         , viewControl <|
             Control
+                "Delay"
+                ""
+                (Slider
+                    { min = 0.0
+                    , max = 10.0
+                    , step = 0.1
+                    , value = noiseChannel.delay
+                    , onInput =
+                        \value ->
+                            String.toFloat value
+                                |> Maybe.withDefault 1.0
+                                |> SetNoiseDelay
+                                |> setNoiseChannel
+                                |> SaveSetting
+                    , toString = formatFloat 1
+                    }
+                )
+        , viewControl <|
+            Control
                 "Blend duration"
                 ""
                 (Slider
@@ -823,6 +849,7 @@ encodeNoise noise =
         , ( "offset1", Encode.float noise.offset1 )
         , ( "offset2", Encode.float noise.offset2 )
         , ( "offsetIncrement", Encode.float noise.offsetIncrement )
+        , ( "delay", Encode.float noise.delay )
         , ( "blendDuration", Encode.float noise.blendDuration )
         ]
 
@@ -835,4 +862,5 @@ noiseDecoder =
         |> Decode.required "offset1" Decode.float
         |> Decode.required "offset2" Decode.float
         |> Decode.required "offsetIncrement" Decode.float
+        |> Decode.required "delay" Decode.float
         |> Decode.required "blendDuration" Decode.float
