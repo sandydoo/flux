@@ -55,6 +55,7 @@ type alias Settings =
     , lineWidth : Float
     , lineBeginOffset : Float
     , lineOpacity : Float
+    , lineFadeOutLength : Float
     , adjustAdvection : Float
     , gridSpacing : Int
     , viewScale : Float
@@ -94,6 +95,7 @@ defaultSettings =
     , lineWidth = 6.0
     , lineBeginOffset = 0.5
     , lineOpacity = 0.8
+    , lineFadeOutLength = 0.05
     , adjustAdvection = 3.0
     , gridSpacing = 12
     , viewScale = 2.0
@@ -166,6 +168,7 @@ type SettingMsg
     | SetLineWidth Float
     | SetLineBeginOffset Float
     | SetLineOpacity Float
+    | SetLineFadeOutLength Float
     | SetAdjustAdvection Float
     | SetNoiseChannel1 NoiseMsg
     | SetNoiseChannel2 NoiseMsg
@@ -210,6 +213,9 @@ updateSettings msg settings =
 
         SetLineOpacity newLineOpacity ->
             { settings | lineOpacity = newLineOpacity }
+
+        SetLineFadeOutLength newLineFadeOutLength ->
+            { settings | lineFadeOutLength = newLineFadeOutLength }
 
         SetAdjustAdvection newAdjustAdvection ->
             { settings | adjustAdvection = newAdjustAdvection }
@@ -525,6 +531,26 @@ viewSettings settings =
                 )
         , viewControl <|
             Control
+                "Fog level"
+                """
+                Adjust the height of the fog that hides shorter lines.
+                """
+                (Slider
+                    { min = 0.0
+                    , max = 0.5
+                    , step = 0.01
+                    , value = settings.lineFadeOutLength
+                    , onInput =
+                        \value ->
+                            String.toFloat value
+                                |> Maybe.withDefault 0.0
+                                |> SetLineFadeOutLength
+                                |> SaveSetting
+                    , toString = formatFloat 2
+                    }
+                )
+        , viewControl <|
+            Control
                 "Adjust advection"
                 """
                 Adjust how quickly the lines respond to changes in the fluid.
@@ -804,6 +830,7 @@ encodeSettings settings =
         , ( "lineLength", Encode.float settings.lineLength )
         , ( "lineWidth", Encode.float settings.lineWidth )
         , ( "lineBeginOffset", Encode.float settings.lineBeginOffset )
+        , ( "lineFadeOutLength", Encode.float settings.lineFadeOutLength )
         , ( "lineOpacity", Encode.float settings.lineOpacity )
         , ( "adjustAdvection", Encode.float settings.adjustAdvection )
         , ( "gridSpacing", Encode.int settings.gridSpacing )

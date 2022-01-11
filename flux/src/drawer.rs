@@ -323,6 +323,10 @@ impl Drawer {
                         value: UniformValue::Mat4(self.projection_matrix.as_slice()),
                     },
                     Uniform {
+                        name: "uLineFadeOutLength",
+                        value: UniformValue::Float(self.settings.line_fade_out_length),
+                    },
+                    Uniform {
                         name: "uColorWheel[0]",
                         value: UniformValue::Vec3Array(&self.color_wheel),
                     },

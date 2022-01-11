@@ -18,6 +18,7 @@ in float iLineWidth;
 uniform float deltaT;
 uniform mat4 uProjection;
 uniform vec3 uColorWheel[6];
+uniform float uLineFadeOutLength;
 uniform sampler2D velocityTexture;
 
 // transform feedback output
@@ -81,5 +82,5 @@ void main() {
     maxWidth
   );
 
-  vOpacity = smoothstep(0.05, 0.2, currentLength);
+  vOpacity = smoothstep(uLineFadeOutLength, uLineFadeOutLength + 0.1, currentLength);
 }
