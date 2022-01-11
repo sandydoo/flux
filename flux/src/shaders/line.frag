@@ -6,10 +6,11 @@ in float vTotalOpacity;
 in vec3 vColor;
 
 uniform float uLineBeginOffset;
+uniform float uLineOpacity;
 
 out vec4 fragColor;
 
 void main() {
-  float opacity = vTotalOpacity * smoothstep(uLineBeginOffset, 1.0, vVertex.x);
+  float opacity = uLineOpacity * vTotalOpacity * smoothstep(uLineBeginOffset, 1.0, vVertex.x);
   fragColor = vec4(vColor, opacity);
 }

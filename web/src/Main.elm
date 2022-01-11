@@ -54,6 +54,7 @@ type alias Settings =
     , lineLength : Float
     , lineWidth : Float
     , lineBeginOffset : Float
+    , lineOpacity : Float
     , adjustAdvection : Float
     , gridSpacing : Int
     , viewScale : Float
@@ -92,6 +93,7 @@ defaultSettings =
     , lineLength = 260.0
     , lineWidth = 6.0
     , lineBeginOffset = 0.5
+    , lineOpacity = 0.8
     , adjustAdvection = 3.0
     , gridSpacing = 12
     , viewScale = 2.0
@@ -163,6 +165,7 @@ type SettingMsg
     | SetLineLength Float
     | SetLineWidth Float
     | SetLineBeginOffset Float
+    | SetLineOpacity Float
     | SetAdjustAdvection Float
     | SetNoiseChannel1 NoiseMsg
     | SetNoiseChannel2 NoiseMsg
@@ -204,6 +207,9 @@ updateSettings msg settings =
 
         SetLineBeginOffset newLineBeginOffset ->
             { settings | lineBeginOffset = newLineBeginOffset }
+
+        SetLineOpacity newLineOpacity ->
+            { settings | lineOpacity = newLineOpacity }
 
         SetAdjustAdvection newAdjustAdvection ->
             { settings | adjustAdvection = newAdjustAdvection }
@@ -499,6 +505,26 @@ viewSettings settings =
                 )
         , viewControl <|
             Control
+                "Line Opacity"
+                """
+                Adjust the transparency of the lines.
+                """
+                (Slider
+                    { min = 0.0
+                    , max = 1.0
+                    , step = 0.01
+                    , value = settings.lineOpacity
+                    , onInput =
+                        \value ->
+                            String.toFloat value
+                                |> Maybe.withDefault 0.0
+                                |> SetLineOpacity
+                                |> SaveSetting
+                    , toString = formatFloat 2
+                    }
+                )
+        , viewControl <|
+            Control
                 "Adjust advection"
                 """
                 Adjust how quickly the lines respond to changes in the fluid.
@@ -778,6 +804,7 @@ encodeSettings settings =
         , ( "lineLength", Encode.float settings.lineLength )
         , ( "lineWidth", Encode.float settings.lineWidth )
         , ( "lineBeginOffset", Encode.float settings.lineBeginOffset )
+        , ( "lineOpacity", Encode.float settings.lineOpacity )
         , ( "adjustAdvection", Encode.float settings.adjustAdvection )
         , ( "gridSpacing", Encode.int settings.gridSpacing )
         , ( "viewScale", Encode.float settings.viewScale )

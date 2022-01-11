@@ -373,6 +373,10 @@ impl Drawer {
                         value: UniformValue::Float(self.settings.line_begin_offset),
                     },
                     Uniform {
+                        name: "uLineOpacity",
+                        value: UniformValue::Float(self.settings.line_opacity),
+                    },
+                    Uniform {
                         name: "uProjection",
                         value: UniformValue::Mat4(self.projection_matrix.as_slice()),
                     },
@@ -441,6 +445,10 @@ impl Drawer {
                     Uniform {
                         name: "uLineLength",
                         value: UniformValue::Float(self.settings.line_length),
+                    },
+                    Uniform {
+                        name: "uLineOpacity",
+                        value: UniformValue::Float(self.settings.line_opacity),
                     },
                     Uniform {
                         name: "uProjection",
