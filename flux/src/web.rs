@@ -7,8 +7,13 @@ pub fn get_rendering_context(element_id: &str) -> Result<(Canvas, GL, u32, u32, 
     set_panic_hook();
 
     let window = window();
-    let document = window.document().unwrap();
-    let html_canvas = document.get_element_by_id(element_id).unwrap();
+    let document = window.document().expect("I expected to find a document");
+    let html_canvas = document.get_element_by_id(element_id).unwrap_or_else(|| {
+        panic!(
+            "I expected to find a canvas element with id `{}`",
+            element_id
+        )
+    });
     let html_canvas: web_sys::HtmlCanvasElement =
         html_canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
 
@@ -37,17 +42,22 @@ pub fn get_rendering_context(element_id: &str) -> Result<(Canvas, GL, u32, u32, 
     }
     .serialize();
 
-    let gl = canvas
-        .get_context_with_context_options("webgl2", &options)?
-        .unwrap()
-        .dyn_into::<GL>()?;
-    gl.get_extension("OES_texture_float")?;
-    gl.get_extension("OES_texture_float_linear")?;
-    gl.get_extension("EXT_color_buffer_float")?;
-    gl.get_extension("EXT_float_blend")?;
+    let gl = if let Ok(Some(gl)) = canvas.get_context_with_context_options("webgl2", &options) {
+        let gl = gl.dyn_into::<GL>()?;
+        gl.get_extension("OES_texture_float")?;
+        gl.get_extension("OES_texture_float_linear")?;
+        gl.get_extension("EXT_color_buffer_float")?;
+        gl.get_extension("EXT_float_blend")?;
 
-    gl.disable(GL::BLEND);
-    gl.disable(GL::DEPTH_TEST);
+        gl.disable(GL::BLEND);
+        gl.disable(GL::DEPTH_TEST);
+
+        gl
+    } else {
+        return Err(JsValue::from_str(
+            &"Can’t create the WebGl2 rendering context",
+        ));
+    };
 
     Ok((canvas, gl, width, height, pixel_ratio))
 }
