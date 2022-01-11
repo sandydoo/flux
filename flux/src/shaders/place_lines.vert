@@ -11,19 +11,23 @@ in uint lineIndex;
 // dynamic input
 in vec2 iEndpointVector;
 in vec2 iVelocityVector;
+// in vec4 iColor;
 in float iLineWidth;
-// in vec3 vColor;
+// in float iOpacity;
 
 uniform float deltaT;
 uniform mat4 uProjection;
 uniform vec3 uColorWheel[6];
+uniform float uLineFadeOutLength;
 uniform sampler2D velocityTexture;
 
 // transform feedback output
 out vec2 vEndpointVector;
 out vec2 vVelocityVector;
+out vec4 vColor;
 out float vLineWidth;
-out vec3 vColor;
+out float vOpacity;
+
 
 float clampTo(float value, float max) {
   return min(value, max) / value;
@@ -66,15 +70,17 @@ void main() {
   float minWidth = max(0.2, 1.0 * currentLength);
   float maxWidth = min(1.0, 5.0 * currentLength);
 
+  float angle = mod(
+    PI * currentLength + (PI + atan(iEndpointVector.y, iEndpointVector.x)),
+    2.0 * PI
+  );
+  vColor = vec4(getColor(uColorWheel, angle), 0.0);
+
   vLineWidth = clamp(
     iLineWidth + directionMultiplier * deltaT * directionAlignment,
     minWidth,
     maxWidth
   );
 
-  float angle = mod(
-    PI * currentLength + (PI + atan(iEndpointVector.y, iEndpointVector.x)),
-    2.0 * PI
-  );
-  vColor = getColor(uColorWheel, angle);
+  vOpacity = smoothstep(uLineFadeOutLength, uLineFadeOutLength + 0.1, currentLength);
 }

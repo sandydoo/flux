@@ -4,10 +4,12 @@ precision mediump float;
 in vec2 vPosition;
 in float vSize;
 in vec3 vColor;
-in float vTotalOpacity;
+in float vOpacity;
+
+uniform float uLineBaseOpacity;
 
 out vec4 fragColor;
 
 void main() {
-  fragColor = vec4(vColor, vTotalOpacity);
+  fragColor = vec4(vColor, uLineBaseOpacity * vOpacity);
 }
