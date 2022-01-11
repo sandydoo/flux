@@ -8,8 +8,9 @@ use thiserror::Error;
 use js_sys::WebAssembly;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{
-    WebGl2RenderingContext as GL, WebGlBuffer, WebGlFramebuffer, WebGlProgram, WebGlShader,
-    WebGlTexture, WebGlTransformFeedback, WebGlUniformLocation, WebGlVertexArrayObject,
+    WebGl2RenderingContext as GL, WebGlBuffer, WebGlFramebuffer, WebGlProgram, WebGlRenderbuffer,
+    WebGlShader, WebGlTexture, WebGlTransformFeedback, WebGlUniformLocation,
+    WebGlVertexArrayObject,
 };
 
 pub type Context = Rc<GL>;
@@ -890,11 +891,13 @@ pub struct MsaaPass {
     context: Context,
     width: u32,
     height: u32,
+    samples: u32,
     framebuffer: WebGlFramebuffer,
+    renderbuffer: WebGlRenderbuffer,
 }
 
 impl MsaaPass {
-    pub fn new(context: &Context, width: u32, height: u32, samples: u32) -> Result<Self> {
+    pub fn new(context: &Context, width: u32, height: u32, requested_samples: u32) -> Result<Self> {
         let framebuffer = context
             .create_framebuffer()
             .ok_or(Problem::CannotCreateFramebuffer)?;
@@ -909,9 +912,11 @@ impl MsaaPass {
             max_samples = raw_max_samples.as_f64().unwrap_or(0.0) as u32;
         }
 
+        let samples = requested_samples.min(max_samples);
+
         context.renderbuffer_storage_multisample(
             GL::RENDERBUFFER,
-            samples.min(max_samples) as i32,
+            samples as i32,
             GL::RGBA8,
             width as i32,
             height as i32,
@@ -929,8 +934,26 @@ impl MsaaPass {
             context: context.clone(),
             width,
             height,
+            samples,
             framebuffer,
+            renderbuffer,
         })
+    }
+
+    pub fn resize(&mut self, width: u32, height: u32) -> () {
+        self.width = width;
+        self.height = height;
+
+        self.context
+            .bind_renderbuffer(GL::RENDERBUFFER, Some(&self.renderbuffer));
+        self.context.renderbuffer_storage_multisample(
+            GL::RENDERBUFFER,
+            self.samples as i32,
+            GL::RGBA8,
+            width as i32,
+            height as i32,
+        );
+        self.context.bind_renderbuffer(GL::RENDERBUFFER, None);
     }
 
     pub fn draw_to<T>(&self, draw_call: T) -> ()
