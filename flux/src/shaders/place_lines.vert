@@ -63,24 +63,26 @@ void main() {
   float currentLength = length(vEndpointVector);
   vEndpointVector *= clampTo(currentLength, 1.0);
 
-  vec2 velocityDirection = normalize(-vVelocityVector);
-  vec2 lineDirection = normalize(vEndpointVector);
-  float directionAlignment = clamp(dot(lineDirection, velocityDirection), -1.0, 1.0);
-  float directionMultiplier = 0.5 * length(deltaVelocity);
-  float minWidth = max(0.2, 1.0 * currentLength);
-  float maxWidth = min(1.0, 5.0 * currentLength);
-
+  // Color
   float angle = mod(
     PI * currentLength + (PI + atan(iEndpointVector.y, iEndpointVector.x)),
     2.0 * PI
   );
   vColor = vec4(getColor(uColorWheel, angle), 0.0);
 
+  // Width
+  vec2 velocityDirection = normalize(-vVelocityVector);
+  vec2 lineDirection = normalize(vEndpointVector);
+  float directionAlignment = clamp(dot(lineDirection, velocityDirection), -1.0, 1.0);
+  float directionMultiplier = 1.2 * length(deltaVelocity);
+  float referenceWidth = smoothstep(-0.05, 0.4, currentLength);
+
   vLineWidth = clamp(
     iLineWidth + directionMultiplier * deltaT * directionAlignment,
-    minWidth,
-    maxWidth
+    max(0.0, referenceWidth * 0.8),
+    min(1.0, referenceWidth * 1.2)
   );
 
+  // Opacity
   vOpacity = smoothstep(uLineFadeOutLength, uLineFadeOutLength + 0.1, currentLength);
 }

@@ -68,16 +68,16 @@ impl Flux {
 
         let mut noise_channel_1 = NoiseInjector::new(
             &context,
-            drawer.grid_width,
-            drawer.grid_height,
+            settings.fluid_width,
+            settings.fluid_height,
             settings.noise_channel_1.clone(),
         )
         .map_err(|msg| msg.to_string())?;
 
         let mut noise_channel_2 = NoiseInjector::new(
             &context,
-            drawer.grid_width,
-            drawer.grid_height,
+            settings.fluid_width,
+            settings.fluid_height,
             settings.noise_channel_2.clone(),
         )
         .map_err(|msg| msg.to_string())?;
@@ -142,12 +142,6 @@ impl Flux {
             self.frame_time -= self.fluid_frame_time;
         }
 
-        // Debugging
-        // self.drawer.draw_texture(&self.noise_channel_1.get_noise());
-        // self.drawer.draw_texture(&self.noise_channel_2.get_noise());
-        // self.drawer.draw_texture(&self.fluid.get_velocity());
-        // self.drawer.draw_texture(&self.fluid.get_pressure());
-
         // TODO: the line animation is still dependent on the client’s fps. Is
         // this worth fixing?
         self.drawer.place_lines(
@@ -158,6 +152,13 @@ impl Flux {
         self.drawer.with_antialiasing(|| {
             self.context.clear_color(0.0, 0.0, 0.0, 1.0);
             self.context.clear(GL::COLOR_BUFFER_BIT);
+
+            // Debugging
+            // self.drawer.draw_texture(&self.noise_channel_1.get_noise());
+            // self.drawer.draw_texture(&self.noise_channel_2.get_noise());
+            // self.drawer.draw_texture(&self.fluid.get_velocity());
+            // self.drawer.draw_texture(&self.fluid.get_pressure());
+
             self.drawer.draw_lines();
             self.drawer.draw_endpoints();
         });
