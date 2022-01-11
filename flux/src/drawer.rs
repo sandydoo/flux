@@ -113,11 +113,13 @@ impl Drawer {
             &context,
             (PLACE_LINES_VERT_SHADER, PLACE_LINES_FRAG_SHADER),
             render::TransformFeedback {
+                // The order here must match the order in the buffer!
                 names: vec![
                     "vEndpointVector".to_string(),
                     "vVelocityVector".to_string(),
-                    "vLineWidth".to_string(),
                     "vColor".to_string(),
+                    "vLineWidth".to_string(),
+                    "vOpacity".to_string(),
                 ],
                 mode: GL::INTERLEAVED_ATTRIBS,
             },
@@ -261,7 +263,7 @@ impl Drawer {
                             name: "iEndpointVector".to_string(),
                             size: 2,
                             type_: GL::FLOAT,
-                            stride: 8 * 4,
+                            stride: 10 * 4,
                             offset: 0 * 4,
                             ..Default::default()
                         },
@@ -272,22 +274,44 @@ impl Drawer {
                             name: "iVelocityVector".to_string(),
                             size: 2,
                             type_: GL::FLOAT,
-                            stride: 8 * 4,
+                            stride: 10 * 4,
                             offset: 2 * 4,
                             ..Default::default()
                         },
                     },
+                    // VertexBuffer {
+                    //     buffer: self.line_state_buffers.current().clone(),
+                    //     binding: BindingInfo {
+                    //         name: "iColor".to_string(),
+                    //         size: 4,
+                    //         type_: GL::FLOAT,
+                    //         stride: 10 * 4,
+                    //         offset: 4 * 4,
+                    //         ..Default::default()
+                    //     },
+                    // },
                     VertexBuffer {
                         buffer: self.line_state_buffers.current().clone(),
                         binding: BindingInfo {
                             name: "iLineWidth".to_string(),
                             size: 1,
                             type_: GL::FLOAT,
-                            stride: 8 * 4,
-                            offset: 4 * 4,
+                            stride: 10 * 4,
+                            offset: 8 * 4,
                             ..Default::default()
                         },
                     },
+                    // VertexBuffer {
+                    //     buffer: self.line_state_buffers.current().clone(),
+                    //     binding: BindingInfo {
+                    //         name: "iOpacity".to_string(),
+                    //         size: 1,
+                    //         type_: GL::FLOAT,
+                    //         stride: 10 * 4,
+                    //         offset: 9 * 4,
+                    //         ..Default::default()
+                    //     },
+                    // },
                 ],
                 &vec![
                     Uniform {
@@ -331,8 +355,19 @@ impl Drawer {
                             name: "iEndpointVector".to_string(),
                             size: 2,
                             type_: GL::FLOAT,
-                            stride: 8 * 4,
+                            stride: 10 * 4,
                             offset: 0 * 4,
+                            divisor: 1,
+                        },
+                    },
+                    VertexBuffer {
+                        buffer: self.line_state_buffers.current().clone(),
+                        binding: BindingInfo {
+                            name: "iColor".to_string(),
+                            size: 4,
+                            type_: GL::FLOAT,
+                            stride: 10 * 4,
+                            offset: 4 * 4,
                             divisor: 1,
                         },
                     },
@@ -342,19 +377,19 @@ impl Drawer {
                             name: "iLineWidth".to_string(),
                             size: 1,
                             type_: GL::FLOAT,
-                            stride: 8 * 4,
-                            offset: 4 * 4,
+                            stride: 10 * 4,
+                            offset: 8 * 4,
                             divisor: 1,
                         },
                     },
                     VertexBuffer {
                         buffer: self.line_state_buffers.current().clone(),
                         binding: BindingInfo {
-                            name: "iColor".to_string(),
-                            size: 3,
+                            name: "iOpacity".to_string(),
+                            size: 1,
                             type_: GL::FLOAT,
-                            stride: 8 * 4,
-                            offset: 5 * 4,
+                            stride: 10 * 4,
+                            offset: 9 * 4,
                             divisor: 1,
                         },
                     },
@@ -373,7 +408,7 @@ impl Drawer {
                         value: UniformValue::Float(self.settings.line_begin_offset),
                     },
                     Uniform {
-                        name: "uLineOpacity",
+                        name: "uLineBaseOpacity",
                         value: UniformValue::Float(self.settings.line_opacity),
                     },
                     Uniform {
@@ -409,7 +444,7 @@ impl Drawer {
                             name: "iEndpointVector".to_string(),
                             size: 2,
                             type_: GL::FLOAT,
-                            stride: 8 * 4,
+                            stride: 10 * 4,
                             offset: 0 * 4,
                             divisor: 1,
                         },
@@ -420,8 +455,8 @@ impl Drawer {
                             name: "iLineWidth".to_string(),
                             size: 1,
                             type_: GL::FLOAT,
-                            stride: 8 * 4,
-                            offset: 4 * 4,
+                            stride: 10 * 4,
+                            offset: 8 * 4,
                             divisor: 1,
                         },
                     },
@@ -429,10 +464,21 @@ impl Drawer {
                         buffer: self.line_state_buffers.current().clone(),
                         binding: BindingInfo {
                             name: "iColor".to_string(),
-                            size: 3,
+                            size: 4,
                             type_: GL::FLOAT,
-                            stride: 8 * 4,
-                            offset: 5 * 4,
+                            stride: 10 * 4,
+                            offset: 4 * 4,
+                            divisor: 1,
+                        },
+                    },
+                    VertexBuffer {
+                        buffer: self.line_state_buffers.current().clone(),
+                        binding: BindingInfo {
+                            name: "iOpacity".to_string(),
+                            size: 1,
+                            type_: GL::FLOAT,
+                            stride: 10 * 4,
+                            offset: 9 * 4,
                             divisor: 1,
                         },
                     },
@@ -447,7 +493,7 @@ impl Drawer {
                         value: UniformValue::Float(self.settings.line_length),
                     },
                     Uniform {
-                        name: "uLineOpacity",
+                        name: "uLineBaseOpacity",
                         value: UniformValue::Float(self.settings.line_opacity),
                     },
                     Uniform {

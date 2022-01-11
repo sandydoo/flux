@@ -14,12 +14,13 @@ in vec2 basepoint;
 in vec2 iEndpointVector;
 in vec2 iVelocityVector;
 in float iLineWidth;
-in vec3 iColor;
+in vec4 iColor;
+in float iOpacity;
 
 out vec2 vPosition;
 out vec3 vColor;
 out float vSize;
-out float vTotalOpacity;
+out float vOpacity;
 
 mat4 translate(vec3 v) {
   return mat4(
@@ -72,7 +73,7 @@ void main() {
   gl_Position = uProjection * uView * translate(vec3(endpoint, 0.0)) * rotateZ(angle) * modelMatrix * vec4(vertex, 0.0, 1.0);
 
   vPosition = vertex;
-  vColor = iColor;
+  vColor = iColor.rgb;
   vSize = height;
-  vTotalOpacity = smoothstep(0.1, 0.25, height);
+  vOpacity = iOpacity;
 }

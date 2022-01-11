@@ -47,7 +47,7 @@ pub fn new_points(width: u32, height: u32, grid_spacing: u32) -> Vec<f32> {
 pub fn new_line_state(width: u32, height: u32, grid_spacing: u32) -> Vec<f32> {
     let rows = height / grid_spacing;
     let cols = width / grid_spacing;
-    let mut data = Vec::with_capacity((rows * cols * 8) as usize);
+    let mut data = Vec::with_capacity((rows * cols * 10) as usize);
 
     for _ in 0..rows {
         for _ in 0..cols {
@@ -59,12 +59,16 @@ pub fn new_line_state(width: u32, height: u32, grid_spacing: u32) -> Vec<f32> {
             data.push(0.0);
             data.push(0.0);
 
-            // width
-            data.push(0.0);
-
             // color
             data.push(0.0);
             data.push(0.0);
+            data.push(0.0);
+            data.push(0.0); // not currently used
+
+            // width
+            data.push(0.0);
+
+            // opacity
             data.push(0.0);
         }
     }
