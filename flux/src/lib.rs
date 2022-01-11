@@ -10,12 +10,9 @@ use drawer::Drawer;
 use fluid::Fluid;
 use noise::NoiseInjector;
 use settings::Settings;
-use web::{Canvas, ContextOptions};
 
 use std::rc::Rc;
-
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsCast;
 use web_sys::WebGl2RenderingContext as GL;
 
 #[wasm_bindgen]
@@ -26,7 +23,11 @@ pub struct Flux {
     noise_channel_2: NoiseInjector,
     settings: Rc<Settings>,
 
-    context: Rc<GL>,
+    context: render::Context,
+    canvas: web::Canvas,
+    width: u32,
+    height: u32,
+    pixel_ratio: f64,
     elapsed_time: f32,
     last_timestamp: f32,
     frame_time: f32,
@@ -51,7 +52,8 @@ impl Flux {
 
     #[wasm_bindgen(constructor)]
     pub fn new(settings_object: &JsValue) -> Result<Flux, JsValue> {
-        let (context, width, height) = get_rendering_context()?;
+        let (canvas, context, width, height, pixel_ratio) = web::get_rendering_context("canvas")?;
+        let context = Rc::new(context);
 
         let settings: Rc<Settings> = match settings_object.into_serde() {
             Ok(settings) => Rc::new(settings),
@@ -92,6 +94,10 @@ impl Flux {
             settings,
 
             context,
+            canvas,
+            width,
+            height,
+            pixel_ratio,
             elapsed_time: 0.0,
             last_timestamp: 0.0,
             frame_time: 0.0,
@@ -101,6 +107,15 @@ impl Flux {
     }
 
     pub fn animate(&mut self, timestamp: f32) {
+        let new_width = (self.pixel_ratio * f64::from(self.canvas.client_width())) as u32;
+        let new_height = (self.pixel_ratio * f64::from(self.canvas.client_height())) as u32;
+
+        if (self.width != new_width) || (self.height != new_height) {
+            self.canvas.set_width(new_width);
+            self.canvas.set_height(new_height);
+            self.drawer.resize(new_width, new_height);
+        }
+
         let timestep = self
             .max_frame_time
             .min(0.001 * (timestamp - self.last_timestamp));
@@ -147,53 +162,4 @@ impl Flux {
             self.drawer.draw_endpoints();
         });
     }
-}
-
-fn get_rendering_context() -> Result<(Rc<GL>, u32, u32), JsValue> {
-    web::set_panic_hook();
-
-    let window = web::window();
-    let document = window.document().unwrap();
-    let html_canvas = document.get_element_by_id("canvas").unwrap();
-    let html_canvas: web_sys::HtmlCanvasElement =
-        html_canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
-
-    let pixel_ratio: f64 = window.device_pixel_ratio().min(1.5);
-    let client_width = html_canvas.client_width() as u32;
-    let client_height = html_canvas.client_height() as u32;
-    let width = (pixel_ratio * (client_width as f64)).floor() as u32;
-    let height = (pixel_ratio * (client_height as f64)).floor() as u32;
-    html_canvas.set_width(width);
-    html_canvas.set_height(height);
-
-    let canvas = Canvas::new(html_canvas);
-
-    let options = ContextOptions {
-        // Disabling alpha can lead to poor performance on some platforms.
-        // We also need it for MSAA.
-        alpha: true,
-        depth: false,
-        stencil: false,
-        desynchronized: false,
-        antialias: false,
-        fail_if_major_performance_caveat: false,
-        power_preference: "high-performance",
-        premultiplied_alpha: true,
-        preserve_drawing_buffer: false,
-    }
-    .serialize();
-
-    let gl = canvas
-        .get_context_with_context_options("webgl2", &options)?
-        .unwrap()
-        .dyn_into::<GL>()?;
-    gl.get_extension("OES_texture_float")?;
-    gl.get_extension("OES_texture_float_linear")?;
-    gl.get_extension("EXT_color_buffer_float")?;
-    gl.get_extension("EXT_float_blend")?;
-
-    gl.disable(GL::BLEND);
-    gl.disable(GL::DEPTH_TEST);
-
-    Ok((Rc::new(gl), width, height))
 }

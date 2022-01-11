@@ -49,27 +49,25 @@ impl Drawer {
         self.color_wheel = settings::color_wheel_from_scheme(&new_settings.color_scheme);
     }
 
+    pub fn resize(&mut self, width: u32, height: u32) -> () {
+        let (grid_width, grid_height) = compute_grid_size(width, height);
+
+        self.screen_width = width;
+        self.screen_height = height;
+        self.grid_width = grid_width;
+        self.grid_height = grid_height;
+
+        self.projection_matrix = new_projection_matrix(grid_width, grid_height);
+        self.antialiasing_pass.resize(width, height);
+    }
+
     pub fn new(
         context: &Context,
         screen_width: u32,
         screen_height: u32,
         settings: &Rc<Settings>,
     ) -> Result<Self, render::Problem> {
-        let base_units = 1000;
-        let grid_width: u32;
-        let grid_height: u32;
-        let aspect_ratio: f32 = (screen_width as f32) / (screen_height as f32);
-
-        // landscape
-        if aspect_ratio > 1.0 {
-            grid_width = base_units;
-            grid_height = ((grid_width as f32) / aspect_ratio).floor() as u32;
-
-        // portrait
-        } else {
-            grid_height = base_units;
-            grid_width = ((grid_height as f32) * aspect_ratio).floor() as u32;
-        }
+        let (grid_width, grid_height) = compute_grid_size(screen_width, screen_height);
 
         let line_vertices = Buffer::from_f32(
             &context,
@@ -222,17 +220,7 @@ impl Drawer {
         let antialiasing_pass =
             render::MsaaPass::new(context, screen_width, screen_height, antialiasing_samples)?;
 
-        // Projection
-        let half_width = (grid_width as f32) / 2.0;
-        let half_height = (grid_height as f32) / 2.0;
-        let projection_matrix = glm::ortho(
-            -half_width,
-            half_width,
-            -half_height,
-            half_height,
-            -1.0,
-            1.0,
-        );
+        let projection_matrix = new_projection_matrix(grid_width, grid_height);
 
         let view_matrix = glm::scale(
             &glm::identity(),
@@ -493,4 +481,32 @@ impl Drawer {
     {
         self.antialiasing_pass.draw_to(draw_call);
     }
+}
+
+fn compute_grid_size(width: u32, height: u32) -> (u32, u32) {
+    let base_units = 1000;
+    let aspect_ratio: f32 = (width as f32) / (height as f32);
+
+    // landscape
+    if aspect_ratio > 1.0 {
+        (base_units, ((base_units as f32) / aspect_ratio) as u32)
+
+    // portrait
+    } else {
+        (((base_units as f32) * aspect_ratio) as u32, base_units)
+    }
+}
+
+fn new_projection_matrix(width: u32, height: u32) -> glm::TMat4<f32> {
+    let half_width = (width as f32) / 2.0;
+    let half_height = (height as f32) / 2.0;
+
+    glm::ortho(
+        -half_width,
+        half_width,
+        -half_height,
+        half_height,
+        -1.0,
+        1.0,
+    )
 }
