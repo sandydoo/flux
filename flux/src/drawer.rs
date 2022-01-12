@@ -319,6 +319,10 @@ impl Drawer {
                         value: UniformValue::Float(timestep),
                     },
                     Uniform {
+                        name: "uAdvectionDirection",
+                        value: UniformValue::Float(self.settings.advection_direction),
+                    },
+                    Uniform {
                         name: "uProjection",
                         value: UniformValue::Mat4(self.projection_matrix.as_slice()),
                     },

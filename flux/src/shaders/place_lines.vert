@@ -16,6 +16,7 @@ in float iLineWidth;
 // in float iOpacity;
 
 uniform float deltaT;
+uniform float uAdvectionDirection;
 uniform mat4 uProjection;
 uniform vec3 uColorWheel[6];
 uniform float uLineFadeOutLength;
@@ -45,6 +46,12 @@ vec3 getColor(vec3 wheel[6], float angle) {
   return mix(currentColor, nextColor, interpolate);
 }
 
+float quarticInOut(float t) {
+  return t < 0.5
+    ? +8.0 * pow(t, 4.0)
+    : -8.0 * pow(t - 1.0, 4.0) + 1.0;
+}
+
 void main() {
   vec2 basepointInClipSpace = (uProjection * vec4(basepoint, 0.0, 1.0)).xy;
   vec2 currentVelocityVector = texture(velocityTexture, basepointInClipSpace * 0.5 + 0.5).xy;
@@ -55,10 +62,11 @@ void main() {
 
   float stiffness = 0.2;
   vec2 backpressure = -stiffness * iEndpointVector;
-  vVelocityVector -= backpressure * deltaT;
+  vVelocityVector += uAdvectionDirection * backpressure * deltaT;
 
   // advect forward
-  vEndpointVector = iEndpointVector - vVelocityVector * deltaT;
+  vEndpointVector = iEndpointVector + uAdvectionDirection * vVelocityVector * deltaT;
+  // vEndpointVector = vVelocityVector;
 
   float currentLength = length(vEndpointVector);
   vEndpointVector *= clampTo(currentLength, 1.0);

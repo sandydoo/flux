@@ -57,6 +57,7 @@ type alias Settings =
     , lineOpacity : Float
     , lineFadeOutLength : Float
     , adjustAdvection : Float
+    , advectionDirection : Float
     , gridSpacing : Int
     , viewScale : Float
     , noiseChannel1 : Noise
@@ -97,6 +98,7 @@ defaultSettings =
     , lineOpacity = 0.9
     , lineFadeOutLength = 0.05
     , adjustAdvection = 10.0
+    , advectionDirection = -1.0
     , gridSpacing = 18
     , viewScale = 1.6
     , noiseChannel1 =
@@ -170,6 +172,7 @@ type SettingMsg
     | SetLineOpacity Float
     | SetLineFadeOutLength Float
     | SetAdjustAdvection Float
+    | SetAdvectionDirection Float
     | SetNoiseChannel1 NoiseMsg
     | SetNoiseChannel2 NoiseMsg
 
@@ -219,6 +222,17 @@ updateSettings msg settings =
 
         SetAdjustAdvection newAdjustAdvection ->
             { settings | adjustAdvection = newAdjustAdvection }
+
+        SetAdvectionDirection _ ->
+            let
+                newDirection =
+                    if settings.advectionDirection == 1.0 then
+                        -1.0
+                    else
+                        1.0
+
+            in
+            { settings | advectionDirection = newDirection }
 
         SetNoiseChannel1 noiseMsg ->
             { settings | noiseChannel1 = updateNoise noiseMsg settings.noiseChannel1 }
@@ -329,6 +343,10 @@ view model =
                                 ""
                         ]
                         [ Html.text "Controls" ]
+
+                    , Html.button
+                        [ Event.onClick (model.settings.advectionDirection |> SetAdvectionDirection  |> SaveSetting) ]
+                        [ Html.text "Switch" ]
                     ]
                 , Html.li []
                     [ Html.a
@@ -833,6 +851,7 @@ encodeSettings settings =
         , ( "lineFadeOutLength", Encode.float settings.lineFadeOutLength )
         , ( "lineOpacity", Encode.float settings.lineOpacity )
         , ( "adjustAdvection", Encode.float settings.adjustAdvection )
+        , ( "advectionDirection", Encode.float settings.advectionDirection )
         , ( "gridSpacing", Encode.int settings.gridSpacing )
         , ( "viewScale", Encode.float settings.viewScale )
         , ( "noiseChannel1", encodeNoise settings.noiseChannel1 )

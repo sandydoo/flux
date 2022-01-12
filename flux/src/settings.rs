@@ -19,6 +19,7 @@ pub struct Settings {
     pub line_opacity: f32,
     pub line_fade_out_length: f32,
     pub adjust_advection: f32,
+    pub advection_direction: f32,
     pub grid_spacing: u32,
     pub view_scale: f32,
 
