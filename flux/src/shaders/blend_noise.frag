@@ -24,9 +24,10 @@ void main() {
   float B = texture(noiseTexture, vB).x;
   vec2 C = texture(noiseTexture, textureCoord).xy;
   // TODO play around with these values
-  vec2 force = 0.7 * vec2(abs(T) - abs(B), abs(R) - abs(L));
+  vec2 force = vec2(abs(T) - abs(B), abs(L) - abs(R));
+  // vec2 force =  vec2(R - L, T - B); // magnetic flowers
   force /= length(force) + 0.0001;
-  force *= 0.7 * C;
+  force *= 0.4 * C;
 
   vec2 inputValue = texture(inputTexture, textureCoord).xy;
   outputValue = inputValue + uBlendProgress * uMultiplier * force;

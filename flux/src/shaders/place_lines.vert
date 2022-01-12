@@ -53,7 +53,7 @@ void main() {
 
   vVelocityVector = iVelocityVector + deltaVelocity * deltaT;
 
-  float stiffness = 0.4;
+  float stiffness = 0.2;
   vec2 backpressure = -stiffness * iEndpointVector;
   vVelocityVector -= backpressure * deltaT;
 
@@ -75,14 +75,14 @@ void main() {
   vec2 lineDirection = normalize(vEndpointVector);
   float directionAlignment = clamp(dot(lineDirection, velocityDirection), -1.0, 1.0);
   float directionMultiplier = 1.2 * length(deltaVelocity);
-  float referenceWidth = smoothstep(-0.05, 0.4, currentLength);
+  float referenceWidth = smoothstep(0.05, 0.7, currentLength);
 
   vLineWidth = clamp(
     iLineWidth + directionMultiplier * deltaT * directionAlignment,
     max(0.0, referenceWidth * 0.8),
-    min(1.0, referenceWidth * 1.2)
+    min(1.0, referenceWidth * 1.8)
   );
 
   // Opacity
-  vOpacity = smoothstep(uLineFadeOutLength, uLineFadeOutLength + 0.1, currentLength);
+  vOpacity = smoothstep(uLineFadeOutLength, uLineFadeOutLength + 0.4, currentLength);
 }

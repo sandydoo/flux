@@ -36,7 +36,7 @@ pub fn get_rendering_context(element_id: &str) -> Result<(Canvas, GL, u32, u32, 
         desynchronized: false,
         antialias: false,
         fail_if_major_performance_caveat: false,
-        power_preference: "high-performance",
+        power_preference: "default",
         premultiplied_alpha: true,
         preserve_drawing_buffer: false,
     }
