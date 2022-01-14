@@ -19,8 +19,7 @@ use web_sys::WebGl2RenderingContext as GL;
 pub struct Flux {
     fluid: Fluid,
     drawer: Drawer,
-    noise_channel_1: NoiseInjector,
-    noise_channel_2: NoiseInjector,
+    noise_injector: NoiseInjector,
     settings: Rc<Settings>,
 
     context: render::Context,
@@ -44,10 +43,10 @@ impl Flux {
 
         self.fluid.update_settings(&self.settings);
         self.drawer.update_settings(&self.settings);
-        self.noise_channel_1
-            .update_noise(self.settings.noise_channel_1.clone());
-        self.noise_channel_2
-            .update_noise(self.settings.noise_channel_2.clone());
+        self.noise_injector
+            .update_channel(0, self.settings.noise_channel_1.clone());
+        self.noise_injector
+            .update_channel(1, self.settings.noise_channel_2.clone());
     }
 
     #[wasm_bindgen(constructor)]
@@ -66,31 +65,24 @@ impl Flux {
         let drawer =
             Drawer::new(&context, width, height, &settings).map_err(|msg| msg.to_string())?;
 
-        let mut noise_channel_1 = NoiseInjector::new(
-            &context,
-            settings.fluid_width,
-            settings.fluid_height,
-            settings.noise_channel_1.clone(),
-        )
-        .map_err(|msg| msg.to_string())?;
+        let mut noise_injector =
+            NoiseInjector::new(&context, settings.fluid_width, settings.fluid_height)
+                .map_err(|msg| msg.to_string())?;
 
-        let mut noise_channel_2 = NoiseInjector::new(
-            &context,
-            settings.fluid_width,
-            settings.fluid_height,
-            settings.noise_channel_2.clone(),
-        )
-        .map_err(|msg| msg.to_string())?;
+        noise_injector
+            .add_noise(settings.noise_channel_1.clone(), noise::BlendMethod::Curl)
+            .map_err(|msg| msg.to_string())?;
+        noise_injector
+            .add_noise(settings.noise_channel_2.clone(), noise::BlendMethod::Wiggle)
+            .map_err(|msg| msg.to_string())?;
 
-        noise_channel_1.generate_now(0.0);
-        noise_channel_2.generate_now(0.0);
+        noise_injector.generate_by_channel_number(0, 0.0);
         context.flush();
 
         Ok(Flux {
             fluid,
             drawer,
-            noise_channel_1,
-            noise_channel_2,
+            noise_injector,
             settings,
 
             context,
@@ -123,13 +115,8 @@ impl Flux {
         self.elapsed_time += timestep;
         self.frame_time += timestep;
 
-        self.noise_channel_1.generate(self.elapsed_time);
-        self.noise_channel_2.generate(self.elapsed_time);
-
-        self.noise_channel_1
-            .blend_noise_into(&self.fluid.get_velocity_textures(), self.elapsed_time);
-
-        self.noise_channel_2
+        self.noise_injector.generate_all(self.elapsed_time);
+        self.noise_injector
             .blend_noise_into(&self.fluid.get_velocity_textures(), self.elapsed_time);
 
         while self.frame_time >= self.fluid_frame_time {
@@ -154,8 +141,8 @@ impl Flux {
             self.context.clear(GL::COLOR_BUFFER_BIT);
 
             // Debugging
-            // self.drawer.draw_texture(&self.noise_channel_1.get_noise());
-            // self.drawer.draw_texture(&self.noise_channel_2.get_noise());
+            // self.drawer.draw_texture(self.noise_injector.get_noise_channel(0).unwrap());
+            // self.drawer.draw_texture(self.noise_injector.get_noise_channel(1).unwrap());
             // self.drawer.draw_texture(&self.fluid.get_velocity());
             // self.drawer.draw_texture(&self.fluid.get_pressure());
 
