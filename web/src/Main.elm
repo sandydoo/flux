@@ -321,7 +321,10 @@ view model =
                     ""
             ]
             [ Html.div
-                [ HA.class "control-container" ]
+                [ HA.class "control-container"
+                , HA.attribute "aria-modal" "true"
+                , HA.attribute "role" "dialog"
+                ]
                 [ viewSettings model.settings ]
             ]
         , Html.footer []
@@ -329,6 +332,7 @@ view model =
                 [ Html.li []
                     [ Html.button
                         [ Event.onClick ToggleControls
+                        , HA.type_ "button"
                         , HA.class <|
                             if model.isOpen then
                                 "active"
@@ -360,7 +364,10 @@ viewSettings settings =
         [ Html.div
             [ HA.class "col-span-2-md" ]
             [ Html.button
-                [ Event.onClick ToggleControls, HA.class "text-secondary" ]
+                [ Event.onClick ToggleControls
+                , HA.type_ "button"
+                , HA.class "text-secondary"
+                ]
                 [ Html.text "← Back" ]
             , Html.h2 [] [ Html.text "Colors" ]
             ]
