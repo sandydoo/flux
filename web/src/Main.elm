@@ -649,8 +649,8 @@ viewNoiseChannel title setNoiseChannel noiseChannel =
                 ""
                 (Slider
                     { min = 0.0
-                    , max = 3.0
-                    , step = 0.1
+                    , max = 1.0
+                    , step = 0.01
                     , value = noiseChannel.multiplier
                     , onInput =
                         \value ->
@@ -659,7 +659,7 @@ viewNoiseChannel title setNoiseChannel noiseChannel =
                                 |> SetNoiseMultiplier
                                 |> setNoiseChannel
                                 |> SaveSetting
-                    , toString = formatFloat 1
+                    , toString = formatFloat 2
                     }
                 )
         , viewControl <|
@@ -706,8 +706,8 @@ viewNoiseChannel title setNoiseChannel noiseChannel =
                 ""
                 (Slider
                     { min = 0.0
-                    , max = 1000.0
-                    , step = 0.1
+                    , max = 1.0
+                    , step = 0.01
                     , value = noiseChannel.offsetIncrement
                     , onInput =
                         \value ->
@@ -716,7 +716,7 @@ viewNoiseChannel title setNoiseChannel noiseChannel =
                                 |> SetNoiseOffsetIncrement
                                 |> setNoiseChannel
                                 |> SaveSetting
-                    , toString = formatFloat 1
+                    , toString = formatFloat 2
                     }
                 )
         , viewControl <|
