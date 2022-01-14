@@ -52,8 +52,8 @@ pub fn new_line_state(width: u32, height: u32, grid_spacing: u32) -> Vec<f32> {
     for _ in 0..rows {
         for _ in 0..cols {
             // endpoint
-            data.push(0.0);
-            data.push(0.0);
+            data.push(0.0001);
+            data.push(0.0001);
 
             // velocity
             data.push(0.0);

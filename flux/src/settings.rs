@@ -34,6 +34,12 @@ pub enum ColorScheme {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+pub enum BlendMethod {
+    Curl,
+    Wiggle,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Noise {
     pub scale: f32,
@@ -43,6 +49,7 @@ pub struct Noise {
     pub offset_increment: f32,
     pub delay: f32,
     pub blend_duration: f32,
+    pub blend_method: BlendMethod,
 }
 
 pub fn color_wheel_from_scheme(color_scheme: &ColorScheme) -> [f32; 18] {

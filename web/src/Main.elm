@@ -78,44 +78,52 @@ type alias Noise =
     , offsetIncrement : Float
     , delay : Float
     , blendDuration : Float
+    , blendMethod : BlendMethod
     }
+
+
+type BlendMethod
+    = Curl
+    | Wiggle
 
 
 defaultSettings : Settings
 defaultSettings =
     { viscosity = 1.2
-    , velocityDissipation = 0.0
+    , velocityDissipation = 0.1
     , fluidWidth = 256
     , fluidHeight = 256
-    , fluidSimulationFrameRate = 10
-    , diffusionIterations = 10
-    , pressureIterations = 40
+    , fluidSimulationFrameRate = 15
+    , diffusionIterations = 30
+    , pressureIterations = 30
     , colorScheme = Plasma
-    , lineLength = 180.0
-    , lineWidth = 4.0
+    , lineLength = 160.0
+    , lineWidth = 3.5
     , lineBeginOffset = 0.5
     , lineOpacity = 0.9
-    , lineFadeOutLength = 0.05
-    , adjustAdvection = 10.0
+    , lineFadeOutLength = 0.0
+    , adjustAdvection = 16.0
     , gridSpacing = 18
     , viewScale = 1.6
     , noiseChannel1 =
-        { scale = 1.2
-        , multiplier = 1.2
+        { scale = 1.3
+        , multiplier = 1.0
         , offset1 = 0.0
-        , offset2 = 5.0
+        , offset2 = 1.0
         , offsetIncrement = 1.0
-        , delay = 6.0
+        , delay = 8.0
         , blendDuration = 7.0
+        , blendMethod = Curl
         }
     , noiseChannel2 =
         { scale = 25.0
-        , multiplier = 1.0
+        , multiplier = 0.03
         , offset1 = 1.0
         , offset2 = 1.0
         , offsetIncrement = 0.1
         , delay = 0.3
-        , blendDuration = 3.0
+        , blendDuration = 0.3
+        , blendMethod = Wiggle
         }
     }
 
@@ -857,6 +865,20 @@ colorSchemeToString colorscheme =
             "Pollen"
 
 
+encodeBlendMethod : BlendMethod -> Encode.Value
+encodeBlendMethod =
+    blendMethodToString >> Encode.string
+
+
+blendMethodToString blendMethod =
+    case blendMethod of
+        Curl ->
+            "Curl"
+
+        Wiggle ->
+            "Wiggle"
+
+
 encodeNoise : Noise -> Encode.Value
 encodeNoise noise =
     Encode.object
@@ -867,4 +889,5 @@ encodeNoise noise =
         , ( "offsetIncrement", Encode.float noise.offsetIncrement )
         , ( "delay", Encode.float noise.delay )
         , ( "blendDuration", Encode.float noise.blendDuration )
+        , ( "blendMethod", encodeBlendMethod noise.blendMethod )
         ]
