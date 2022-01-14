@@ -83,39 +83,39 @@ type alias Noise =
 
 defaultSettings : Settings
 defaultSettings =
-    { viscosity = 1.2
-    , velocityDissipation = 0.0
+    { viscosity = 1.0
+    , velocityDissipation = 0.1
     , fluidWidth = 256
     , fluidHeight = 256
-    , fluidSimulationFrameRate = 10
-    , diffusionIterations = 10
-    , pressureIterations = 40
+    , fluidSimulationFrameRate = 15
+    , diffusionIterations = 30
+    , pressureIterations = 30
     , colorScheme = Plasma
-    , lineLength = 180.0
-    , lineWidth = 4.0
+    , lineLength = 150.0
+    , lineWidth = 3.5
     , lineBeginOffset = 0.5
     , lineOpacity = 0.9
-    , lineFadeOutLength = 0.05
-    , adjustAdvection = 10.0
-    , gridSpacing = 18
-    , viewScale = 1.6
+    , lineFadeOutLength = 0.0
+    , adjustAdvection = 9.0
+    , gridSpacing = 16
+    , viewScale = 1.5
     , noiseChannel1 =
-        { scale = 1.2
-        , multiplier = 1.2
+        { scale = 1.3
+        , multiplier = 1.0
         , offset1 = 0.0
-        , offset2 = 5.0
+        , offset2 = 1.0
         , offsetIncrement = 1.0
-        , delay = 6.0
-        , blendDuration = 7.0
+        , delay = 7.0
+        , blendDuration = 5.0
         }
     , noiseChannel2 =
-        { scale = 25.0
-        , multiplier = 1.0
+        { scale = 15.0
+        , multiplier = 0.03
         , offset1 = 1.0
         , offset2 = 1.0
         , offsetIncrement = 0.1
         , delay = 0.3
-        , blendDuration = 3.0
+        , blendDuration = 0.3
         }
     }
 
