@@ -330,6 +330,7 @@ view model =
                         [ Event.onClick ToggleControls
                         , HA.type_ "button"
                         , HA.class (classNameWhen "active" model.isOpen)
+                        , HA.class "whitespace-nowrap"
                         ]
                         [ Html.text "🄲 Controls" ]
                     ]
