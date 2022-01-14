@@ -265,25 +265,15 @@ updateNoise msg noise =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions model =
-    if model.isOpen then
-        BrowserEvent.onKeyDown toggleControlsOnEscape
+subscriptions { isOpen } =
+    if isOpen then
+        Sub.batch
+            [ BrowserEvent.onKeyDown (decodeKeyCode "Escape" ToggleControls)
+            , BrowserEvent.onKeyDown (decodeKeyCode "KeyC" ToggleControls)
+            ]
 
     else
-        Sub.none
-
-
-toggleControlsOnEscape : Decode.Decoder Msg
-toggleControlsOnEscape =
-    Decode.field "key" Decode.string
-        |> Decode.andThen
-            (\string ->
-                if string == "Escape" then
-                    Decode.succeed ToggleControls
-
-                else
-                    Decode.fail ""
-            )
+        BrowserEvent.onKeyDown (decodeKeyCode "KeyC" ToggleControls)
 
 
 
@@ -340,7 +330,7 @@ view model =
                             else
                                 ""
                         ]
-                        [ Html.text "Controls" ]
+                        [ Html.text "🄲 Controls" ]
                     ]
                 , Html.li []
                     [ Html.a
@@ -829,6 +819,19 @@ toKebabcase =
 
 
 -- JSON
+
+
+decodeKeyCode : String -> msg -> Decode.Decoder msg
+decodeKeyCode key msg =
+    Decode.field "code" Decode.string
+        |> Decode.andThen
+            (\string ->
+                if string == key then
+                    Decode.succeed msg
+
+                else
+                    Decode.fail ""
+            )
 
 
 encodeSettings : Settings -> Encode.Value
