@@ -300,21 +300,27 @@ type Input number
 
 view : Model -> Html Msg
 view model =
+    let
+        classNameWhen className bool =
+            if model.isOpen then
+                className
+
+            else
+                ""
+    in
     Html.div []
         [ Html.div
             [ HA.class "control-panel"
-            , HA.class <|
-                if model.isOpen then
-                    "visible"
-
-                else
-                    ""
+            , HA.class (classNameWhen "visible" model.isOpen)
+            , HA.attribute "role" "dialog"
+            , HA.attribute "aria-modal" "true"
+            , HA.attribute "aria-labelledby" "control-title"
+            , HA.attribute "aria-describedby" "control-description"
+            , HA.tabindex -1
+            , HA.hidden (not model.isOpen)
             ]
             [ Html.div
-                [ HA.class "control-container"
-                , HA.attribute "aria-modal" "true"
-                , HA.attribute "role" "dialog"
-                ]
+                [ HA.class "control-container" ]
                 [ viewSettings model.settings ]
             ]
         , Html.footer []
@@ -323,12 +329,7 @@ view model =
                     [ Html.button
                         [ Event.onClick ToggleControls
                         , HA.type_ "button"
-                        , HA.class <|
-                            if model.isOpen then
-                                "active"
-
-                            else
-                                ""
+                        , HA.class (classNameWhen "active" model.isOpen)
                         ]
                         [ Html.text "🄲 Controls" ]
                     ]
@@ -359,101 +360,25 @@ viewSettings settings =
                 , HA.class "text-secondary"
                 ]
                 [ Html.text "← Back" ]
-            , Html.h2 [] [ Html.text "Colors" ]
+            , Html.h2 [ HA.id "control-title" ] [ Html.text "Controls" ]
+            , Html.p
+                [ HA.id "control-description" ]
+                [ Html.text
+                    """
+                    Use this collection of knobs and dials to adjust the look and feel of the fluid simulation.
+                    """
+                ]
             ]
+        , Html.h2 [ HA.class "col-span-2-md" ] [ Html.text "Colors" ]
         , viewButtonGroup (SetColorScheme >> SaveSetting)
             settings.colorScheme
             [ ( "Plasma", Plasma )
             , ( "Poolside", Poolside )
             , ( "Pollen", Pollen )
             ]
-        , Html.h2 [ HA.class "col-span-2-md" ] [ Html.text "Fluid simulation" ]
-        , viewControl <|
-            Control
-                "Viscosity"
-                """
-                A viscous fluid resists any change to its velocity.
-                It spreads out and diffuses any force applied to it.
-                """
-                (Slider
-                    { min = 0.1
-                    , max = 4.0
-                    , step = 0.1
-                    , value = settings.viscosity
-                    , onInput =
-                        \value ->
-                            String.toFloat value
-                                |> Maybe.withDefault 0.0
-                                |> SetViscosity
-                                |> SaveSetting
-                    , toString = formatFloat 1
-                    }
-                )
-        , viewControl <|
-            Control
-                "Velocity dissipation"
-                """
-                Velocity should decrease, or dissipate, as it travels through a fluid.
-                """
-                (Slider
-                    { min = 0.0
-                    , max = 2.0
-                    , step = 0.1
-                    , value = settings.velocityDissipation
-                    , onInput =
-                        \value ->
-                            String.toFloat value
-                                |> Maybe.withDefault 0.0
-                                |> SetVelocityDissipation
-                                |> SaveSetting
-                    , toString = formatFloat 1
-                    }
-                )
-        , viewControl <|
-            Control
-                "Diffusion iterations"
-                """
-                Viscous fluids dissipate velocity through a process called “diffusion”.
-                Each iteration enchances this effect and the diffusion strength is controlled by the fluid’s viscosity.
-                """
-                (Slider
-                    { min = 0
-                    , max = 30
-                    , step = 1
-                    , value = settings.diffusionIterations
-                    , onInput =
-                        \value ->
-                            String.toInt value
-                                |> Maybe.withDefault 0
-                                |> SetDiffusionIterations
-                                |> SaveSetting
-                    , toString = String.fromInt
-                    }
-                )
-        , viewControl <|
-            Control
-                "Pressure iterations"
-                """
-                Applying a force to fluid creates pressure as the fluid pushes back.
-                Calculating pressure is expensive, but the fluid will look unrealistic with fewer than 20 iterations.
-                """
-                (Slider
-                    { min = 0
-                    , max = 60
-                    , step = 1
-                    , value = settings.pressureIterations
-                    , onInput =
-                        \value ->
-                            String.toInt value
-                                |> Maybe.withDefault 0
-                                |> SetPressureIterations
-                                |> SaveSetting
-                    , toString = String.fromInt
-                    }
-                )
-        , Html.div
+        , Html.h2
             [ HA.class "col-span-2-md" ]
-            [ Html.h2 [] [ Html.text "Look" ] ]
+            [ Html.text "Look" ]
         , viewControl <|
             Control
                 "Line length"
@@ -574,9 +499,93 @@ viewSettings settings =
                     , toString = formatFloat 1
                     }
                 )
-        , Html.div
+        , Html.h2 [ HA.class "col-span-2-md" ] [ Html.text "Fluid simulation" ]
+        , viewControl <|
+            Control
+                "Viscosity"
+                """
+                A viscous fluid resists any change to its velocity.
+                It spreads out and diffuses any force applied to it.
+                """
+                (Slider
+                    { min = 0.1
+                    , max = 4.0
+                    , step = 0.1
+                    , value = settings.viscosity
+                    , onInput =
+                        \value ->
+                            String.toFloat value
+                                |> Maybe.withDefault 0.0
+                                |> SetViscosity
+                                |> SaveSetting
+                    , toString = formatFloat 1
+                    }
+                )
+        , viewControl <|
+            Control
+                "Velocity dissipation"
+                """
+                Velocity should decrease, or dissipate, as it travels through a fluid.
+                """
+                (Slider
+                    { min = 0.0
+                    , max = 2.0
+                    , step = 0.1
+                    , value = settings.velocityDissipation
+                    , onInput =
+                        \value ->
+                            String.toFloat value
+                                |> Maybe.withDefault 0.0
+                                |> SetVelocityDissipation
+                                |> SaveSetting
+                    , toString = formatFloat 1
+                    }
+                )
+        , viewControl <|
+            Control
+                "Diffusion iterations"
+                """
+                Viscous fluids dissipate velocity through a process called “diffusion”.
+                Each iteration enchances this effect and the diffusion strength is controlled by the fluid’s viscosity.
+                """
+                (Slider
+                    { min = 0
+                    , max = 30
+                    , step = 1
+                    , value = settings.diffusionIterations
+                    , onInput =
+                        \value ->
+                            String.toInt value
+                                |> Maybe.withDefault 0
+                                |> SetDiffusionIterations
+                                |> SaveSetting
+                    , toString = String.fromInt
+                    }
+                )
+        , viewControl <|
+            Control
+                "Pressure iterations"
+                """
+                Applying a force to fluid creates pressure as the fluid pushes back.
+                Calculating pressure is expensive, but the fluid will look unrealistic with fewer than 20 iterations.
+                """
+                (Slider
+                    { min = 0
+                    , max = 60
+                    , step = 1
+                    , value = settings.pressureIterations
+                    , onInput =
+                        \value ->
+                            String.toInt value
+                                |> Maybe.withDefault 0
+                                |> SetPressureIterations
+                                |> SaveSetting
+                    , toString = String.fromInt
+                    }
+                )
+        , Html.h2
             [ HA.class "col-span-2-md" ]
-            [ Html.h2 [] [ Html.text "Noise" ] ]
+            [ Html.text "Noise" ]
         , viewNoiseChannel "Channel 1" SetNoiseChannel1 settings.noiseChannel1
         , viewNoiseChannel "Channel 2" SetNoiseChannel2 settings.noiseChannel2
         ]
