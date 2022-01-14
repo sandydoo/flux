@@ -78,7 +78,13 @@ type alias Noise =
     , offsetIncrement : Float
     , delay : Float
     , blendDuration : Float
+    , blendMethod : BlendMethod
     }
+
+
+type BlendMethod
+    = Curl
+    | Wiggle
 
 
 defaultSettings : Settings
@@ -107,6 +113,7 @@ defaultSettings =
         , offsetIncrement = 1.0
         , delay = 7.0
         , blendDuration = 5.0
+        , blendMethod = Curl
         }
     , noiseChannel2 =
         { scale = 15.0
@@ -116,6 +123,7 @@ defaultSettings =
         , offsetIncrement = 0.1
         , delay = 0.3
         , blendDuration = 0.3
+        , blendMethod = Wiggle
         }
     }
 
@@ -857,6 +865,20 @@ colorSchemeToString colorscheme =
             "Pollen"
 
 
+encodeBlendMethod : BlendMethod -> Encode.Value
+encodeBlendMethod =
+    blendMethodToString >> Encode.string
+
+
+blendMethodToString blendMethod =
+    case blendMethod of
+        Curl ->
+            "Curl"
+
+        Wiggle ->
+            "Wiggle"
+
+
 encodeNoise : Noise -> Encode.Value
 encodeNoise noise =
     Encode.object
@@ -867,4 +889,5 @@ encodeNoise noise =
         , ( "offsetIncrement", Encode.float noise.offsetIncrement )
         , ( "delay", Encode.float noise.delay )
         , ( "blendDuration", Encode.float noise.blendDuration )
+        , ( "blendMethod", encodeBlendMethod noise.blendMethod )
         ]

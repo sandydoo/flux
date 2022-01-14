@@ -12,16 +12,9 @@ static SIMPLEX_NOISE_FRAG_SHADER: &'static str = include_str!("./shaders/simplex
 static BLEND_WITH_CURL: &'static str = include_str!("./shaders/blend_with_curl.frag");
 static BLEND_WITH_WIGGLE: &'static str = include_str!("./shaders/blend_with_wiggle.frag");
 
-#[derive(Debug)]
-pub enum BlendMethod {
-    Curl,
-    Wiggle,
-}
-
 pub struct NoiseChannel {
     noise: Noise,
     texture: Framebuffer,
-    blend_method: BlendMethod,
     blend_begin_time: f32,
     last_blend_progress: f32,
     offset1: f32,
@@ -172,11 +165,7 @@ impl NoiseInjector {
         })
     }
 
-    pub fn add_noise(
-        &mut self,
-        noise: Noise,
-        blend_method: BlendMethod,
-    ) -> Result<(), render::Problem> {
+    pub fn add_noise(&mut self, noise: Noise) -> Result<(), render::Problem> {
         let texture = Framebuffer::new(
             &self.context,
             self.width,
@@ -193,7 +182,6 @@ impl NoiseInjector {
         self.channels.push(NoiseChannel {
             noise: noise.clone(),
             texture,
-            blend_method,
             blend_begin_time: 0.0,
             last_blend_progress: 0.0,
             offset1: noise.offset_1,
@@ -230,9 +218,9 @@ impl NoiseInjector {
             }
 
             let delta_blend_progress = blend_progress - channel.last_blend_progress;
-            let blend_pass: &RenderPass = match channel.blend_method {
-                BlendMethod::Curl => &self.blend_with_curl_pass,
-                BlendMethod::Wiggle => &self.blend_with_wiggle_pass,
+            let blend_pass: &RenderPass = match channel.noise.blend_method {
+                settings::BlendMethod::Curl => &self.blend_with_curl_pass,
+                settings::BlendMethod::Wiggle => &self.blend_with_wiggle_pass,
             };
 
             blend_pass

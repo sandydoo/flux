@@ -70,10 +70,10 @@ impl Flux {
                 .map_err(|msg| msg.to_string())?;
 
         noise_injector
-            .add_noise(settings.noise_channel_1.clone(), noise::BlendMethod::Curl)
+            .add_noise(settings.noise_channel_1.clone())
             .map_err(|msg| msg.to_string())?;
         noise_injector
-            .add_noise(settings.noise_channel_2.clone(), noise::BlendMethod::Wiggle)
+            .add_noise(settings.noise_channel_2.clone())
             .map_err(|msg| msg.to_string())?;
 
         noise_injector.generate_by_channel_number(0, 0.0);
