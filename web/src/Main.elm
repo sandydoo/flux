@@ -89,7 +89,7 @@ type BlendMethod
 
 defaultSettings : Settings
 defaultSettings =
-    { viscosity = 1.0
+    { viscosity = 1.2
     , velocityDissipation = 0.1
     , fluidWidth = 256
     , fluidHeight = 256
@@ -97,26 +97,26 @@ defaultSettings =
     , diffusionIterations = 30
     , pressureIterations = 30
     , colorScheme = Plasma
-    , lineLength = 150.0
+    , lineLength = 160.0
     , lineWidth = 3.5
     , lineBeginOffset = 0.5
     , lineOpacity = 0.9
     , lineFadeOutLength = 0.0
-    , adjustAdvection = 9.0
-    , gridSpacing = 16
-    , viewScale = 1.5
+    , adjustAdvection = 16.0
+    , gridSpacing = 18
+    , viewScale = 1.6
     , noiseChannel1 =
         { scale = 1.3
         , multiplier = 1.0
         , offset1 = 0.0
         , offset2 = 1.0
         , offsetIncrement = 1.0
-        , delay = 7.0
-        , blendDuration = 5.0
+        , delay = 8.0
+        , blendDuration = 7.0
         , blendMethod = Curl
         }
     , noiseChannel2 =
-        { scale = 15.0
+        { scale = 25.0
         , multiplier = 0.03
         , offset1 = 1.0
         , offset2 = 1.0
