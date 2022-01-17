@@ -5,6 +5,7 @@ use render::{
 };
 use settings::Noise;
 
+use std::rc::Rc;
 use web_sys::WebGl2RenderingContext as GL;
 
 static FLUID_VERT_SHADER: &'static str = include_str!("./shaders/fluid.vert");
@@ -22,17 +23,17 @@ pub struct NoiseChannel {
 }
 
 impl NoiseChannel {
-    pub fn generate(&mut self, generate_noise_pass: &RenderPass, elapsed_time: f32) -> () {
+    pub fn generate(&mut self, generate_noise_pass: &'static RenderPass, elapsed_time: f32) -> () {
         let width = self.texture.width;
         let height = self.texture.height;
 
         generate_noise_pass
             .draw_to(
                 &self.texture,
-                &vec![
+                &[
                     Uniform {
                         name: "uResolution",
-                        value: UniformValue::Vec2([width as f32, height as f32]),
+                        value: UniformValue::Vec2(&[width as f32, height as f32]),
                     },
                     Uniform {
                         name: "uOffset1",
@@ -67,9 +68,9 @@ pub struct NoiseInjector {
     pub channels: Vec<NoiseChannel>,
     width: u32,
     height: u32,
-    generate_noise_pass: RenderPass,
-    blend_with_curl_pass: RenderPass,
-    blend_with_wiggle_pass: RenderPass,
+    generate_noise_pass: RenderPass<'static>,
+    blend_with_curl_pass: RenderPass<'static>,
+    blend_with_wiggle_pass: RenderPass<'static>,
 }
 
 impl NoiseInjector {
@@ -102,60 +103,60 @@ impl NoiseInjector {
 
         let generate_noise_pass = RenderPass::new(
             &context,
-            vec![VertexBuffer {
-                buffer: plane_vertices.clone(),
+            &[VertexBuffer {
+                buffer: &plane_vertices,
                 binding: BindingInfo {
-                    name: "position".to_string(),
+                    name: "position",
                     size: 3,
                     type_: GL::FLOAT,
                     ..Default::default()
                 },
             }],
-            Indices::IndexBuffer {
-                buffer: plane_indices.clone(),
+            &Indices::IndexBuffer {
+                buffer: &plane_indices,
                 primitive: GL::TRIANGLES,
             },
-            simplex_noise_program,
+            &simplex_noise_program,
         )?;
 
         let blend_with_curl_pass = RenderPass::new(
             &context,
-            vec![VertexBuffer {
-                buffer: plane_vertices.clone(),
+            &[VertexBuffer {
+                buffer: &plane_vertices,
                 binding: BindingInfo {
-                    name: "position".to_string(),
+                    name: "position",
                     size: 3,
                     type_: GL::FLOAT,
                     ..Default::default()
                 },
             }],
-            Indices::IndexBuffer {
-                buffer: plane_indices.clone(),
+            &Indices::IndexBuffer {
+                buffer: &plane_indices,
                 primitive: GL::TRIANGLES,
             },
-            blend_with_curl_program,
+            &blend_with_curl_program,
         )?;
 
         let blend_with_wiggle_pass = RenderPass::new(
             &context,
-            vec![VertexBuffer {
-                buffer: plane_vertices.clone(),
+            &[VertexBuffer {
+                buffer: &plane_vertices,
                 binding: BindingInfo {
-                    name: "position".to_string(),
+                    name: "position",
                     size: 3,
                     type_: GL::FLOAT,
                     ..Default::default()
                 },
             }],
-            Indices::IndexBuffer {
-                buffer: plane_indices.clone(),
+            &Indices::IndexBuffer {
+                buffer: &plane_indices,
                 primitive: GL::TRIANGLES,
             },
-            blend_with_wiggle_program,
+            &blend_with_wiggle_program,
         )?;
 
         Ok(Self {
-            context: context.clone(),
+            context: Rc::clone(context),
             channels: Vec::new(),
             width,
             height,
@@ -229,7 +230,7 @@ impl NoiseInjector {
                     &vec![
                         Uniform {
                             name: "uTexelSize",
-                            value: UniformValue::Vec2([
+                            value: UniformValue::Vec2(&[
                                 1.0 / self.width as f32,
                                 1.0 / self.height as f32,
                             ]),

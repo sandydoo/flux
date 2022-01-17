@@ -29,11 +29,11 @@ pub struct Fluid {
     divergence_texture: Framebuffer,
     pressure_textures: DoubleFramebuffer,
 
-    advection_pass: render::RenderPass,
-    diffusion_pass: render::RenderPass,
-    divergence_pass: render::RenderPass,
-    pressure_pass: render::RenderPass,
-    subtract_gradient_pass: render::RenderPass,
+    advection_pass: render::RenderPass<'static>,
+    diffusion_pass: render::RenderPass<'static>,
+    divergence_pass: render::RenderPass<'static>,
+    pressure_pass: render::RenderPass<'static>,
+    subtract_gradient_pass: render::RenderPass<'static>,
 }
 
 impl Fluid {
@@ -113,92 +113,92 @@ impl Fluid {
 
         let advection_pass = render::RenderPass::new(
             &context,
-            vec![VertexBuffer {
-                buffer: plane_vertices.clone(),
+            &[VertexBuffer {
+                buffer: &plane_vertices,
                 binding: BindingInfo {
-                    name: "position".to_string(),
+                    name: "position",
                     size: 3,
                     type_: GL::FLOAT,
                     ..Default::default()
                 },
             }],
-            Indices::IndexBuffer {
-                buffer: plane_indices.clone(),
+            &Indices::IndexBuffer {
+                buffer: &plane_indices,
                 primitive: GL::TRIANGLES,
             },
-            advection_program,
+            &advection_program,
         )?;
 
         let diffusion_pass = render::RenderPass::new(
             &context,
-            vec![VertexBuffer {
-                buffer: plane_vertices.clone(),
+            &[VertexBuffer {
+                buffer: &plane_vertices,
                 binding: BindingInfo {
-                    name: "position".to_string(),
+                    name: "position",
                     size: 3,
                     type_: GL::FLOAT,
                     ..Default::default()
                 },
             }],
-            Indices::IndexBuffer {
-                buffer: plane_indices.clone(),
+            &Indices::IndexBuffer {
+                buffer: &plane_indices,
                 primitive: GL::TRIANGLES,
             },
-            pressure_program.clone(),
+            &pressure_program,
         )?;
 
         let divergence_pass = render::RenderPass::new(
             &context,
-            vec![VertexBuffer {
-                buffer: plane_vertices.clone(),
+            &[VertexBuffer {
+                buffer: &plane_vertices,
                 binding: BindingInfo {
-                    name: "position".to_string(),
+                    name: "position",
                     size: 3,
                     type_: GL::FLOAT,
                     ..Default::default()
                 },
             }],
-            Indices::IndexBuffer {
-                buffer: plane_indices.clone(),
+            &Indices::IndexBuffer {
+                buffer: &plane_indices,
                 primitive: GL::TRIANGLES,
             },
-            divergence_program,
+            &divergence_program,
         )?;
 
         let pressure_pass = render::RenderPass::new(
             &context,
-            vec![VertexBuffer {
-                buffer: plane_vertices.clone(),
+            &[VertexBuffer {
+                buffer: &plane_vertices,
                 binding: BindingInfo {
-                    name: "position".to_string(),
+                    name: "position",
                     size: 3,
                     type_: GL::FLOAT,
                     ..Default::default()
                 },
             }],
-            Indices::IndexBuffer {
-                buffer: plane_indices.clone(),
+            &Indices::IndexBuffer {
+                buffer: &plane_indices,
                 primitive: GL::TRIANGLES,
             },
-            pressure_program.clone(),
+            &pressure_program,
         )?;
 
         let subtract_gradient_pass = render::RenderPass::new(
             &context,
-            vec![VertexBuffer {
-                buffer: plane_vertices.clone(),
+            &[VertexBuffer {
+                buffer: &plane_vertices,
                 binding: BindingInfo {
-                    name: "position".to_string(),
+                    name: "position",
                     size: 3,
                     type_: GL::FLOAT,
                     ..Default::default()
                 },
             }],
-            Indices::IndexBuffer {
-                buffer: plane_indices.clone(),
+            &Indices::IndexBuffer {
+                buffer: &plane_indices,
                 primitive: GL::TRIANGLES,
             },
-            subtract_gradient_program,
+            &subtract_gradient_program,
         )?;
 
         Ok(Self {
@@ -223,10 +223,10 @@ impl Fluid {
         self.advection_pass
             .draw_to(
                 &self.velocity_textures.next(),
-                &vec![
+                &[
                     Uniform {
                         name: "uTexelSize",
-                        value: UniformValue::Vec2(self.texel_size),
+                        value: UniformValue::Vec2(&self.texel_size),
                     },
                     Uniform {
                         name: "deltaT",
@@ -266,7 +266,7 @@ impl Fluid {
         let center_factor = self.grid_size.powf(2.0) / (self.settings.viscosity * timestep);
         let stencil_factor = 1.0 / (4.0 + center_factor);
 
-        let uniforms = vec![
+        let uniforms = [
             Uniform {
                 name: "uTexelSize",
                 value: UniformValue::Vec2(self.texel_size),
@@ -289,7 +289,7 @@ impl Fluid {
             self.diffusion_pass
                 .draw_to(
                     &self.velocity_textures.next(),
-                    &vec![
+                    &[
                         Uniform {
                             name: "divergenceTexture",
                             value: UniformValue::Texture2D(
@@ -317,10 +317,10 @@ impl Fluid {
         self.divergence_pass
             .draw_to(
                 &self.divergence_texture,
-                &vec![
+                &[
                     Uniform {
                         name: "uTexelSize",
-                        value: UniformValue::Vec2(self.texel_size),
+                        value: UniformValue::Vec2(&self.texel_size),
                     },
                     Uniform {
                         name: "halfEpsilon",
@@ -345,10 +345,10 @@ impl Fluid {
 
         self.pressure_textures.zero_out().unwrap();
 
-        let uniforms = vec![
+        let uniforms = [
             Uniform {
                 name: "uTexelSize",
-                value: UniformValue::Vec2(self.texel_size),
+                value: UniformValue::Vec2(&self.texel_size),
             },
             Uniform {
                 name: "alpha",
@@ -372,7 +372,7 @@ impl Fluid {
             self.pressure_pass
                 .draw_to(
                     &self.pressure_textures.next(),
-                    &vec![Uniform {
+                    &[Uniform {
                         name: "pressureTexture",
                         value: UniformValue::Texture2D(
                             &self.pressure_textures.current().texture,
@@ -391,10 +391,10 @@ impl Fluid {
         self.subtract_gradient_pass
             .draw_to(
                 &self.velocity_textures.next(),
-                &vec![
+                &[
                     Uniform {
                         name: "uTexelSize",
-                        value: UniformValue::Vec2(self.texel_size),
+                        value: UniformValue::Vec2(&self.texel_size),
                     },
                     Uniform {
                         name: "halfEpsilon",

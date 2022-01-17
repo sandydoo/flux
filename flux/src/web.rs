@@ -17,7 +17,7 @@ pub fn get_rendering_context(element_id: &str) -> Result<(Canvas, GL, u32, u32, 
     let html_canvas: web_sys::HtmlCanvasElement =
         html_canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
 
-    let pixel_ratio: f64 = window.device_pixel_ratio().min(1.5);
+    let pixel_ratio: f64 = window.device_pixel_ratio().min(1.0);
     let client_width = html_canvas.client_width();
     let client_height = html_canvas.client_height();
     let width = (pixel_ratio * f64::from(client_width)) as u32;
@@ -93,10 +93,11 @@ pub enum Canvas {
 
 impl Canvas {
     pub fn new(html_canvas: web_sys::HtmlCanvasElement) -> Self {
-        match html_canvas.transfer_control_to_offscreen() {
-            Ok(offscreen_canvas) => Canvas::OffscreenCanvas(html_canvas, offscreen_canvas),
-            Err(_) => Canvas::OnscreenCanvas(html_canvas),
-        }
+        Canvas::OnscreenCanvas(html_canvas)
+        // match html_canvas.transfer_control_to_offscreen() {
+        //     Ok(offscreen_canvas) => Canvas::OffscreenCanvas(html_canvas, offscreen_canvas),
+        //     Err(_) => Canvas::OnscreenCanvas(html_canvas),
+        // }
     }
 
     pub fn get_context_with_context_options(

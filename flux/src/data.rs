@@ -49,27 +49,31 @@ pub fn new_line_state(width: u32, height: u32, grid_spacing: u32) -> Vec<f32> {
     let cols = width / grid_spacing;
     let mut data = Vec::with_capacity((rows * cols * 10) as usize);
 
-    for _ in 0..rows {
-        for _ in 0..cols {
+    for r in 0..rows {
+        for c in 0..cols {
             // endpoint
-            data.push(0.0001);
-            data.push(0.0001);
+            // data.push(0.0001);
+            // data.push(0.0001);
+            data.push((c as f32).sin());
+            data.push((r as f32).cos());
+            // data.push(1.0);
+            // data.push(1.0);
 
             // velocity
-            data.push(0.0);
-            data.push(0.0);
+            data.push(0.2);
+            data.push(0.2);
 
             // color
-            data.push(0.0);
-            data.push(0.0);
+            data.push((c as f32).sin());
+            data.push((r as f32).cos());
             data.push(0.0);
             data.push(0.0); // not currently used
 
             // width
-            data.push(0.0);
+            data.push(1.0);
 
             // opacity
-            data.push(0.0);
+            data.push(1.0);
         }
     }
 

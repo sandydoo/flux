@@ -1,12 +1,6 @@
 #version 300 es
 #define PI 3.1415926535897932384626433832795
-precision highp float;
-precision highp sampler2D;
-
-uniform float uLineWidth;
-uniform float uLineLength;
-uniform mat4 uProjection;
-uniform mat4 uView;
+precision mediump float;
 
 in vec2 vertex;
 in vec2 basepoint;
@@ -16,6 +10,24 @@ in vec2 iVelocityVector;
 in float iLineWidth;
 in vec4 iColor;
 in float iOpacity;
+
+layout(std140) uniform Projection
+{
+  mat4 uProjection;
+  mat4 uView;
+};
+
+layout(std140) uniform LineUniforms
+{
+  mediump float uLineWidth;
+  mediump float uLineLength;
+  mediump float uLineBeginOffset;
+  mediump float uLineBaseOpacity;
+  mediump float uLineFadeOutLength;
+  mediump float deltaT;
+  mediump vec2 padding;
+  mediump vec3 uColorWheel[6];
+};
 
 out vec2 vPosition;
 out vec3 vColor;

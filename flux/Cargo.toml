@@ -18,6 +18,7 @@ default = ["console_error_panic_hook"]
 lto = true
 
 [dependencies]
+bytemuck = { version = "1.4", features = ["derive"] }
 console_error_panic_hook = { version = "0.1.1", optional = true }
 fnv = "1"
 js-sys = "0.3.55"
