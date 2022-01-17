@@ -2,14 +2,14 @@
 
 mod data;
 mod drawer;
-// mod fluid;
+mod fluid;
 // mod noise;
 mod render;
 mod settings;
 mod web;
 
 use drawer::Drawer;
-// use fluid::Fluid;
+use fluid::Fluid;
 // use noise::NoiseInjector;
 use settings::Settings;
 
@@ -19,7 +19,7 @@ use web_sys::WebGl2RenderingContext as GL;
 
 #[wasm_bindgen]
 pub struct Flux {
-    // fluid: Fluid,
+    fluid: Fluid,
     drawer: Drawer,
     // noise_injector: NoiseInjector,
     settings: Rc<Settings>,
@@ -62,7 +62,7 @@ impl Flux {
         };
 
         let fluid_frame_time = 1.0 / settings.fluid_simulation_frame_rate;
-        // let fluid = Fluid::new(&context, &settings).map_err(|msg| msg.to_string())?;
+        let fluid = Fluid::new(&context, &settings).map_err(|msg| msg.to_string())?;
 
         let drawer =
             Drawer::new(&context, width, height, &settings).map_err(|msg| msg.to_string())?;
@@ -82,7 +82,7 @@ impl Flux {
         // context.flush();
 
         Ok(Flux {
-            // fluid,
+            fluid,
             drawer,
             // noise_injector,
             settings,
@@ -121,36 +121,36 @@ impl Flux {
         // self.noise_injector
         //     .blend_noise_into(&self.fluid.get_velocity_textures(), self.elapsed_time);
 
-        // while self.frame_time >= self.fluid_frame_time {
-        //     self.fluid.advect(self.fluid_frame_time); // Convection
-        //     self.fluid.diffuse(self.fluid_frame_time);
-        //     self.fluid.calculate_divergence();
-        //     self.fluid.solve_pressure();
-        //     self.fluid.subtract_gradient();
+        while self.frame_time >= self.fluid_frame_time {
+            self.fluid.advect(self.fluid_frame_time);
+            // Convection
+            //     self.fluid.diffuse(self.fluid_frame_time);
+            self.fluid.calculate_divergence();
+            self.fluid.solve_pressure();
+            self.fluid.subtract_gradient();
 
-        //     self.frame_time -= self.fluid_frame_time;
-        // }
+            self.frame_time -= self.fluid_frame_time;
+        }
 
         // TODO: the line animation is still dependent on the client’s fps. Is
         // this worth fixing?
         self.drawer.place_lines(
-            timestep
-            // timestep * self.settings.adjust_advection,
-            // &self.fluid.get_velocity(),
+            timestep * self.settings.adjust_advection,
+            &self.fluid.get_velocity(),
         );
 
-        // self.drawer.with_antialiasing(|| {
         self.context.clear_color(0.0, 0.0, 0.0, 1.0);
         self.context.clear(GL::COLOR_BUFFER_BIT);
 
-        // Debugging
-        // self.drawer.draw_texture(self.noise_injector.get_noise_channel(0).unwrap());
-        // self.drawer.draw_texture(self.noise_injector.get_noise_channel(1).unwrap());
-        // self.drawer.draw_texture(&self.fluid.get_velocity());
-        // self.drawer.draw_texture(&self.fluid.get_pressure());
+        self.drawer.with_antialiasing(|| {
+            // Debugging
+            // self.drawer.draw_texture(self.noise_injector.get_noise_channel(0).unwrap());
+            // self.drawer.draw_texture(self.noise_injector.get_noise_channel(1).unwrap());
+            self.drawer.draw_texture(&self.fluid.get_velocity());
+            // self.drawer.draw_texture(&self.fluid.get_pressure());
 
-        self.drawer.draw_lines();
-        self.drawer.draw_endpoints();
-        // });
+            self.drawer.draw_lines();
+            self.drawer.draw_endpoints();
+        });
     }
 }

@@ -3,7 +3,16 @@ precision highp float;
 
 in vec3 position;
 
-uniform vec2 uTexelSize;
+layout(std140) uniform Uniforms
+{
+  highp float deltaT;
+  highp float pad1;
+  highp vec2 uTexelSize;
+  highp float epsilon;
+  highp float halfEpsilon;
+  highp float dissipation;
+  highp float padding;
+};
 
 out vec2 textureCoord;
 out vec2 vL;

@@ -1039,3 +1039,55 @@ fn detect_texture_format(internal_format: GlDataType) -> Result<TextureFormat> {
         _ => Err(Problem::UnsupportedTextureFormat),
     }
 }
+
+pub fn create_vertex_array(
+    context: &Context,
+    program: &Program,
+    vertices: &[(&Buffer, VertexBufferLayout)],
+) -> WebGlVertexArrayObject {
+    let vao = context.create_vertex_array().unwrap();
+    context.bind_vertex_array(Some(&vao));
+
+    for (buffer, vertex) in vertices.iter() {
+        bind_attributes(&context, &program, buffer, vertex);
+    }
+
+    vao
+}
+
+pub fn bind_attributes(
+    context: &Context,
+    program: &Program,
+    buffer: &Buffer,
+    buffer_layout: &VertexBufferLayout,
+) -> Result<()> {
+    context.bind_buffer(GL::ARRAY_BUFFER, Some(&buffer.id));
+
+    if let Some(location) = program.get_attrib_location(&buffer_layout.name) {
+        super::log!("Binding attr {}", buffer_layout.name);
+        context.enable_vertex_attrib_array(location);
+
+        match buffer_layout.type_ {
+            GL::FLOAT => context.vertex_attrib_pointer_with_i32(
+                location,
+                buffer_layout.size as i32,
+                buffer_layout.type_,
+                false,
+                buffer_layout.stride as i32,
+                buffer_layout.offset as i32,
+            ),
+            GL::UNSIGNED_SHORT | GL::UNSIGNED_INT | GL::INT => context
+                .vertex_attrib_i_pointer_with_i32(
+                    location,
+                    buffer_layout.size as i32,
+                    buffer_layout.type_,
+                    buffer_layout.stride as i32,
+                    buffer_layout.offset as i32,
+                ),
+            _ => return Err(Problem::CannotBindUnsupportedVertexType),
+        };
+
+        context.vertex_attrib_divisor(location, buffer_layout.divisor);
+    }
+    Ok(())
+}

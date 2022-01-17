@@ -1,12 +1,13 @@
 use crate::{data, render, settings};
 use render::{
-    BindingInfo, Buffer, Context, DoubleFramebuffer, Framebuffer, Indices, Program, RenderPass,
-    TextureOptions, Uniform, UniformValue, VertexBuffer,
+    Buffer, Context, DoubleFramebuffer, Framebuffer, Indices, Program, RenderPipeline,
+    TextureOptions, Uniform, UniformValue, VertexBufferLayout,
 };
 use settings::Noise;
 
 use std::rc::Rc;
 use web_sys::WebGl2RenderingContext as GL;
+use web_sys::WebGlVertexArrayObject;
 
 static FLUID_VERT_SHADER: &'static str = include_str!("./shaders/fluid.vert");
 static SIMPLEX_NOISE_FRAG_SHADER: &'static str = include_str!("./shaders/simplex_noise.frag");
@@ -23,38 +24,36 @@ pub struct NoiseChannel {
 }
 
 impl NoiseChannel {
-    pub fn generate(&mut self, generate_noise_pass: &'static RenderPass, elapsed_time: f32) -> () {
+    pub fn generate(&mut self, generate_noise_pass: &RenderPipeline, elapsed_time: f32) -> () {
         let width = self.texture.width;
         let height = self.texture.height;
 
-        generate_noise_pass
-            .draw_to(
-                &self.texture,
-                &[
-                    Uniform {
-                        name: "uResolution",
-                        value: UniformValue::Vec2(&[width as f32, height as f32]),
-                    },
-                    Uniform {
-                        name: "uOffset1",
-                        value: UniformValue::Float(self.offset1),
-                    },
-                    Uniform {
-                        name: "uOffset2",
-                        value: UniformValue::Float(self.offset2),
-                    },
-                    Uniform {
-                        name: "uOffsetIncrement",
-                        value: UniformValue::Float(self.noise.offset_increment),
-                    },
-                    Uniform {
-                        name: "uFrequency",
-                        value: UniformValue::Float(self.noise.scale),
-                    },
-                ],
-                1,
-            )
-            .unwrap();
+        // &[
+        //             Uniform {
+        //                 name: "uResolution",
+        //                 value: UniformValue::Vec2(&[width as f32, height as f32]),
+        //             },
+        //             Uniform {
+        //                 name: "uOffset1",
+        //                 value: UniformValue::Float(self.offset1),
+        //             },
+        //             Uniform {
+        //                 name: "uOffset2",
+        //                 value: UniformValue::Float(self.offset2),
+        //             },
+        //             Uniform {
+        //                 name: "uOffsetIncrement",
+        //                 value: UniformValue::Float(self.noise.offset_increment),
+        //             },
+        //             Uniform {
+        //                 name: "uFrequency",
+        //                 value: UniformValue::Float(self.noise.scale),
+        //             },
+        //         ],
+        //         1,
+        //     )
+        //     .unwrap();
+        draw_to(&self.context, &self.texture, || {});
 
         self.blend_begin_time = elapsed_time;
         self.last_blend_progress = 0.0;
@@ -68,9 +67,11 @@ pub struct NoiseInjector {
     pub channels: Vec<NoiseChannel>,
     width: u32,
     height: u32,
-    generate_noise_pass: RenderPass<'static>,
-    blend_with_curl_pass: RenderPass<'static>,
-    blend_with_wiggle_pass: RenderPass<'static>,
+    generate_noise_pass: RenderPipeline,
+    blend_with_curl_pass: RenderPipeline,
+    blend_with_wiggle_pass: RenderPipeline,
+
+    noise_buffer: WebGlVertexArrayObject,
 }
 
 impl NoiseInjector {
@@ -101,59 +102,58 @@ impl NoiseInjector {
         let blend_with_wiggle_program =
             Program::new(&context, (FLUID_VERT_SHADER, BLEND_WITH_WIGGLE))?;
 
-        let generate_noise_pass = RenderPass::new(
+        let generate_noise_pass = render::RenderPipeline::new(
             &context,
-            &[VertexBuffer {
-                buffer: &plane_vertices,
-                binding: BindingInfo {
-                    name: "position",
-                    size: 3,
-                    type_: GL::FLOAT,
-                    ..Default::default()
-                },
+            &[VertexBufferLayout {
+                name: "position",
+                size: 3,
+                type_: GL::FLOAT,
+                ..Default::default()
             }],
-            &Indices::IndexBuffer {
-                buffer: &plane_indices,
-                primitive: GL::TRIANGLES,
-            },
+            &Indices::IndexBuffer(GL::TRIANGLES),
             &simplex_noise_program,
         )?;
 
-        let blend_with_curl_pass = RenderPass::new(
+        let blend_with_curl_pass = render::RenderPipeline::new(
             &context,
-            &[VertexBuffer {
-                buffer: &plane_vertices,
-                binding: BindingInfo {
-                    name: "position",
-                    size: 3,
-                    type_: GL::FLOAT,
-                    ..Default::default()
-                },
+            &[VertexBufferLayout {
+                name: "position",
+                size: 3,
+                type_: GL::FLOAT,
+                ..Default::default()
             }],
-            &Indices::IndexBuffer {
-                buffer: &plane_indices,
-                primitive: GL::TRIANGLES,
-            },
+            &Indices::IndexBuffer(GL::TRIANGLES),
             &blend_with_curl_program,
         )?;
 
-        let blend_with_wiggle_pass = RenderPass::new(
+        let blend_with_wiggle_pass = render::RenderPipeline::new(
             &context,
-            &[VertexBuffer {
-                buffer: &plane_vertices,
-                binding: BindingInfo {
+            &[VertexBufferLayout {
+                name: "position",
+                size: 3,
+                type_: GL::FLOAT,
+                ..Default::default()
+            }],
+            &Indices::IndexBuffer(GL::TRIANGLES),
+            &blend_with_wiggle_program,
+        )?;
+
+        let noise_buffer = render::create_vertex_array(
+            &context,
+            &simplex_noise_program,
+            &[(
+                &plane_vertices,
+                VertexBufferLayout {
                     name: "position",
                     size: 3,
                     type_: GL::FLOAT,
                     ..Default::default()
                 },
-            }],
-            &Indices::IndexBuffer {
-                buffer: &plane_indices,
-                primitive: GL::TRIANGLES,
-            },
-            &blend_with_wiggle_program,
-        )?;
+            )],
+        );
+        context.bind_vertex_array(Some(&noise_buffer));
+        context.bind_buffer(GL::ELEMENT_ARRAY_BUFFER, Some(&plane_indices.id));
+        context.bind_vertex_array(None);
 
         Ok(Self {
             context: Rc::clone(context),
@@ -163,6 +163,8 @@ impl NoiseInjector {
             generate_noise_pass,
             blend_with_curl_pass,
             blend_with_wiggle_pass,
+
+            noise_buffer,
         })
     }
 
@@ -219,7 +221,7 @@ impl NoiseInjector {
             }
 
             let delta_blend_progress = blend_progress - channel.last_blend_progress;
-            let blend_pass: &RenderPass = match channel.noise.blend_method {
+            let blend_pass: &RenderPipeline = match channel.noise.blend_method {
                 settings::BlendMethod::Curl => &self.blend_with_curl_pass,
                 settings::BlendMethod::Wiggle => &self.blend_with_wiggle_pass,
             };
@@ -267,4 +269,18 @@ impl NoiseInjector {
             .get(channel_number)
             .map(|channel| &channel.texture)
     }
+}
+
+pub fn draw_to<T>(context: &Context, framebuffer: &Framebuffer, draw: T) -> Result<()>
+where
+    T: Fn() -> (),
+{
+    context.bind_framebuffer(GL::DRAW_FRAMEBUFFER, Some(&framebuffer.id));
+    context.viewport(0, 0, framebuffer.width as i32, framebuffer.height as i32);
+
+    draw();
+
+    context.bind_framebuffer(GL::DRAW_FRAMEBUFFER, None);
+
+    Ok(())
 }

@@ -52,16 +52,16 @@ pub fn new_line_state(width: u32, height: u32, grid_spacing: u32) -> Vec<f32> {
     for r in 0..rows {
         for c in 0..cols {
             // endpoint
-            // data.push(0.0001);
-            // data.push(0.0001);
-            data.push((c as f32).sin());
-            data.push((r as f32).cos());
+            data.push(0.0001);
+            data.push(0.0001);
+            // data.push((c as f32).sin());
+            // data.push((r as f32).cos());
             // data.push(1.0);
             // data.push(1.0);
 
             // velocity
-            data.push(0.2);
-            data.push(0.2);
+            data.push(0.0);
+            data.push(0.0);
 
             // color
             data.push((c as f32).sin());
@@ -93,4 +93,23 @@ pub fn new_semicircle(resolution: u32) -> Vec<f32> {
     }
 
     segments
+}
+
+pub fn make_sine_vector_field(rows: i32, cols: i32) -> Vec<f32> {
+    let mut data = Vec::with_capacity((rows * cols * 2) as usize);
+    let step_x = 1.0 / (rows as f32);
+    let step_y = 1.0 / (cols as f32);
+
+    for v in 0..cols {
+        for u in 0..rows {
+            let x = step_x * (u as f32) * 2.0 * -1.0;
+            let y = step_y * (v as f32) * 2.0 * -1.0;
+
+            // Swirrlies
+            data.push(0.3 * (2.0 * PI * y).sin());
+            data.push(0.3 * (2.0 * PI * x).sin());
+        }
+    }
+
+    data
 }

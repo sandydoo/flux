@@ -7,14 +7,14 @@ in float vOpacity;
 
 layout(std140) uniform LineUniforms
 {
-  mediump float uLineWidth;
-  mediump float uLineLength;
-  mediump float uLineBeginOffset;
-  mediump float uLineBaseOpacity;
-  mediump float uLineFadeOutLength;
-  mediump float deltaT;
+  highp float uLineWidth;
+  highp float uLineLength;
+  highp float uLineBeginOffset;
+  highp float uLineBaseOpacity;
+  highp float uLineFadeOutLength;
+  highp float deltaT;
   mediump vec2 padding;
-  mediump vec3 uColorWheel[6];
+  mediump vec4 uColorWheel[6];
 };
 
 out vec4 fragColor;

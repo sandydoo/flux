@@ -52,13 +52,13 @@ pub struct Drawer {
     // A 6-color hue wheel. Each color gets π/3 or 60° of space.
     color_wheel: [f32; 24],
 
-    line_state_buffers: [Buffer; 2],
+    line_state_buffer: Buffer,
     transform_feedback_buffer: WebGlTransformFeedback,
-    feedback_buffer: Buffer,
-    last_line_state_buffer_index: usize,
-    place_lines_buffer: [WebGlVertexArrayObject; 2],
-    draw_lines_buffer: [WebGlVertexArrayObject; 2],
-    draw_endpoints_buffer: [WebGlVertexArrayObject; 2],
+    line_state_feedback_buffer: Buffer,
+    place_lines_buffer: WebGlVertexArrayObject,
+    draw_lines_buffer: WebGlVertexArrayObject,
+    draw_endpoints_buffer: WebGlVertexArrayObject,
+    draw_texture_buffer: WebGlVertexArrayObject,
 
     view_buffer: Buffer,
     line_uniforms: Buffer,
@@ -66,7 +66,7 @@ pub struct Drawer {
     place_lines_pass: render::RenderPipeline,
     draw_lines_pass: render::RenderPipeline,
     draw_endpoints_pass: render::RenderPipeline,
-    // draw_texture_pass: render::RenderPipeline,
+    draw_texture_pass: render::RenderPipeline,
     antialiasing_pass: render::MsaaPass,
 
     velocity_textures: render::DoubleFramebuffer,
@@ -118,10 +118,8 @@ impl Drawer {
         let line_count =
             (grid_width / settings.grid_spacing) * (grid_height / settings.grid_spacing);
         let line_state = data::new_line_state(grid_width, grid_height, settings.grid_spacing);
-        let line_state_buffers = [
-            Buffer::from_f32(&context, &line_state, GL::ARRAY_BUFFER, GL::DYNAMIC_COPY)?,
-            Buffer::from_f32(&context, &line_state, GL::ARRAY_BUFFER, GL::DYNAMIC_COPY)?,
-        ];
+        let line_state_buffer =
+            Buffer::from_f32(&context, &line_state, GL::ARRAY_BUFFER, GL::DYNAMIC_COPY)?;
 
         let circle_vertices = Buffer::from_f32(
             &context,
@@ -130,22 +128,24 @@ impl Drawer {
             GL::STATIC_DRAW,
         )?;
 
-        // let plane_vertices = Buffer::from_f32(
-        //     &context,
-        //     &data::PLANE_VERTICES.to_vec(),
-        //     GL::ARRAY_BUFFER,
-        //     GL::STATIC_DRAW,
-        // )?;
-        // let plane_indices = Buffer::from_u16(
-        //     &context,
-        //     &data::PLANE_INDICES.to_vec(),
-        //     GL::ELEMENT_ARRAY_BUFFER,
-        //     GL::STATIC_DRAW,
-        // )?;
+        let plane_vertices = Buffer::from_f32(
+            &context,
+            &data::PLANE_VERTICES.to_vec(),
+            GL::ARRAY_BUFFER,
+            GL::STATIC_DRAW,
+        )?;
+        let plane_indices = Buffer::from_u16(
+            &context,
+            &data::PLANE_INDICES.to_vec(),
+            GL::ELEMENT_ARRAY_BUFFER,
+            GL::STATIC_DRAW,
+        )?;
 
         // Projection
 
         let projection_matrix = new_projection_matrix(grid_width, grid_height);
+        super::log!("projec {:?}", projection_matrix);
+        super::log!("grid {:?}", grid_width);
 
         let view_matrix = glm::scale(
             &glm::identity(),
@@ -173,8 +173,8 @@ impl Drawer {
             render::Program::new(&context, (LINE_VERT_SHADER, LINE_FRAG_SHADER))?;
         let draw_endpoints_program =
             render::Program::new(&context, (ENDPOINT_VERT_SHADER, ENDPOINT_FRAG_SHADER))?;
-        // let draw_texture_program =
-        //     render::Program::new(&context, (TEXTURE_VERT_SHADER, TEXTURE_FRAG_SHADER))?;
+        let draw_texture_program =
+            render::Program::new(&context, (TEXTURE_VERT_SHADER, TEXTURE_FRAG_SHADER))?;
 
         // Pipelines
 
@@ -190,80 +190,75 @@ impl Drawer {
             &place_lines_program,
         )?;
 
-        let place_lines_buffer = line_state_buffers
-            .iter()
-            .map(|buffer| {
-                let vertices = [
-                    (
-                        &basepoint_buffer,
-                        VertexBufferLayout {
-                            name: "basepoint",
-                            size: 2,
-                            type_: GL::FLOAT,
-                            divisor: 1,
-                            ..Default::default()
-                        },
-                    ),
-                    (
-                        &buffer,
-                        VertexBufferLayout {
-                            name: "iEndpointVector",
-                            size: 2,
-                            type_: GL::FLOAT,
-                            stride: 10 * 4,
-                            offset: 0 * 4,
-                            divisor: 1,
-                        },
-                    ),
-                    (
-                        &buffer,
-                        VertexBufferLayout {
-                            name: "iVelocityVector",
-                            size: 2,
-                            type_: GL::FLOAT,
-                            stride: 10 * 4,
-                            offset: 2 * 4,
-                            divisor: 1,
-                        },
-                    ),
-                    (
-                        &buffer,
-                        VertexBufferLayout {
-                            name: "iColor",
-                            size: 4,
-                            type_: GL::FLOAT,
-                            stride: 10 * 4,
-                            offset: 4 * 4,
-                            divisor: 1,
-                        },
-                    ),
-                    (
-                        &buffer,
-                        VertexBufferLayout {
-                            name: "iLineWidth",
-                            size: 1,
-                            type_: GL::FLOAT,
-                            stride: 10 * 4,
-                            offset: 8 * 4,
-                            divisor: 1,
-                        },
-                    ),
-                    (
-                        &buffer,
-                        VertexBufferLayout {
-                            name: "iOpacity",
-                            size: 1,
-                            type_: GL::FLOAT,
-                            stride: 10 * 4,
-                            offset: 9 * 4,
-                            divisor: 1,
-                        },
-                    ),
-                ];
-                create_vertex_array(&context, &place_lines_program, &vertices)
-            })
-            .collect::<Vec<WebGlVertexArrayObject>>();
-        let place_lines_buffer = [place_lines_buffer[0].clone(), place_lines_buffer[1].clone()];
+        let place_lines_buffer = {
+            let vertices = [
+                (
+                    &basepoint_buffer,
+                    VertexBufferLayout {
+                        name: "basepoint",
+                        size: 2,
+                        type_: GL::FLOAT,
+                        ..Default::default()
+                    },
+                ),
+                (
+                    &line_state_buffer,
+                    VertexBufferLayout {
+                        name: "iEndpointVector",
+                        size: 2,
+                        type_: GL::FLOAT,
+                        stride: 10 * 4,
+                        offset: 0 * 4,
+                        divisor: 0,
+                    },
+                ),
+                (
+                    &line_state_buffer,
+                    VertexBufferLayout {
+                        name: "iVelocityVector",
+                        size: 2,
+                        type_: GL::FLOAT,
+                        stride: 10 * 4,
+                        offset: 2 * 4,
+                        divisor: 0,
+                    },
+                ),
+                (
+                    &line_state_buffer,
+                    VertexBufferLayout {
+                        name: "iColor",
+                        size: 4,
+                        type_: GL::FLOAT,
+                        stride: 10 * 4,
+                        offset: 4 * 4,
+                        divisor: 0,
+                    },
+                ),
+                (
+                    &line_state_buffer,
+                    VertexBufferLayout {
+                        name: "iLineWidth",
+                        size: 1,
+                        type_: GL::FLOAT,
+                        stride: 10 * 4,
+                        offset: 8 * 4,
+                        divisor: 0,
+                    },
+                ),
+                (
+                    &line_state_buffer,
+                    VertexBufferLayout {
+                        name: "iOpacity",
+                        size: 1,
+                        type_: GL::FLOAT,
+                        stride: 10 * 4,
+                        offset: 9 * 4,
+                        divisor: 0,
+                    },
+                ),
+            ];
+            render::create_vertex_array(&context, &place_lines_program, &vertices)
+        };
 
         let line_uniforms_block_index =
             context.get_uniform_block_index(&place_lines_program.program, "LineUniforms");
@@ -345,89 +340,85 @@ impl Drawer {
             &draw_lines_program,
         )?;
 
-        let draw_lines_buffer = line_state_buffers
-            .iter()
-            .map(|buffer| {
-                let vertices = [
-                    (
-                        &line_vertices,
-                        VertexBufferLayout {
-                            name: "lineVertex",
-                            size: 2,
-                            type_: GL::FLOAT,
-                            ..Default::default()
-                        },
-                    ),
-                    (
-                        &basepoint_buffer,
-                        VertexBufferLayout {
-                            name: "basepoint",
-                            size: 2,
-                            type_: GL::FLOAT,
-                            divisor: 1,
-                            ..Default::default()
-                        },
-                    ),
-                    (
-                        &buffer,
-                        VertexBufferLayout {
-                            name: "iEndpointVector",
-                            size: 2,
-                            type_: GL::FLOAT,
-                            stride: 10 * 4,
-                            offset: 0 * 4,
-                            divisor: 1,
-                        },
-                    ),
-                    (
-                        &buffer,
-                        VertexBufferLayout {
-                            name: "iVelocityVector",
-                            size: 2,
-                            type_: GL::FLOAT,
-                            stride: 10 * 4,
-                            offset: 2 * 4,
-                            divisor: 1,
-                        },
-                    ),
-                    (
-                        &buffer,
-                        VertexBufferLayout {
-                            name: "iColor",
-                            size: 4,
-                            type_: GL::FLOAT,
-                            stride: 10 * 4,
-                            offset: 4 * 4,
-                            divisor: 1,
-                        },
-                    ),
-                    (
-                        &buffer,
-                        VertexBufferLayout {
-                            name: "iLineWidth",
-                            size: 1,
-                            type_: GL::FLOAT,
-                            stride: 10 * 4,
-                            offset: 8 * 4,
-                            divisor: 1,
-                        },
-                    ),
-                    (
-                        &buffer,
-                        VertexBufferLayout {
-                            name: "iOpacity",
-                            size: 1,
-                            type_: GL::FLOAT,
-                            stride: 10 * 4,
-                            offset: 9 * 4,
-                            divisor: 1,
-                        },
-                    ),
-                ];
-                create_vertex_array(&context, &draw_lines_pass.program, &vertices)
-            })
-            .collect::<Vec<WebGlVertexArrayObject>>();
-        let draw_lines_buffer = [draw_lines_buffer[0].clone(), draw_lines_buffer[1].clone()];
+        let draw_lines_buffer = {
+            let vertices = [
+                (
+                    &line_vertices,
+                    VertexBufferLayout {
+                        name: "lineVertex",
+                        size: 2,
+                        type_: GL::FLOAT,
+                        ..Default::default()
+                    },
+                ),
+                (
+                    &basepoint_buffer,
+                    VertexBufferLayout {
+                        name: "basepoint",
+                        size: 2,
+                        type_: GL::FLOAT,
+                        divisor: 1,
+                        ..Default::default()
+                    },
+                ),
+                (
+                    &line_state_buffer,
+                    VertexBufferLayout {
+                        name: "iEndpointVector",
+                        size: 2,
+                        type_: GL::FLOAT,
+                        stride: 10 * 4,
+                        offset: 0 * 4,
+                        divisor: 1,
+                    },
+                ),
+                (
+                    &line_state_buffer,
+                    VertexBufferLayout {
+                        name: "iVelocityVector",
+                        size: 2,
+                        type_: GL::FLOAT,
+                        stride: 10 * 4,
+                        offset: 2 * 4,
+                        divisor: 1,
+                    },
+                ),
+                (
+                    &line_state_buffer,
+                    VertexBufferLayout {
+                        name: "iColor",
+                        size: 4,
+                        type_: GL::FLOAT,
+                        stride: 10 * 4,
+                        offset: 4 * 4,
+                        divisor: 1,
+                    },
+                ),
+                (
+                    &line_state_buffer,
+                    VertexBufferLayout {
+                        name: "iLineWidth",
+                        size: 1,
+                        type_: GL::FLOAT,
+                        stride: 10 * 4,
+                        offset: 8 * 4,
+                        divisor: 1,
+                    },
+                ),
+                (
+                    &line_state_buffer,
+                    VertexBufferLayout {
+                        name: "iOpacity",
+                        size: 1,
+                        type_: GL::FLOAT,
+                        stride: 10 * 4,
+                        offset: 9 * 4,
+                        divisor: 1,
+                    },
+                ),
+            ];
+            render::create_vertex_array(&context, &draw_lines_pass.program, &vertices)
+        };
 
         let projection = Projection {
             projection: projection_matrix.as_slice().try_into().unwrap(),
@@ -496,92 +487,86 @@ impl Drawer {
             &Indices::NoIndices(GL::TRIANGLE_FAN),
             &draw_endpoints_program,
         )?;
-        let draw_endpoints_buffer = line_state_buffers
-            .iter()
-            .map(|buffer| {
-                let vertices = [
-                    (
-                        &circle_vertices,
-                        VertexBufferLayout {
-                            name: "vertex",
-                            size: 2,
-                            type_: GL::FLOAT,
-                            ..Default::default()
-                        },
-                    ),
-                    (
-                        &basepoint_buffer,
-                        VertexBufferLayout {
-                            name: "basepoint",
-                            size: 2,
-                            type_: GL::FLOAT,
-                            divisor: 1,
-                            ..Default::default()
-                        },
-                    ),
-                    (
-                        &buffer,
-                        VertexBufferLayout {
-                            name: "iEndpointVector",
-                            size: 2,
-                            type_: GL::FLOAT,
-                            stride: 10 * 4,
-                            offset: 0 * 4,
-                            divisor: 1,
-                        },
-                    ),
-                    (
-                        &buffer,
-                        VertexBufferLayout {
-                            name: "iVelocityVector",
-                            size: 2,
-                            type_: GL::FLOAT,
-                            stride: 10 * 4,
-                            offset: 2 * 4,
-                            divisor: 1,
-                        },
-                    ),
-                    (
-                        &buffer,
-                        VertexBufferLayout {
-                            name: "iColor",
-                            size: 4,
-                            type_: GL::FLOAT,
-                            stride: 10 * 4,
-                            offset: 4 * 4,
-                            divisor: 1,
-                        },
-                    ),
-                    (
-                        &buffer,
-                        VertexBufferLayout {
-                            name: "iLineWidth",
-                            size: 1,
-                            type_: GL::FLOAT,
-                            stride: 10 * 4,
-                            offset: 8 * 4,
-                            divisor: 1,
-                        },
-                    ),
-                    (
-                        &buffer,
-                        VertexBufferLayout {
-                            name: "iOpacity",
-                            size: 1,
-                            type_: GL::FLOAT,
-                            stride: 10 * 4,
-                            offset: 9 * 4,
-                            divisor: 1,
-                        },
-                    ),
-                ];
-                create_vertex_array(&context, &draw_endpoints_program, &vertices)
-            })
-            .collect::<Vec<WebGlVertexArrayObject>>();
-        let draw_endpoints_buffer = [
-            draw_endpoints_buffer[0].clone(),
-            draw_endpoints_buffer[1].clone(),
-        ];
+        let draw_endpoints_buffer = {
+            let vertices = [
+                (
+                    &circle_vertices,
+                    VertexBufferLayout {
+                        name: "vertex",
+                        size: 2,
+                        type_: GL::FLOAT,
+                        ..Default::default()
+                    },
+                ),
+                (
+                    &basepoint_buffer,
+                    VertexBufferLayout {
+                        name: "basepoint",
+                        size: 2,
+                        type_: GL::FLOAT,
+                        divisor: 1,
+                        ..Default::default()
+                    },
+                ),
+                (
+                    &line_state_buffer,
+                    VertexBufferLayout {
+                        name: "iEndpointVector",
+                        size: 2,
+                        type_: GL::FLOAT,
+                        stride: 10 * 4,
+                        offset: 0 * 4,
+                        divisor: 1,
+                    },
+                ),
+                (
+                    &line_state_buffer,
+                    VertexBufferLayout {
+                        name: "iVelocityVector",
+                        size: 2,
+                        type_: GL::FLOAT,
+                        stride: 10 * 4,
+                        offset: 2 * 4,
+                        divisor: 1,
+                    },
+                ),
+                (
+                    &line_state_buffer,
+                    VertexBufferLayout {
+                        name: "iColor",
+                        size: 4,
+                        type_: GL::FLOAT,
+                        stride: 10 * 4,
+                        offset: 4 * 4,
+                        divisor: 1,
+                    },
+                ),
+                (
+                    &line_state_buffer,
+                    VertexBufferLayout {
+                        name: "iLineWidth",
+                        size: 1,
+                        type_: GL::FLOAT,
+                        stride: 10 * 4,
+                        offset: 8 * 4,
+                        divisor: 1,
+                    },
+                ),
+                (
+                    &line_state_buffer,
+                    VertexBufferLayout {
+                        name: "iOpacity",
+                        size: 1,
+                        type_: GL::FLOAT,
+                        stride: 10 * 4,
+                        offset: 9 * 4,
+                        divisor: 1,
+                    },
+                ),
+            ];
+            render::create_vertex_array(&context, &draw_endpoints_program, &vertices)
+        };
+
         let line_uniforms_block_index =
             context.get_uniform_block_index(&draw_endpoints_program.program, "LineUniforms");
         super::log!(
@@ -605,17 +590,33 @@ impl Drawer {
             1,
         );
 
-        // let draw_texture_pass = render::RenderPipeline::new(
-        //     &context,
-        //     &[VertexBufferLayout {
-        //         name: "position",
-        //         size: 3,
-        //         type_: GL::FLOAT,
-        //         ..Default::default()
-        //     }],
-        //     &Indices::IndexBuffer(GL::TRIANGLES),
-        //     &draw_texture_program,
-        // )?;
+        let draw_texture_pass = render::RenderPipeline::new(
+            &context,
+            &[VertexBufferLayout {
+                name: "position",
+                size: 3,
+                type_: GL::FLOAT,
+                ..Default::default()
+            }],
+            &Indices::IndexBuffer(GL::TRIANGLES),
+            &draw_texture_program,
+        )?;
+        let draw_texture_buffer = render::create_vertex_array(
+            &context,
+            &draw_texture_program,
+            &[(
+                &plane_vertices,
+                VertexBufferLayout {
+                    name: "position",
+                    size: 3,
+                    type_: GL::FLOAT,
+                    ..Default::default()
+                },
+            )],
+        );
+        context.bind_vertex_array(Some(&draw_texture_buffer));
+        context.bind_buffer(GL::ELEMENT_ARRAY_BUFFER, Some(&plane_indices.id));
+        context.bind_vertex_array(None);
 
         let antialiasing_samples = 0;
         let antialiasing_pass =
@@ -646,8 +647,8 @@ impl Drawer {
             line_count,
             color_wheel: settings::color_wheel_from_scheme(&settings.color_scheme),
 
-            line_state_buffers,
-            feedback_buffer: Buffer::from_f32(
+            line_state_buffer,
+            line_state_feedback_buffer: Buffer::from_f32(
                 &context,
                 &line_state,
                 GL::ARRAY_BUFFER,
@@ -656,10 +657,10 @@ impl Drawer {
             transform_feedback_buffer: context.create_transform_feedback().unwrap(),
             velocity_textures,
 
-            last_line_state_buffer_index: 0,
             place_lines_buffer,
             draw_lines_buffer,
             draw_endpoints_buffer,
+            draw_texture_buffer,
 
             view_buffer,
             line_uniforms,
@@ -667,7 +668,7 @@ impl Drawer {
             place_lines_pass,
             draw_lines_pass,
             draw_endpoints_pass,
-            // draw_texture_pass,
+            draw_texture_pass,
             antialiasing_pass,
 
             projection_matrix,
@@ -675,17 +676,16 @@ impl Drawer {
         })
     }
 
-    // pub fn place_lines(&self, timestep: f32, texture: &Framebuffer) -> () {
-    pub fn place_lines(&mut self, timestep: f32) {
+    pub fn place_lines(&self, timestep: f32, texture: &Framebuffer) -> () {
+        // pub fn place_lines(&self, timestep: f32) {
         self.context
             .viewport(0, 0, self.screen_width as i32, self.screen_height as i32);
         self.context.disable(GL::BLEND);
 
         self.context
             .use_program(Some(&self.place_lines_pass.program.program));
-        self.context.bind_vertex_array(Some(
-            &self.place_lines_buffer[self.last_line_state_buffer_index],
-        ));
+        self.context
+            .bind_vertex_array(Some(&self.place_lines_buffer));
 
         self.context
             .bind_buffer(GL::UNIFORM_BUFFER, Some(&self.line_uniforms.id));
@@ -699,9 +699,6 @@ impl Drawer {
             );
         self.context.bind_buffer(GL::UNIFORM_BUFFER, None);
 
-        let current_index = self.last_line_state_buffer_index;
-        let next_index = 1 - current_index;
-
         self.context.bind_transform_feedback(
             GL::TRANSFORM_FEEDBACK,
             Some(&self.transform_feedback_buffer),
@@ -709,7 +706,7 @@ impl Drawer {
         self.context.bind_buffer_base(
             GL::TRANSFORM_FEEDBACK_BUFFER,
             0,
-            Some(&self.feedback_buffer.id),
+            Some(&self.line_state_feedback_buffer.id),
         );
 
         self.context.enable(GL::RASTERIZER_DISCARD);
@@ -721,10 +718,8 @@ impl Drawer {
             .bind_buffer_base(GL::UNIFORM_BUFFER, 1, Some(&self.line_uniforms.id));
 
         self.context.active_texture(GL::TEXTURE0);
-        self.context.bind_texture(
-            GL::TEXTURE_2D,
-            Some(&self.velocity_textures.current().texture),
-        );
+        self.context
+            .bind_texture(GL::TEXTURE_2D, Some(&texture.texture));
 
         self.context.uniform1i(
             self.place_lines_pass
@@ -738,27 +733,27 @@ impl Drawer {
             .draw_arrays(GL::POINTS, 0, self.line_count as i32);
 
         self.context.end_transform_feedback();
-
+        self.context
+            .bind_buffer_base(GL::TRANSFORM_FEEDBACK_BUFFER, 0, None);
+        self.context
+            .bind_buffer(GL::COPY_WRITE_BUFFER, Some(&self.line_state_buffer.id));
         self.context.bind_buffer(
-            GL::COPY_WRITE_BUFFER,
-            Some(&self.line_state_buffers[current_index].id),
+            GL::COPY_READ_BUFFER,
+            Some(&self.line_state_feedback_buffer.id),
         );
         // Copy new buffer
         self.context.copy_buffer_sub_data_with_i32_and_i32_and_i32(
-            GL::TRANSFORM_FEEDBACK_BUFFER,
+            GL::COPY_READ_BUFFER,
             GL::COPY_WRITE_BUFFER,
             0,
             0,
             10 * 4 * self.line_count as i32,
         );
-
-        self.context
-            .bind_buffer_base(GL::TRANSFORM_FEEDBACK_BUFFER, 0, None);
+        self.context.bind_buffer(GL::COPY_READ_BUFFER, None);
+        self.context.bind_buffer(GL::COPY_WRITE_BUFFER, None);
         self.context
             .bind_transform_feedback(GL::TRANSFORM_FEEDBACK, None);
         self.context.disable(GL::RASTERIZER_DISCARD);
-
-        // self.last_line_state_buffer_index = next_index;
     }
 
     pub fn draw_lines(&self) -> () {
@@ -770,9 +765,8 @@ impl Drawer {
 
         self.context
             .use_program(Some(&self.draw_lines_pass.program.program));
-        self.context.bind_vertex_array(Some(
-            &self.draw_lines_buffer[self.last_line_state_buffer_index],
-        ));
+        self.context
+            .bind_vertex_array(Some(&self.draw_lines_buffer));
 
         self.context
             .bind_buffer_base(GL::UNIFORM_BUFFER, 0, Some(&self.view_buffer.id));
@@ -794,9 +788,8 @@ impl Drawer {
 
         self.context
             .use_program(Some(&self.draw_endpoints_pass.program.program));
-        self.context.bind_vertex_array(Some(
-            &self.draw_endpoints_buffer[self.last_line_state_buffer_index],
-        ));
+        self.context
+            .bind_vertex_array(Some(&self.draw_endpoints_buffer));
 
         self.context
             .bind_buffer_base(GL::UNIFORM_BUFFER, 0, Some(&self.view_buffer.id));
@@ -810,20 +803,22 @@ impl Drawer {
     }
 
     // #[allow(dead_code)]
-    // pub fn draw_texture(&self, texture: &Framebuffer) -> () {
-    //     self.context
-    //         .viewport(0, 0, self.screen_width as i32, self.screen_height as i32);
+    pub fn draw_texture(&self, texture: &Framebuffer) -> () {
+        self.context
+            .use_program(Some(&self.draw_texture_pass.program.program));
+        self.context
+            .viewport(0, 0, self.screen_width as i32, self.screen_height as i32);
 
-    //     self.draw_texture_pass
-    //         .draw(
-    //             &[Uniform {
-    //                 name: "inputTexture",
-    //                 value: UniformValue::Texture2D(&texture.texture, 0),
-    //             }],
-    //             1,
-    //         )
-    //         .unwrap();
-    // }
+        self.context
+            .bind_vertex_array(Some(&self.draw_texture_buffer));
+
+        self.context.active_texture(GL::TEXTURE0);
+        self.context
+            .bind_texture(GL::TEXTURE_2D, Some(&texture.texture));
+
+        self.context
+            .draw_elements_with_i32(GL::TRIANGLES, 6, GL::UNSIGNED_SHORT, 0);
+    }
 
     pub fn with_antialiasing<T>(&self, draw_call: T) -> ()
     where
@@ -859,56 +854,4 @@ fn new_projection_matrix(width: u32, height: u32) -> glm::TMat4<f32> {
         -1.0,
         1.0,
     )
-}
-
-fn create_vertex_array(
-    context: &Context,
-    program: &render::Program,
-    vertices: &[(&Buffer, VertexBufferLayout)],
-) -> WebGlVertexArrayObject {
-    let vao = context.create_vertex_array().unwrap();
-    context.bind_vertex_array(Some(&vao));
-
-    for (buffer, vertex) in vertices.iter() {
-        bind_attributes(&context, &program, buffer, vertex);
-    }
-
-    vao
-}
-
-pub fn bind_attributes(
-    context: &Context,
-    program: &render::Program,
-    buffer: &Buffer,
-    buffer_layout: &VertexBufferLayout,
-) -> Result<(), JsValue> {
-    context.bind_buffer(GL::ARRAY_BUFFER, Some(&buffer.id));
-
-    if let Some(location) = program.get_attrib_location(&buffer_layout.name) {
-        super::log!("Binding attr {}", buffer_layout.name);
-        context.enable_vertex_attrib_array(location);
-
-        match buffer_layout.type_ {
-            GL::FLOAT => context.vertex_attrib_pointer_with_i32(
-                location,
-                buffer_layout.size as i32,
-                buffer_layout.type_,
-                false,
-                buffer_layout.stride as i32,
-                buffer_layout.offset as i32,
-            ),
-            GL::UNSIGNED_SHORT | GL::UNSIGNED_INT | GL::INT => context
-                .vertex_attrib_i_pointer_with_i32(
-                    location,
-                    buffer_layout.size as i32,
-                    buffer_layout.type_,
-                    buffer_layout.stride as i32,
-                    buffer_layout.offset as i32,
-                ),
-            _ => return Err(JsValue::from_str("Oops")),
-        };
-
-        context.vertex_attrib_divisor(location, buffer_layout.divisor);
-    }
-    Ok(())
 }

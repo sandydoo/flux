@@ -23,14 +23,14 @@ layout(std140) uniform Projection
 
 layout(std140) uniform LineUniforms
 {
-  mediump float uLineWidth;
-  mediump float uLineLength;
-  mediump float uLineBeginOffset;
-  mediump float uLineBaseOpacity;
-  mediump float uLineFadeOutLength;
-  mediump float deltaT;
+  highp float uLineWidth;
+  highp float uLineLength;
+  highp float uLineBeginOffset;
+  highp float uLineBaseOpacity;
+  highp float uLineFadeOutLength;
+  highp float deltaT;
   mediump vec2 padding;
-  mediump vec3 uColorWheel[6];
+  mediump vec4 uColorWheel[6];
 };
 
 uniform sampler2D velocityTexture;
@@ -47,15 +47,15 @@ float clampTo(float value, float max) {
   return min(value, max) / value;
 }
 
-vec3 getColor(vec3 wheel[6], float angle) {
+vec3 getColor(vec4 wheel[6], float angle) {
   float slice = 2.0 * PI / 6.0;
   float rawIndex = angle / slice;
   float index = floor(rawIndex);
   float nextIndex = mod(index + 1.0, 6.0);
   float interpolate = fract(rawIndex);
 
-  vec3 currentColor = wheel[int(index)];
-  vec3 nextColor = wheel[int(nextIndex)];
+  vec3 currentColor = wheel[int(index)].rgb;
+  vec3 nextColor = wheel[int(nextIndex)].rgb;
   return mix(currentColor, nextColor, interpolate);
 }
 
@@ -68,7 +68,7 @@ float random1f(in vec2 st) {
 }
 
 void main() {
-  float springStiffness = 0.12;
+  float springStiffness = 0.5;
   float springRestLength = 0.01;
   float springVariance = 0.12; // 12%
   float mass = 7.0;
@@ -110,6 +110,7 @@ void main() {
     2.0 * PI
   );
   vColor = vec4(getColor(uColorWheel, angle), 0.0);
+  // vColor = vec4(1.0, 0.0, 0.0, 1.0);
 
   // Width
   vec2 velocityDirection = normalize(-vVelocityVector);
