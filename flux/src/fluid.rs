@@ -11,8 +11,6 @@ use std::rc::Rc;
 use web_sys::WebGl2RenderingContext as GL;
 use web_sys::WebGlVertexArrayObject;
 
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-
 static FLUID_VERT_SHADER: &'static str = include_str!("./shaders/fluid.vert");
 static ADVECTION_FRAG_SHADER: &'static str = include_str!("./shaders/advection.frag");
 static DIVERGENCE_FRAG_SHADER: &'static str = include_str!("./shaders/divergence.frag");
@@ -39,7 +37,6 @@ pub struct Fluid {
     texel_size: [f32; 2],
     grid_size: f32,
 
-    plane_indices: Buffer,
     uniform_buffer: Buffer,
     fluid_vertex_buffer: WebGlVertexArrayObject,
 
@@ -55,11 +52,7 @@ pub struct Fluid {
 }
 
 impl Fluid {
-    pub fn update_settings(&mut self, new_settings: &Rc<Settings>) -> () {
-        self.settings = new_settings.clone();
-    }
-
-    pub fn new(context: &Context, settings: &Rc<Settings>) -> Result<Self> {
+    pub fn new(context: &Context, settings: &Rc<Settings>) -> Result<Self, render::Problem> {
         let grid_size: f32 = 1.0;
         let grid_width = settings.fluid_width;
         let grid_height = settings.fluid_height;
@@ -67,8 +60,6 @@ impl Fluid {
 
         // Framebuffers
         let initial_velocity_data = vec![0.0; (2 * grid_width * grid_height) as usize];
-        // let initial_velocity_data =
-        //     data::make_sine_vector_field(grid_width as i32, grid_height as i32);
 
         let velocity_textures = render::DoubleFramebuffer::new(
             &context,
@@ -156,42 +147,42 @@ impl Fluid {
         pressure_program.set_uniform_block("Uniforms", 0);
         subtract_gradient_program.set_uniform_block("Uniforms", 0);
 
-        // Fix this!
+        // TODO can I add this to the uniform buffer? Is that even worth it?
         advection_program.set_uniform(&Uniform {
             name: "inputTexture",
-            value: UniformValue::Texture2D(&velocity_textures.current().texture, 0),
+            value: UniformValue::Texture2D(0),
         });
         advection_program.set_uniform(&Uniform {
             name: "velocityTexture",
-            value: UniformValue::Texture2D(&velocity_textures.current().texture, 1),
+            value: UniformValue::Texture2D(1),
         });
         diffusion_program.set_uniform(&Uniform {
             name: "divergenceTexture",
-            value: UniformValue::Texture2D(&velocity_textures.current().texture, 0), // fix
+            value: UniformValue::Texture2D(0),
         });
         diffusion_program.set_uniform(&Uniform {
             name: "pressureTexture",
-            value: UniformValue::Texture2D(&velocity_textures.current().texture, 1), // fix
+            value: UniformValue::Texture2D(1),
         });
         divergence_program.set_uniform(&Uniform {
             name: "velocityTexture",
-            value: UniformValue::Texture2D(&velocity_textures.current().texture, 0),
+            value: UniformValue::Texture2D(0),
         });
         pressure_program.set_uniform(&Uniform {
             name: "divergenceTexture",
-            value: UniformValue::Texture2D(&divergence_texture.texture, 0),
+            value: UniformValue::Texture2D(0),
         });
         pressure_program.set_uniform(&Uniform {
             name: "pressureTexture",
-            value: UniformValue::Texture2D(&pressure_textures.current().texture, 1),
+            value: UniformValue::Texture2D(1),
         });
         subtract_gradient_program.set_uniform(&Uniform {
             name: "velocityTexture",
-            value: UniformValue::Texture2D(&velocity_textures.current().texture, 0),
+            value: UniformValue::Texture2D(0),
         });
         subtract_gradient_program.set_uniform(&Uniform {
             name: "pressureTexture",
-            value: UniformValue::Texture2D(&pressure_textures.current().texture, 1),
+            value: UniformValue::Texture2D(1),
         });
 
         let fluid_vertex_buffer = render::create_vertex_array(
@@ -216,7 +207,6 @@ impl Fluid {
             texel_size,
             grid_size,
 
-            plane_indices,
             uniform_buffer,
             fluid_vertex_buffer,
 
@@ -230,6 +220,29 @@ impl Fluid {
             pressure_pass: pressure_program,
             subtract_gradient_pass: subtract_gradient_program,
         })
+    }
+
+    pub fn update(&mut self, settings: &Rc<Settings>) -> () {
+        self.settings = Rc::clone(settings); // Fix
+
+        let uniforms = Uniforms {
+            timestep: 0.0,
+            epsilon: self.grid_size,
+            half_epsilon: 0.5 * self.grid_size,
+            dissipation: settings.velocity_dissipation,
+            texel_size: self.texel_size,
+            pad1: 0.0,
+            pad2: 0.0,
+        };
+
+        self.context
+            .bind_buffer(GL::UNIFORM_BUFFER, Some(&self.uniform_buffer.id));
+        self.context.buffer_sub_data_with_i32_and_u8_array(
+            GL::UNIFORM_BUFFER,
+            0,
+            &bytemuck::bytes_of(&uniforms),
+        );
+        self.context.bind_buffer(GL::UNIFORM_BUFFER, None);
     }
 
     pub fn advect(&self, timestep: f32) -> () {

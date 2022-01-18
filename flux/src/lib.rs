@@ -41,12 +41,12 @@ impl Flux {
         let new_settings: Settings = settings_object.into_serde().unwrap();
         self.settings = Rc::new(new_settings);
 
-        // self.fluid.update_settings(&self.settings);
-        self.drawer.update_settings(&self.settings);
-        // self.noise_injector
-        //     .update_channel(0, self.settings.noise_channel_1.clone());
-        // self.noise_injector
-        //     .update_channel(1, self.settings.noise_channel_2.clone());
+        self.fluid.update(&self.settings);
+        self.drawer.update(&self.settings);
+        self.noise_injector
+            .update_channel(0, &self.settings.noise_channel_1);
+        self.noise_injector
+            .update_channel(1, &self.settings.noise_channel_2);
     }
 
     #[wasm_bindgen(constructor)]

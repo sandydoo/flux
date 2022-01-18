@@ -1,5 +1,5 @@
 use crate::{data, render, settings};
-use render::{Buffer, Context, Framebuffer, Uniform, UniformValue, VertexBufferLayout};
+use render::{Buffer, Context, Framebuffer, VertexBufferLayout};
 use settings::Settings;
 
 use web_sys::{WebGl2RenderingContext as GL, WebGlTransformFeedback, WebGlVertexArrayObject};
@@ -57,9 +57,23 @@ struct LineUniforms {
     color_wheel: [f32; 24],
 }
 
+impl LineUniforms {
+    fn new(settings: &Rc<Settings>, timestep: f32) -> Self {
+        Self {
+            line_width: settings.line_width,
+            line_length: settings.line_length,
+            line_begin_offset: settings.line_begin_offset,
+            line_opacity: settings.line_opacity,
+            line_fade_out_length: settings.line_fade_out_length,
+            timestep,
+            padding: [0.0, 0.0],
+            color_wheel: settings::color_wheel_from_scheme(&settings.color_scheme),
+        }
+    }
+}
+
 pub struct Drawer {
     context: Context,
-    settings: Rc<Settings>,
 
     screen_width: u32,
     screen_height: u32,
@@ -423,16 +437,7 @@ impl Drawer {
             GL::STATIC_DRAW,
         )?;
 
-        let uniforms = LineUniforms {
-            line_width: settings.line_width,
-            line_length: settings.line_length,
-            line_begin_offset: settings.line_begin_offset,
-            line_opacity: settings.line_opacity,
-            line_fade_out_length: settings.line_fade_out_length,
-            timestep: 0.0,
-            padding: [0.0, 0.0],
-            color_wheel: settings::color_wheel_from_scheme(&settings.color_scheme),
-        };
+        let uniforms = LineUniforms::new(&settings, 0.0);
         let line_uniforms = Buffer::from_f32_array(
             &context,
             &bytemuck::cast_slice(&[uniforms]),
@@ -476,7 +481,6 @@ impl Drawer {
 
         Ok(Self {
             context: Rc::clone(context),
-            settings: Rc::clone(settings),
 
             screen_width,
             screen_height,
@@ -509,10 +513,18 @@ impl Drawer {
         })
     }
 
-    pub fn update_settings(&mut self, new_settings: &Rc<Settings>) -> () {
-        // Rename to update
-        // self.settings = new_settings.clone();
-        // self.color_wheel = settings::color_wheel_from_scheme(&new_settings.color_scheme);
+    pub fn update(&mut self, new_settings: &Rc<Settings>) -> () {
+        self.context
+            .bind_buffer(GL::UNIFORM_BUFFER, Some(&self.line_uniforms.id));
+
+        let uniforms = LineUniforms::new(new_settings, 0.0);
+        self.context.buffer_sub_data_with_i32_and_u8_array(
+            GL::UNIFORM_BUFFER,
+            0,
+            &bytemuck::bytes_of(&uniforms),
+        );
+
+        self.context.bind_buffer(GL::UNIFORM_BUFFER, None);
     }
 
     pub fn resize(&mut self, width: u32, height: u32) -> () {
@@ -523,7 +535,6 @@ impl Drawer {
         self.grid_width = grid_width;
         self.grid_height = grid_height;
 
-        // self.projection_matrix = new_projection_matrix(grid_width, grid_height);
         self.update_projection(&new_projection_matrix(grid_width, grid_height));
         self.antialiasing_pass.resize(width, height);
     }
@@ -554,14 +565,11 @@ impl Drawer {
 
         self.context
             .bind_buffer(GL::UNIFORM_BUFFER, Some(&self.line_uniforms.id));
-        self.context
-            .buffer_sub_data_with_i32_and_u8_array_and_src_offset_and_length(
-                GL::UNIFORM_BUFFER,
-                5 * 4,
-                &timestep.to_ne_bytes(),
-                0,
-                4,
-            );
+        self.context.buffer_sub_data_with_i32_and_u8_array(
+            GL::UNIFORM_BUFFER,
+            5 * 4,
+            &bytemuck::bytes_of(&timestep),
+        );
         self.context.bind_buffer(GL::UNIFORM_BUFFER, None);
 
         self.context

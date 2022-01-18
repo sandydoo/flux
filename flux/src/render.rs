@@ -526,7 +526,8 @@ impl Program {
             .unwrap() as u32;
         for index in 0..uniform_block_count {
             if let Some(name) = context.get_active_uniform_block_name(&program, index) {
-                let block_index = context.get_uniform_block_index(&program, &name);
+                // The index we get is the same as the block index
+                // let block_index = context.get_uniform_block_index(&program, &name);
                 uniform_blocks.insert(name, index);
             }
         }
@@ -582,7 +583,7 @@ impl Program {
                 &value,
             ),
 
-            UniformValue::Texture2D(ref texture, id) => {
+            UniformValue::Texture2D(id) => {
                 context.uniform1i(self.get_uniform_location(&uniform.name).as_ref(), id as i32);
             }
         }
@@ -650,7 +651,7 @@ pub enum UniformValue<'a> {
     // TODO: use nalgebra types here
     Vec3Array(&'a [f32]),
     Mat4(&'a [f32]),
-    Texture2D(&'a WebGlTexture, u32),
+    Texture2D(u32),
 }
 
 pub fn compile_shader(context: &GL, shader_type: u32, source: &str) -> Result<WebGlShader> {

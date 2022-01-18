@@ -46,19 +46,10 @@ impl NoiseChannel {
         self.offset2 += self.noise.offset_increment;
 
         context.bind_buffer(GL::UNIFORM_BUFFER, Some(&self.uniforms.id));
-        context.buffer_sub_data_with_i32_and_u8_array_and_src_offset_and_length(
+        context.buffer_sub_data_with_i32_and_u8_array(
             GL::UNIFORM_BUFFER,
             1 * 4,
-            &self.offset1.to_ne_bytes(),
-            0,
-            4,
-        );
-        context.buffer_sub_data_with_i32_and_u8_array_and_src_offset_and_length(
-            GL::UNIFORM_BUFFER,
-            2 * 4,
-            &self.offset2.to_ne_bytes(),
-            0,
-            4,
+            &bytemuck::bytes_of(&[self.offset1, self.offset2]),
         );
         context.bind_buffer(GL::UNIFORM_BUFFER, None);
     }
@@ -77,9 +68,28 @@ pub struct NoiseInjector {
 }
 
 impl NoiseInjector {
-    pub fn update_channel(&mut self, channel_number: usize, new_noise: Noise) -> () {
+    pub fn update_channel(&mut self, channel_number: usize, noise: &Noise) -> () {
         if let Some(channel) = self.channels.get_mut(channel_number) {
-            channel.noise = new_noise.clone();
+            channel.noise = noise.clone();
+
+            let uniforms = NoiseUniforms {
+                frequency: noise.scale,
+                offset_1: noise.offset_1,
+                offset_2: noise.offset_2,
+                multiplier: noise.multiplier,
+                texel_size: [1.0 / self.width as f32, 1.0 / self.height as f32],
+                pad1: 0.0,
+                pad2: 0.0,
+            };
+
+            self.context
+                .bind_buffer(GL::UNIFORM_BUFFER, Some(&channel.uniforms.id));
+            self.context.buffer_sub_data_with_i32_and_u8_array(
+                GL::UNIFORM_BUFFER,
+                0,
+                &bytemuck::bytes_of(&uniforms),
+            );
+            self.context.bind_buffer(GL::UNIFORM_BUFFER, None);
         }
     }
 
