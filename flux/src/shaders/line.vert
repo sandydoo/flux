@@ -17,13 +17,6 @@ layout(std140) uniform Projection
   mat4 uView;
 };
 
-// layout(std140) uniform LineUniforms
-// {
-//   mediump float uLineWidth;
-//   mediump float uLineLength;
-//   mediump float uLineBeginOffset;
-//   mediump float uLineBaseOpacity;
-// };
 layout(std140) uniform LineUniforms
 {
   highp float uLineWidth;
