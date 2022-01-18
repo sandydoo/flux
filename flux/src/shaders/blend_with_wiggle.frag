@@ -16,7 +16,7 @@ layout(std140) uniform NoiseUniforms {
 uniform float uBlendProgress;
 
 uniform sampler2D inputTexture;
-uniform mediump sampler2D noiseTexture;
+uniform sampler2D noiseTexture;
 
 in vec2 textureCoord;
 out vec2 outputValue;

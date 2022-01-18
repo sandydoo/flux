@@ -395,8 +395,6 @@ impl Fluid {
                 self.context
                     .draw_elements_with_i32(GL::TRIANGLES, 6, GL::UNSIGNED_SHORT, 0);
             });
-
-        self.velocity_textures.swap();
     }
 
     #[allow(dead_code)]
