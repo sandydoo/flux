@@ -120,9 +120,9 @@ impl Flux {
             .blend_noise_into(&self.fluid.get_velocity_textures(), self.elapsed_time);
 
         while self.frame_time >= self.fluid_frame_time {
-            self.fluid.advect(self.fluid_frame_time);
-            // Convection
-            self.fluid.diffuse(self.fluid_frame_time);
+            self.fluid.prepare_pass(self.fluid_frame_time);
+            self.fluid.advect();
+            self.fluid.diffuse(self.fluid_frame_time); // <- Convection
             self.fluid.calculate_divergence();
             self.fluid.solve_pressure();
             self.fluid.subtract_gradient();

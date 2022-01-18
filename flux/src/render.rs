@@ -321,8 +321,7 @@ impl Framebuffer {
             .viewport(0, 0, self.width as i32, self.height as i32);
         self.context
             .clear_color(color[0], color[1], color[2], color[3]);
-        self.context
-            .clear(GL::COLOR_BUFFER_BIT | GL::DEPTH_BUFFER_BIT);
+        self.context.clear(GL::COLOR_BUFFER_BIT);
 
         self.context.bind_framebuffer(GL::FRAMEBUFFER, None);
 

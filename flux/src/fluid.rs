@@ -245,25 +245,29 @@ impl Fluid {
         self.context.bind_buffer(GL::UNIFORM_BUFFER, None);
     }
 
-    pub fn advect(&self, timestep: f32) -> () {
+    // Setup vertex and uniform buffers.
+    pub fn prepare_pass(&self, timestep: f32) {
+        // Update the timestep
         self.context
             .bind_buffer(GL::UNIFORM_BUFFER, Some(&self.uniform_buffer.id));
-        self.context
-            .buffer_sub_data_with_i32_and_u8_array_and_src_offset_and_length(
-                GL::UNIFORM_BUFFER,
-                0 * 4,
-                &timestep.to_ne_bytes(),
-                0,
-                4,
-            );
+        self.context.buffer_sub_data_with_i32_and_u8_array(
+            GL::UNIFORM_BUFFER,
+            0 * 4,
+            &bytemuck::bytes_of(&timestep),
+        );
         self.context.bind_buffer(GL::UNIFORM_BUFFER, None);
 
+        self.context
+            .bind_vertex_array(Some(&self.fluid_vertex_buffer));
+
+        self.context
+            .bind_buffer_base(GL::UNIFORM_BUFFER, 0, Some(&self.uniform_buffer.id));
+    }
+
+    pub fn advect(&self) -> () {
         self.velocity_textures
             .draw_to(&self.context, |velocity_texture| {
                 self.advection_pass.use_program();
-
-                self.context
-                    .bind_vertex_array(Some(&self.fluid_vertex_buffer));
 
                 self.context.active_texture(GL::TEXTURE0);
                 self.context
@@ -271,9 +275,6 @@ impl Fluid {
                 self.context.active_texture(GL::TEXTURE1);
                 self.context
                     .bind_texture(GL::TEXTURE_2D, Some(&velocity_texture.texture));
-
-                self.context
-                    .bind_buffer_base(GL::UNIFORM_BUFFER, 0, Some(&self.uniform_buffer.id));
 
                 self.context
                     .draw_elements_with_i32(GL::TRIANGLES, 6, GL::UNSIGNED_SHORT, 0);
@@ -325,17 +326,11 @@ impl Fluid {
         self.divergence_texture.draw_to(&self.context, || {
             self.divergence_pass.use_program();
 
-            // self.context
-            //     .bind_vertex_array(Some(&self.fluid_vertex_buffer));
-
             self.context.active_texture(GL::TEXTURE0);
             self.context.bind_texture(
                 GL::TEXTURE_2D,
                 Some(&self.velocity_textures.current().texture),
             );
-
-            // self.context
-            //     .bind_buffer_base(GL::UNIFORM_BUFFER, 0, Some(&self.uniform_buffer.id));
 
             self.context
                 .draw_elements_with_i32(GL::TRIANGLES, 6, GL::UNSIGNED_SHORT, 0);
@@ -373,9 +368,6 @@ impl Fluid {
         self.context
             .bind_texture(GL::TEXTURE_2D, Some(&self.divergence_texture.texture));
 
-        // self.context
-        //     .bind_buffer_base(GL::UNIFORM_BUFFER, 0, Some(&self.uniform_buffer.id));
-
         for _ in 0..self.settings.pressure_iterations {
             self.pressure_textures
                 .draw_to(&self.context, |pressure_texture| {
@@ -402,8 +394,6 @@ impl Fluid {
                     GL::TEXTURE_2D,
                     Some(&self.pressure_textures.current().texture),
                 );
-                // self.context
-                //     .bind_buffer_base(GL::UNIFORM_BUFFER, 0, Some(&self.uniform_buffer.id));
 
                 self.context
                     .draw_elements_with_i32(GL::TRIANGLES, 6, GL::UNSIGNED_SHORT, 0);
