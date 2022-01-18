@@ -133,32 +133,22 @@ impl NoiseInjector {
         blend_with_curl_program.set_uniform_block("NoiseUniforms", 3);
         blend_with_wiggle_program.set_uniform_block("NoiseUniforms", 3);
 
-        blend_with_curl_program.use_program();
-        context.uniform1i(
-            blend_with_curl_program
-                .get_uniform_location("inputTexture")
-                .as_ref(),
-            0,
-        );
-        context.uniform1i(
-            blend_with_curl_program
-                .get_uniform_location("noiseTexture")
-                .as_ref(),
-            1,
-        );
-        blend_with_wiggle_program.use_program();
-        context.uniform1i(
-            blend_with_wiggle_program
-                .get_uniform_location("inputTexture")
-                .as_ref(),
-            0,
-        );
-        context.uniform1i(
-            blend_with_wiggle_program
-                .get_uniform_location("noiseTexture")
-                .as_ref(),
-            1,
-        );
+        blend_with_curl_program.set_uniform(&Uniform {
+            name: "inputTexture",
+            value: UniformValue::Texture2D(0),
+        });
+        blend_with_curl_program.set_uniform(&Uniform {
+            name: "noiseTexture",
+            value: UniformValue::Texture2D(1),
+        });
+        blend_with_wiggle_program.set_uniform(&Uniform {
+            name: "inputTexture",
+            value: UniformValue::Texture2D(0),
+        });
+        blend_with_wiggle_program.set_uniform(&Uniform {
+            name: "noiseTexture",
+            value: UniformValue::Texture2D(1),
+        });
 
         Ok(Self {
             context: Rc::clone(context),

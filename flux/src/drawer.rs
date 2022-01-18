@@ -1,5 +1,5 @@
 use crate::{data, render, settings};
-use render::{Buffer, Context, Framebuffer, VertexBufferLayout};
+use render::{Buffer, Context, Framebuffer, Uniform, UniformValue, VertexBufferLayout};
 use settings::Settings;
 
 use web_sys::{WebGl2RenderingContext as GL, WebGlTransformFeedback, WebGlVertexArrayObject};
@@ -447,18 +447,17 @@ impl Drawer {
 
         place_lines_program.set_uniform_block("Projection", 0);
         place_lines_program.set_uniform_block("LineUniforms", 1);
-        place_lines_program.use_program();
-        context.uniform1i(
-            place_lines_program
-                .get_uniform_location("velocityTexture")
-                .as_ref(),
-            0,
-        );
+        place_lines_program.set_uniform(&Uniform {
+            name: "velocityTexture",
+            value: UniformValue::Texture2D(0),
+        });
 
         draw_lines_program.set_uniform_block("Projection", 0);
         draw_lines_program.set_uniform_block("LineUniforms", 1);
         draw_endpoints_program.set_uniform_block("Projection", 0);
         draw_endpoints_program.set_uniform_block("LineUniforms", 1);
+
+        // Vertex buffers
 
         let draw_texture_buffer = render::create_vertex_array(
             &context,
