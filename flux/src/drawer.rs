@@ -453,7 +453,7 @@ impl Drawer {
             Some(&plane_indices),
         )?;
 
-        let antialiasing_samples = 0;
+        let antialiasing_samples = 4;
         let antialiasing_pass =
             render::MsaaPass::new(context, screen_width, screen_height, antialiasing_samples)?;
 
@@ -690,7 +690,7 @@ fn new_line_state(width: u32, height: u32, grid_spacing: u32) -> Vec<LineState> 
         for _ in 0..cols {
             data.push(LineState {
                 endpoint: [0.001, 0.001], // investigate
-                velocity: [0.0, 0.0],
+                velocity: [0.01, 0.01],
                 color: [0.0, 0.0, 0.0, 0.0],
                 width: 0.0,
                 opacity: 0.0,

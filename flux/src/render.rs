@@ -609,7 +609,8 @@ impl Program {
     }
 
     pub fn set_uniform_block(&self, name: &str, index: u32) -> () {
-        if let Some(location) = self.get_uniform_buffer_location(name) {
+        if let Some(location) = self.get_uniform_block_location(name) {
+            super::log!("set uniform block {}", name);
             self.context
                 .uniform_block_binding(&self.program, location, index);
         }
@@ -623,8 +624,8 @@ impl Program {
         self.uniforms.get(name).map(|info| info.location.clone())
     }
 
-    pub fn get_uniform_buffer_location(&self, name: &str) -> Option<u32> {
-        self.uniform_blocks.get(name).map(|location| *location)
+    pub fn get_uniform_block_location(&self, name: &str) -> Option<u32> {
+        self.uniform_blocks.get(name).map(|&location| location)
     }
 }
 

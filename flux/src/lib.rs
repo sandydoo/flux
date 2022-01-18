@@ -3,14 +3,14 @@
 mod data;
 mod drawer;
 mod fluid;
-// mod noise;
+mod noise;
 mod render;
 mod settings;
 mod web;
 
 use drawer::Drawer;
 use fluid::Fluid;
-// use noise::NoiseInjector;
+use noise::NoiseInjector;
 use settings::Settings;
 
 use std::rc::Rc;
@@ -21,7 +21,7 @@ use web_sys::WebGl2RenderingContext as GL;
 pub struct Flux {
     fluid: Fluid,
     drawer: Drawer,
-    // noise_injector: NoiseInjector,
+    noise_injector: NoiseInjector,
     settings: Rc<Settings>,
 
     context: render::Context,
@@ -67,24 +67,25 @@ impl Flux {
         let drawer =
             Drawer::new(&context, width, height, &settings).map_err(|msg| msg.to_string())?;
 
-        // let mut noise_injector =
-        //     NoiseInjector::new(&context, settings.fluid_width, settings.fluid_height)
-        //         .map_err(|msg| msg.to_string())?;
+        let mut noise_injector =
+            NoiseInjector::new(&context, settings.fluid_width, settings.fluid_height)
+                .map_err(|msg| msg.to_string())?;
 
-        // noise_injector
-        //     .add_noise(settings.noise_channel_1.clone())
-        //     .map_err(|msg| msg.to_string())?;
-        // noise_injector
-        //     .add_noise(settings.noise_channel_2.clone())
-        //     .map_err(|msg| msg.to_string())?;
+        noise_injector
+            .add_noise(settings.noise_channel_1.clone())
+            .map_err(|msg| msg.to_string())?;
+        noise_injector
+            .add_noise(settings.noise_channel_2.clone())
+            .map_err(|msg| msg.to_string())?;
 
-        // noise_injector.generate_by_channel_number(0, 0.0);
-        // context.flush();
+        noise_injector.generate_by_channel_number(0, 0.0);
+        // noise_injector.generate_all(-10.0);
+        context.flush();
 
         Ok(Flux {
             fluid,
             drawer,
-            // noise_injector,
+            noise_injector,
             settings,
 
             context,
@@ -117,14 +118,14 @@ impl Flux {
         self.elapsed_time += timestep;
         self.frame_time += timestep;
 
-        // self.noise_injector.generate_all(self.elapsed_time);
-        // self.noise_injector
-        //     .blend_noise_into(&self.fluid.get_velocity_textures(), self.elapsed_time);
+        self.noise_injector.generate_all(self.elapsed_time);
+        self.noise_injector
+            .blend_noise_into(&self.fluid.get_velocity_textures(), self.elapsed_time);
 
         while self.frame_time >= self.fluid_frame_time {
             self.fluid.advect(self.fluid_frame_time);
             // Convection
-            //     self.fluid.diffuse(self.fluid_frame_time);
+            self.fluid.diffuse(self.fluid_frame_time);
             self.fluid.calculate_divergence();
             self.fluid.solve_pressure();
             self.fluid.subtract_gradient();
@@ -139,14 +140,15 @@ impl Flux {
             &self.fluid.get_velocity(),
         );
 
-        self.context.clear_color(0.0, 0.0, 0.0, 1.0);
-        self.context.clear(GL::COLOR_BUFFER_BIT);
-
         self.drawer.with_antialiasing(|| {
+            self.context.clear_color(0.0, 0.0, 0.0, 1.0);
+            self.context.clear(GL::COLOR_BUFFER_BIT);
+
             // Debugging
-            // self.drawer.draw_texture(self.noise_injector.get_noise_channel(0).unwrap());
+            // self.drawer
+            //     .draw_texture(self.noise_injector.get_noise_channel(0).unwrap());
             // self.drawer.draw_texture(self.noise_injector.get_noise_channel(1).unwrap());
-            self.drawer.draw_texture(&self.fluid.get_velocity());
+            // self.drawer.draw_texture(&self.fluid.get_velocity());
             // self.drawer.draw_texture(&self.fluid.get_pressure());
 
             self.drawer.draw_lines();

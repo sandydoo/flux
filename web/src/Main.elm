@@ -89,12 +89,12 @@ type BlendMethod
 
 defaultSettings : Settings
 defaultSettings =
-    { viscosity = 1.0
+    { viscosity = 1.2
     , velocityDissipation = 0.1
-    , fluidWidth = 128
-    , fluidHeight = 128
+    , fluidWidth = 256
+    , fluidHeight = 256
     , fluidSimulationFrameRate = 15
-    , diffusionIterations = 10
+    , diffusionIterations = 30
     , pressureIterations = 30
     , colorScheme = Plasma
     , lineLength = 160.0
@@ -102,12 +102,12 @@ defaultSettings =
     , lineBeginOffset = 0.5
     , lineOpacity = 0.9
     , lineFadeOutLength = 0.0
-    , adjustAdvection = 5.0
+    , adjustAdvection = 16.0
     , gridSpacing = 18
-    , viewScale = 1.0
+    , viewScale = 1.6
     , noiseChannel1 =
         { scale = 1.3
-        , multiplier = 1.2
+        , multiplier = 1.0
         , offset1 = 0.0
         , offset2 = 1.0
         , offsetIncrement = 1.0
