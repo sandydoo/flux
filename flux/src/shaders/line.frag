@@ -5,8 +5,17 @@ in vec2 vVertex;
 in vec3 vColor;
 in float vOpacity;
 
-uniform float uLineBaseOpacity;
-uniform float uLineBeginOffset;
+layout(std140) uniform LineUniforms
+{
+  highp float uLineWidth;
+  highp float uLineLength;
+  highp float uLineBeginOffset;
+  highp float uLineBaseOpacity;
+  highp float uLineFadeOutLength;
+  highp float deltaT;
+  mediump vec2 padding;
+  mediump vec4 uColorWheel[6];
+};
 
 out vec4 fragColor;
 

@@ -2,9 +2,17 @@
 precision highp float;
 precision highp sampler2D;
 
-uniform float deltaT;
-uniform float epsilon;
-uniform float dissipation;
+layout(std140) uniform FluidUniforms
+{
+  highp float deltaT;
+  highp float epsilon;
+  highp float halfEpsilon;
+  highp float dissipation;
+  highp vec2 uTexelSize;
+  lowp float pad1;
+  lowp float pad2;
+};
+
 uniform sampler2D inputTexture;
 uniform sampler2D velocityTexture;
 

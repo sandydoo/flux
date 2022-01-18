@@ -3,11 +3,20 @@
 precision highp float;
 precision highp sampler2D;
 
-uniform float deltaT;
-uniform float uMultiplier;
+layout(std140) uniform NoiseUniforms {
+  highp float uFrequency;
+  highp float uOffset1;
+  highp float uOffset2;
+  highp float uMultiplier;
+  highp vec2 uTexelSize;
+  lowp float pad1;
+  lowp float pad2;
+};
+
 uniform float uBlendProgress;
+
 uniform sampler2D inputTexture;
-uniform mediump sampler2D noiseTexture;
+uniform sampler2D noiseTexture;
 
 in vec2 textureCoord;
 in highp vec2 vL;

@@ -6,19 +6,33 @@ precision highp sampler2D;
 
 // static input
 in vec2 basepoint;
-in uint lineIndex;
+// in uint lineIndex;
 
 // dynamic input
 in vec2 iEndpointVector;
 in vec2 iVelocityVector;
-// in vec4 iColor;
+in vec4 iColor;
 in float iLineWidth;
-// in float iOpacity;
+in float iOpacity;
 
-uniform float deltaT;
-uniform mat4 uProjection;
-uniform vec3 uColorWheel[6];
-uniform float uLineFadeOutLength;
+layout(std140) uniform Projection
+{
+  mat4 uProjection;
+  mat4 uView;
+};
+
+layout(std140) uniform LineUniforms
+{
+  highp float uLineWidth;
+  highp float uLineLength;
+  highp float uLineBeginOffset;
+  highp float uLineBaseOpacity;
+  highp float uLineFadeOutLength;
+  highp float deltaT;
+  mediump vec2 padding;
+  mediump vec4 uColorWheel[6];
+};
+
 uniform sampler2D velocityTexture;
 
 // transform feedback output
@@ -33,15 +47,15 @@ float clampTo(float value, float max) {
   return min(value, max) / value;
 }
 
-vec3 getColor(vec3 wheel[6], float angle) {
+vec3 getColor(vec4 wheel[6], float angle) {
   float slice = 2.0 * PI / 6.0;
   float rawIndex = angle / slice;
   float index = floor(rawIndex);
   float nextIndex = mod(index + 1.0, 6.0);
   float interpolate = fract(rawIndex);
 
-  vec3 currentColor = wheel[int(index)];
-  vec3 nextColor = wheel[int(nextIndex)];
+  vec3 currentColor = wheel[int(index)].rgb;
+  vec3 nextColor = wheel[int(nextIndex)].rgb;
   return mix(currentColor, nextColor, interpolate);
 }
 

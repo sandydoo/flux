@@ -1,10 +1,9 @@
 #version 300 es
-
 precision highp float;
-precision highp sampler2D;
 
 in vec2 lineVertex;
 in vec2 basepoint;
+
 
 in vec2 iEndpointVector;
 in vec2 iVelocityVector;
@@ -12,10 +11,23 @@ in float iLineWidth;
 in vec4 iColor;
 in float iOpacity;
 
-uniform float uLineWidth;
-uniform float uLineLength;
-uniform mat4 uProjection;
-uniform mat4 uView;
+layout(std140) uniform Projection
+{
+  mat4 uProjection;
+  mat4 uView;
+};
+
+layout(std140) uniform LineUniforms
+{
+  highp float uLineWidth;
+  highp float uLineLength;
+  highp float uLineBeginOffset;
+  highp float uLineBaseOpacity;
+  highp float uLineFadeOutLength;
+  highp float deltaT;
+  mediump vec2 padding;
+  mediump vec4 uColorWheel[6];
+};
 
 out vec2 vVertex;
 out vec3 vColor;

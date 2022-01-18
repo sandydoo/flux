@@ -41,12 +41,12 @@ impl Flux {
         let new_settings: Settings = settings_object.into_serde().unwrap();
         self.settings = Rc::new(new_settings);
 
-        self.fluid.update_settings(&self.settings);
-        self.drawer.update_settings(&self.settings);
+        self.fluid.update(&self.settings);
+        self.drawer.update(&self.settings);
         self.noise_injector
-            .update_channel(0, self.settings.noise_channel_1.clone());
+            .update_channel(0, &self.settings.noise_channel_1);
         self.noise_injector
-            .update_channel(1, self.settings.noise_channel_2.clone());
+            .update_channel(1, &self.settings.noise_channel_2);
     }
 
     #[wasm_bindgen(constructor)]
@@ -120,8 +120,9 @@ impl Flux {
             .blend_noise_into(&self.fluid.get_velocity_textures(), self.elapsed_time);
 
         while self.frame_time >= self.fluid_frame_time {
-            self.fluid.advect(self.fluid_frame_time); // Convection
-            self.fluid.diffuse(self.fluid_frame_time);
+            self.fluid.prepare_pass(self.fluid_frame_time);
+            self.fluid.advect();
+            self.fluid.diffuse(self.fluid_frame_time); // <- Convection
             self.fluid.calculate_divergence();
             self.fluid.solve_pressure();
             self.fluid.subtract_gradient();
@@ -141,7 +142,8 @@ impl Flux {
             self.context.clear(GL::COLOR_BUFFER_BIT);
 
             // Debugging
-            // self.drawer.draw_texture(self.noise_injector.get_noise_channel(0).unwrap());
+            // self.drawer
+            //     .draw_texture(self.noise_injector.get_noise_channel(0).unwrap());
             // self.drawer.draw_texture(self.noise_injector.get_noise_channel(1).unwrap());
             // self.drawer.draw_texture(&self.fluid.get_velocity());
             // self.drawer.draw_texture(&self.fluid.get_pressure());

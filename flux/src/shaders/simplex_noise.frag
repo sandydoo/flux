@@ -1,11 +1,17 @@
 #version 300 es
 precision mediump float;
 
+layout(std140) uniform NoiseUniforms {
+  highp float uFrequency;
+  highp float uOffset1;
+  highp float uOffset2;
+  highp float uMultiplier;
+  highp vec2 uTexelSize;
+  lowp float pad1;
+  lowp float pad2;
+};
+
 uniform vec2 uResolution;
-uniform float deltaT;
-uniform float uFrequency;
-uniform float uOffset1;
-uniform float uOffset2;
 
 out vec2 noise;
 
@@ -103,6 +109,7 @@ float snoise(vec3 v) {
 void main() {
   vec2 st = gl_FragCoord.xy / uResolution.xy;
   st.x *= uResolution.x / uResolution.y;
+  // vec2 st = gl_PointCoord;
 
   float sx = snoise(vec3(st * uFrequency, uOffset1));
   float sy = snoise(vec3(st * uFrequency, uOffset2));

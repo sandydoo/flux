@@ -1,16 +1,15 @@
 use crate::{data, render, settings};
 use render::{
-    BindingInfo, Buffer, Context, DoubleFramebuffer, Framebuffer, Indices, TextureOptions, Uniform,
-    UniformValue, VertexBuffer,
+    Buffer, Context, DoubleFramebuffer, Framebuffer, TextureOptions, Uniform, UniformValue,
 };
 use settings::Settings;
 
+use bytemuck::{Pod, Zeroable};
 use std::cell::Ref;
 use std::rc::Rc;
 
 use web_sys::WebGl2RenderingContext as GL;
-
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+use web_sys::WebGlVertexArrayObject;
 
 static FLUID_VERT_SHADER: &'static str = include_str!("./shaders/fluid.vert");
 static ADVECTION_FRAG_SHADER: &'static str = include_str!("./shaders/advection.frag");
@@ -19,29 +18,41 @@ static SOLVE_PRESSURE_FRAG_SHADER: &'static str = include_str!("./shaders/solve_
 static SUBTRACT_GRADIENT_FRAG_SHADER: &'static str =
     include_str!("./shaders/subtract_gradient.frag");
 
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+struct Uniforms {
+    timestep: f32,
+    epsilon: f32,
+    half_epsilon: f32,
+    dissipation: f32,
+    texel_size: [f32; 2],
+    pad1: f32,
+    pad2: f32,
+}
+
 pub struct Fluid {
+    context: Context,
     settings: Rc<Settings>,
 
     texel_size: [f32; 2],
     grid_size: f32,
 
+    uniform_buffer: Buffer,
+    vertex_buffer: WebGlVertexArrayObject,
+
     velocity_textures: DoubleFramebuffer,
     divergence_texture: Framebuffer,
     pressure_textures: DoubleFramebuffer,
 
-    advection_pass: render::RenderPass,
-    diffusion_pass: render::RenderPass,
-    divergence_pass: render::RenderPass,
-    pressure_pass: render::RenderPass,
-    subtract_gradient_pass: render::RenderPass,
+    advection_pass: render::Program,
+    diffusion_pass: render::Program,
+    divergence_pass: render::Program,
+    pressure_pass: render::Program,
+    subtract_gradient_pass: render::Program,
 }
 
 impl Fluid {
-    pub fn update_settings(&mut self, new_settings: &Rc<Settings>) -> () {
-        self.settings = new_settings.clone();
-    }
-
-    pub fn new(context: &Context, settings: &Rc<Settings>) -> Result<Self> {
+    pub fn new(context: &Context, settings: &Rc<Settings>) -> Result<Self, render::Problem> {
         let grid_size: f32 = 1.0;
         let grid_width = settings.fluid_width;
         let grid_height = settings.fluid_height;
@@ -49,6 +60,7 @@ impl Fluid {
 
         // Framebuffers
         let initial_velocity_data = vec![0.0; (2 * grid_width * grid_height) as usize];
+
         let velocity_textures = render::DoubleFramebuffer::new(
             &context,
             grid_width,
@@ -108,168 +120,174 @@ impl Fluid {
             render::Program::new(&context, (FLUID_VERT_SHADER, DIVERGENCE_FRAG_SHADER))?;
         let pressure_program =
             render::Program::new(&context, (FLUID_VERT_SHADER, SOLVE_PRESSURE_FRAG_SHADER))?;
+        let diffusion_program = pressure_program.clone();
         let subtract_gradient_program =
             render::Program::new(&context, (FLUID_VERT_SHADER, SUBTRACT_GRADIENT_FRAG_SHADER))?;
 
-        let advection_pass = render::RenderPass::new(
+        let uniforms = Uniforms {
+            timestep: 0.0,
+            epsilon: grid_size,
+            half_epsilon: 0.5 * grid_size,
+            dissipation: settings.velocity_dissipation,
+            texel_size,
+            pad1: 0.0,
+            pad2: 0.0,
+        };
+
+        let uniform_buffer = Buffer::from_f32_array(
             &context,
-            vec![VertexBuffer {
-                buffer: plane_vertices.clone(),
-                binding: BindingInfo {
-                    name: "position".to_string(),
-                    size: 3,
-                    type_: GL::FLOAT,
-                    ..Default::default()
-                },
-            }],
-            Indices::IndexBuffer {
-                buffer: plane_indices.clone(),
-                primitive: GL::TRIANGLES,
-            },
-            advection_program,
+            &bytemuck::cast_slice(&[uniforms]),
+            GL::ARRAY_BUFFER,
+            GL::STATIC_DRAW,
         )?;
 
-        let diffusion_pass = render::RenderPass::new(
-            &context,
-            vec![VertexBuffer {
-                buffer: plane_vertices.clone(),
-                binding: BindingInfo {
-                    name: "position".to_string(),
-                    size: 3,
-                    type_: GL::FLOAT,
-                    ..Default::default()
-                },
-            }],
-            Indices::IndexBuffer {
-                buffer: plane_indices.clone(),
-                primitive: GL::TRIANGLES,
-            },
-            pressure_program.clone(),
-        )?;
+        advection_program.set_uniform_block("FluidUniforms", 0);
+        diffusion_program.set_uniform_block("FluidUniforms", 0);
+        divergence_program.set_uniform_block("FluidUniforms", 0);
+        pressure_program.set_uniform_block("FluidUniforms", 0);
+        subtract_gradient_program.set_uniform_block("FluidUniforms", 0);
 
-        let divergence_pass = render::RenderPass::new(
-            &context,
-            vec![VertexBuffer {
-                buffer: plane_vertices.clone(),
-                binding: BindingInfo {
-                    name: "position".to_string(),
-                    size: 3,
-                    type_: GL::FLOAT,
-                    ..Default::default()
-                },
-            }],
-            Indices::IndexBuffer {
-                buffer: plane_indices.clone(),
-                primitive: GL::TRIANGLES,
-            },
-            divergence_program,
-        )?;
+        // TODO can I add this to the uniform buffer? Is that even worth it?
+        advection_program.set_uniform(&Uniform {
+            name: "inputTexture",
+            value: UniformValue::Texture2D(0),
+        });
+        advection_program.set_uniform(&Uniform {
+            name: "velocityTexture",
+            value: UniformValue::Texture2D(1),
+        });
+        diffusion_program.set_uniform(&Uniform {
+            name: "divergenceTexture",
+            value: UniformValue::Texture2D(0),
+        });
+        diffusion_program.set_uniform(&Uniform {
+            name: "pressureTexture",
+            value: UniformValue::Texture2D(1),
+        });
+        divergence_program.set_uniform(&Uniform {
+            name: "velocityTexture",
+            value: UniformValue::Texture2D(0),
+        });
+        pressure_program.set_uniform(&Uniform {
+            name: "divergenceTexture",
+            value: UniformValue::Texture2D(0),
+        });
+        pressure_program.set_uniform(&Uniform {
+            name: "pressureTexture",
+            value: UniformValue::Texture2D(1),
+        });
+        subtract_gradient_program.set_uniform(&Uniform {
+            name: "velocityTexture",
+            value: UniformValue::Texture2D(0),
+        });
+        subtract_gradient_program.set_uniform(&Uniform {
+            name: "pressureTexture",
+            value: UniformValue::Texture2D(1),
+        });
 
-        let pressure_pass = render::RenderPass::new(
+        let vertex_buffer = render::create_vertex_array(
             &context,
-            vec![VertexBuffer {
-                buffer: plane_vertices.clone(),
-                binding: BindingInfo {
-                    name: "position".to_string(),
+            &advection_program,
+            &[(
+                &plane_vertices,
+                render::VertexBufferLayout {
+                    name: "position",
                     size: 3,
                     type_: GL::FLOAT,
                     ..Default::default()
                 },
-            }],
-            Indices::IndexBuffer {
-                buffer: plane_indices.clone(),
-                primitive: GL::TRIANGLES,
-            },
-            pressure_program.clone(),
-        )?;
-
-        let subtract_gradient_pass = render::RenderPass::new(
-            &context,
-            vec![VertexBuffer {
-                buffer: plane_vertices.clone(),
-                binding: BindingInfo {
-                    name: "position".to_string(),
-                    size: 3,
-                    type_: GL::FLOAT,
-                    ..Default::default()
-                },
-            }],
-            Indices::IndexBuffer {
-                buffer: plane_indices.clone(),
-                primitive: GL::TRIANGLES,
-            },
-            subtract_gradient_program,
+            )],
+            Some(&plane_indices),
         )?;
 
         Ok(Self {
+            context: Rc::clone(context),
             settings: Rc::clone(settings),
 
             texel_size,
             grid_size,
 
+            uniform_buffer,
+            vertex_buffer,
+
             velocity_textures,
             divergence_texture,
             pressure_textures,
 
-            advection_pass,
-            diffusion_pass,
-            divergence_pass,
-            pressure_pass,
-            subtract_gradient_pass,
+            advection_pass: advection_program,
+            diffusion_pass: pressure_program.clone(),
+            divergence_pass: divergence_program,
+            pressure_pass: pressure_program,
+            subtract_gradient_pass: subtract_gradient_program,
         })
     }
 
-    pub fn advect(&self, timestep: f32) -> () {
-        self.advection_pass
-            .draw_to(
-                &self.velocity_textures.next(),
-                &vec![
-                    Uniform {
-                        name: "uTexelSize",
-                        value: UniformValue::Vec2(self.texel_size),
-                    },
-                    Uniform {
-                        name: "deltaT",
-                        value: UniformValue::Float(timestep),
-                    },
-                    Uniform {
-                        name: "epsilon",
-                        value: UniformValue::Float(self.grid_size),
-                    },
-                    Uniform {
-                        name: "dissipation",
-                        value: UniformValue::Float(self.settings.velocity_dissipation),
-                    },
-                    Uniform {
-                        name: "inputTexture",
-                        value: UniformValue::Texture2D(
-                            &self.velocity_textures.current().texture,
-                            0,
-                        ),
-                    },
-                    Uniform {
-                        name: "velocityTexture",
-                        value: UniformValue::Texture2D(
-                            &self.velocity_textures.current().texture,
-                            1,
-                        ),
-                    },
-                ],
-                1,
-            )
-            .unwrap();
+    pub fn update(&mut self, settings: &Rc<Settings>) -> () {
+        self.settings = Rc::clone(settings); // Fix
 
-        self.velocity_textures.swap();
+        let uniforms = Uniforms {
+            timestep: 0.0,
+            epsilon: self.grid_size,
+            half_epsilon: 0.5 * self.grid_size,
+            dissipation: settings.velocity_dissipation,
+            texel_size: self.texel_size,
+            pad1: 0.0,
+            pad2: 0.0,
+        };
+
+        self.context
+            .bind_buffer(GL::UNIFORM_BUFFER, Some(&self.uniform_buffer.id));
+        self.context.buffer_sub_data_with_i32_and_u8_array(
+            GL::UNIFORM_BUFFER,
+            0,
+            &bytemuck::bytes_of(&uniforms),
+        );
+        self.context.bind_buffer(GL::UNIFORM_BUFFER, None);
+    }
+
+    // Setup vertex and uniform buffers.
+    pub fn prepare_pass(&self, timestep: f32) {
+        // Update the timestep
+        self.context
+            .bind_buffer(GL::UNIFORM_BUFFER, Some(&self.uniform_buffer.id));
+        self.context.buffer_sub_data_with_i32_and_u8_array(
+            GL::UNIFORM_BUFFER,
+            0,
+            &bytemuck::bytes_of(&timestep),
+        );
+        self.context.bind_buffer(GL::UNIFORM_BUFFER, None);
+
+        self.context.bind_vertex_array(Some(&self.vertex_buffer));
+
+        self.context
+            .bind_buffer_base(GL::UNIFORM_BUFFER, 0, Some(&self.uniform_buffer.id));
+    }
+
+    pub fn advect(&self) -> () {
+        self.velocity_textures
+            .draw_to(&self.context, |velocity_texture| {
+                self.advection_pass.use_program();
+
+                self.context.active_texture(GL::TEXTURE0);
+                self.context
+                    .bind_texture(GL::TEXTURE_2D, Some(&velocity_texture.texture));
+                self.context.active_texture(GL::TEXTURE1);
+                self.context
+                    .bind_texture(GL::TEXTURE_2D, Some(&velocity_texture.texture));
+
+                self.context
+                    .draw_elements_with_i32(GL::TRIANGLES, 6, GL::UNSIGNED_SHORT, 0);
+            });
     }
 
     pub fn diffuse(&self, timestep: f32) -> () {
         let center_factor = self.grid_size.powf(2.0) / (self.settings.viscosity * timestep);
         let stencil_factor = 1.0 / (4.0 + center_factor);
 
-        let uniforms = vec![
+        let uniforms = [
             Uniform {
                 name: "uTexelSize",
-                value: UniformValue::Vec2(self.texel_size),
+                value: UniformValue::Vec2(&self.texel_size),
             },
             Uniform {
                 name: "alpha",
@@ -285,58 +303,37 @@ impl Fluid {
             self.diffusion_pass.set_uniform(&uniform);
         }
 
-        for _ in 0..self.settings.diffusion_iterations {
-            self.diffusion_pass
-                .draw_to(
-                    &self.velocity_textures.next(),
-                    &vec![
-                        Uniform {
-                            name: "divergenceTexture",
-                            value: UniformValue::Texture2D(
-                                &self.velocity_textures.current().texture,
-                                0,
-                            ),
-                        },
-                        Uniform {
-                            name: "pressureTexture",
-                            value: UniformValue::Texture2D(
-                                &self.velocity_textures.current().texture,
-                                1,
-                            ),
-                        },
-                    ],
-                    1,
-                )
-                .unwrap();
+        self.diffusion_pass.use_program();
 
-            self.velocity_textures.swap();
+        for _ in 0..self.settings.diffusion_iterations {
+            self.velocity_textures
+                .draw_to(&self.context, |velocity_texture| {
+                    self.context.active_texture(GL::TEXTURE0);
+                    self.context
+                        .bind_texture(GL::TEXTURE_2D, Some(&velocity_texture.texture));
+                    self.context.active_texture(GL::TEXTURE1);
+                    self.context
+                        .bind_texture(GL::TEXTURE_2D, Some(&velocity_texture.texture));
+
+                    self.context
+                        .draw_elements_with_i32(GL::TRIANGLES, 6, GL::UNSIGNED_SHORT, 0);
+                });
         }
     }
 
     pub fn calculate_divergence(&self) -> () {
-        self.divergence_pass
-            .draw_to(
-                &self.divergence_texture,
-                &vec![
-                    Uniform {
-                        name: "uTexelSize",
-                        value: UniformValue::Vec2(self.texel_size),
-                    },
-                    Uniform {
-                        name: "halfEpsilon",
-                        value: UniformValue::Float(0.5 * self.grid_size),
-                    },
-                    Uniform {
-                        name: "velocityTexture",
-                        value: UniformValue::Texture2D(
-                            &self.velocity_textures.current().texture,
-                            0,
-                        ),
-                    },
-                ],
-                1,
-            )
-            .unwrap();
+        self.divergence_texture.draw_to(&self.context, || {
+            self.divergence_pass.use_program();
+
+            self.context.active_texture(GL::TEXTURE0);
+            self.context.bind_texture(
+                GL::TEXTURE_2D,
+                Some(&self.velocity_textures.current().texture),
+            );
+
+            self.context
+                .draw_elements_with_i32(GL::TRIANGLES, 6, GL::UNSIGNED_SHORT, 0);
+        });
     }
 
     pub fn solve_pressure(&self) -> () {
@@ -345,10 +342,12 @@ impl Fluid {
 
         self.pressure_textures.zero_out().unwrap();
 
-        let uniforms = vec![
+        self.pressure_pass.use_program();
+
+        let uniforms = [
             Uniform {
                 name: "uTexelSize",
-                value: UniformValue::Vec2(self.texel_size),
+                value: UniformValue::Vec2(&self.texel_size),
             },
             Uniform {
                 name: "alpha",
@@ -358,68 +357,46 @@ impl Fluid {
                 name: "rBeta",
                 value: UniformValue::Float(r_beta),
             },
-            Uniform {
-                name: "divergenceTexture",
-                value: UniformValue::Texture2D(&self.divergence_texture.texture, 0),
-            },
         ];
 
         for uniform in uniforms.into_iter() {
-            self.pressure_pass.set_uniform(&uniform);
+            self.diffusion_pass.set_uniform(&uniform);
         }
 
-        for _ in 0..self.settings.pressure_iterations {
-            self.pressure_pass
-                .draw_to(
-                    &self.pressure_textures.next(),
-                    &vec![Uniform {
-                        name: "pressureTexture",
-                        value: UniformValue::Texture2D(
-                            &self.pressure_textures.current().texture,
-                            1,
-                        ),
-                    }],
-                    1,
-                )
-                .unwrap();
+        self.context.active_texture(GL::TEXTURE0);
+        self.context
+            .bind_texture(GL::TEXTURE_2D, Some(&self.divergence_texture.texture));
 
-            self.pressure_textures.swap();
+        for _ in 0..self.settings.pressure_iterations {
+            self.pressure_textures
+                .draw_to(&self.context, |pressure_texture| {
+                    self.context.active_texture(GL::TEXTURE1);
+                    self.context
+                        .bind_texture(GL::TEXTURE_2D, Some(&pressure_texture.texture));
+
+                    self.context
+                        .draw_elements_with_i32(GL::TRIANGLES, 6, GL::UNSIGNED_SHORT, 0);
+                });
         }
     }
 
     pub fn subtract_gradient(&self) -> () {
-        self.subtract_gradient_pass
-            .draw_to(
-                &self.velocity_textures.next(),
-                &vec![
-                    Uniform {
-                        name: "uTexelSize",
-                        value: UniformValue::Vec2(self.texel_size),
-                    },
-                    Uniform {
-                        name: "halfEpsilon",
-                        value: UniformValue::Float(0.5 * self.grid_size),
-                    },
-                    Uniform {
-                        name: "velocityTexture",
-                        value: UniformValue::Texture2D(
-                            &self.velocity_textures.current().texture,
-                            0,
-                        ),
-                    },
-                    Uniform {
-                        name: "pressureTexture",
-                        value: UniformValue::Texture2D(
-                            &self.pressure_textures.current().texture,
-                            1,
-                        ),
-                    },
-                ],
-                1,
-            )
-            .unwrap();
+        self.subtract_gradient_pass.use_program();
 
-        self.velocity_textures.swap();
+        self.velocity_textures
+            .draw_to(&self.context, |velocity_texture| {
+                self.context.active_texture(GL::TEXTURE0);
+                self.context
+                    .bind_texture(GL::TEXTURE_2D, Some(&velocity_texture.texture));
+                self.context.active_texture(GL::TEXTURE1);
+                self.context.bind_texture(
+                    GL::TEXTURE_2D,
+                    Some(&self.pressure_textures.current().texture),
+                );
+
+                self.context
+                    .draw_elements_with_i32(GL::TRIANGLES, 6, GL::UNSIGNED_SHORT, 0);
+            });
     }
 
     #[allow(dead_code)]
