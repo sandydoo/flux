@@ -6,7 +6,6 @@ use settings::Settings;
 
 use bytemuck::{Pod, Zeroable};
 use std::cell::Ref;
-use std::f32::consts::PI;
 use std::rc::Rc;
 
 use web_sys::WebGl2RenderingContext as GL;
@@ -25,12 +24,12 @@ static SUBTRACT_GRADIENT_FRAG_SHADER: &'static str =
 #[derive(Clone, Copy, Pod, Zeroable)]
 struct Uniforms {
     timestep: f32,
-    pad1: f32,
-    texel_size: [f32; 2],
     epsilon: f32,
     half_epsilon: f32,
     dissipation: f32,
-    padding: f32,
+    texel_size: [f32; 2],
+    pad1: f32,
+    pad2: f32,
 }
 
 pub struct Fluid {
@@ -67,24 +66,10 @@ impl Fluid {
         let texel_size = [1.0 / grid_width as f32, 1.0 / grid_height as f32];
 
         // Framebuffers
-        // let initial_velocity_data = vec![0.2; (2 * grid_width * grid_height) as usize];
+        // let initial_velocity_data = vec![0.0; (2 * grid_width * grid_height) as usize];
         let initial_velocity_data =
             data::make_sine_vector_field(grid_width as i32, grid_height as i32);
-        // let mut initial_velocity_data = Vec::with_capacity((grid_width * grid_height * 2) as usize);
-        // for v in 0..grid_height {
-        //     for u in 0..grid_width {
-        //         let r = PI * (u as f32) / (grid_width as f32);
 
-        //         // let r = (u as f32) / (grid_width as f32);
-        //         // super::log!("{}", r.cos());
-        //         initial_velocity_data.push(0.2 * r.sin());
-        //         initial_velocity_data.push(0.2 * r.cos());
-        //         // initial_velocity_data.push(-1.0);
-        //         // initial_velocity_data.push(-1.0);
-        //         // initial_velocity_data.push(u as f32);
-        //         // initial_velocity_data.push(v as f32);
-        //     }
-        // }
         let velocity_textures = render::DoubleFramebuffer::new(
             &context,
             grid_width,
@@ -149,12 +134,12 @@ impl Fluid {
 
         let uniforms = Uniforms {
             timestep: 0.0,
-            pad1: 0.0,
-            texel_size,
             epsilon: grid_size,
             half_epsilon: 0.5 * grid_size,
             dissipation: settings.velocity_dissipation,
-            padding: 0.0,
+            texel_size,
+            pad1: 0.0,
+            pad2: 0.0,
         };
 
         let uniform_buffer = Buffer::from_f32_array(
@@ -164,22 +149,10 @@ impl Fluid {
             GL::STATIC_DRAW,
         )?;
 
-        let uniforms_block_index =
-            context.get_uniform_block_index(&advection_program.program, "Uniforms");
-        super::log!("setting {}", "Uniforms");
-        context.uniform_block_binding(&advection_program.program, uniforms_block_index, 0);
-        let uniforms_block_index =
-            context.get_uniform_block_index(&divergence_program.program, "Uniforms");
-        super::log!("setting {}", "Uniforms");
-        context.uniform_block_binding(&divergence_program.program, uniforms_block_index, 0);
-        let uniforms_block_index =
-            context.get_uniform_block_index(&pressure_program.program, "Uniforms");
-        super::log!("setting {}", "Uniforms");
-        context.uniform_block_binding(&pressure_program.program, uniforms_block_index, 0);
-        let uniforms_block_index =
-            context.get_uniform_block_index(&subtract_gradient_program.program, "Uniforms");
-        super::log!("setting {}", "Uniforms");
-        context.uniform_block_binding(&subtract_gradient_program.program, uniforms_block_index, 0);
+        advection_program.set_uniform_block("Uniforms", 0);
+        divergence_program.set_uniform_block("Uniforms", 0);
+        pressure_program.set_uniform_block("Uniforms", 0);
+        subtract_gradient_program.set_uniform_block("Uniforms", 0);
 
         let fluid_vertex_buffer = render::create_vertex_array(
             &context,
@@ -193,10 +166,8 @@ impl Fluid {
                     ..Default::default()
                 },
             )],
-        );
-        context.bind_vertex_array(Some(&fluid_vertex_buffer));
-        context.bind_buffer(GL::ELEMENT_ARRAY_BUFFER, Some(&plane_indices.id));
-        context.bind_vertex_array(None);
+            Some(&plane_indices),
+        )?;
 
         Ok(Self {
             context: Rc::clone(context),
@@ -234,31 +205,28 @@ impl Fluid {
             );
         self.context.bind_buffer(GL::UNIFORM_BUFFER, None);
 
-        draw_to(&self.context, &self.velocity_textures.next(), || {
-            self.context.use_program(Some(&self.advection_pass.program));
+        self.velocity_textures
+            .draw_to(&self.context, |velocity_texture| {
+                self.advection_pass.use_program();
 
-            self.context
-                .bind_vertex_array(Some(&self.fluid_vertex_buffer));
+                self.context
+                    .bind_vertex_array(Some(&self.fluid_vertex_buffer));
 
-            self.context.active_texture(GL::TEXTURE0);
-            self.context.bind_texture(
-                GL::TEXTURE_2D,
-                Some(&self.velocity_textures.current().texture),
-            );
-            self.context.active_texture(GL::TEXTURE1);
-            self.context.bind_texture(
-                GL::TEXTURE_2D,
-                Some(&self.velocity_textures.current().texture),
-            );
+                self.context.active_texture(GL::TEXTURE0);
+                self.context
+                    .bind_texture(GL::TEXTURE_2D, Some(&velocity_texture.texture));
+                self.context.active_texture(GL::TEXTURE1);
+                self.context
+                    .bind_texture(GL::TEXTURE_2D, Some(&velocity_texture.texture));
 
-            self.context
-                .bind_buffer_base(GL::UNIFORM_BUFFER, 0, Some(&self.uniform_buffer.id));
+                self.context
+                    .bind_buffer_base(GL::UNIFORM_BUFFER, 0, Some(&self.uniform_buffer.id));
 
-            self.context
-                .draw_elements_with_i32(GL::TRIANGLES, 6, GL::UNSIGNED_SHORT, 0);
-        });
+                self.context
+                    .draw_elements_with_i32(GL::TRIANGLES, 6, GL::UNSIGNED_SHORT, 0);
+            });
 
-        self.velocity_textures.swap();
+        // self.velocity_textures.swap();
     }
 
     // pub fn diffuse(&self, timestep: f32) -> () {
@@ -313,9 +281,8 @@ impl Fluid {
     // }
 
     pub fn calculate_divergence(&self) -> () {
-        draw_to(&self.context, &self.divergence_texture, || {
-            self.context
-                .use_program(Some(&self.divergence_pass.program));
+        self.divergence_texture.draw_to(&self.context, || {
+            self.divergence_pass.use_program();
 
             // self.context
             //     .bind_vertex_array(Some(&self.fluid_vertex_buffer));
@@ -340,7 +307,7 @@ impl Fluid {
 
         self.pressure_textures.zero_out().unwrap();
 
-        self.context.use_program(Some(&self.pressure_pass.program));
+        self.pressure_pass.use_program();
 
         self.context.uniform1f(
             self.pressure_pass.get_uniform_location("alpha").as_ref(),
@@ -359,42 +326,37 @@ impl Fluid {
         //     .bind_buffer_base(GL::UNIFORM_BUFFER, 0, Some(&self.uniform_buffer.id));
 
         for _ in 0..self.settings.pressure_iterations {
-            self.context.active_texture(GL::TEXTURE1);
-            self.context.bind_texture(
-                GL::TEXTURE_2D,
-                Some(&self.pressure_textures.current().texture),
-            );
+            self.pressure_textures
+                .draw_to(&self.context, |pressure_texture| {
+                    self.context.active_texture(GL::TEXTURE1);
+                    self.context
+                        .bind_texture(GL::TEXTURE_2D, Some(&pressure_texture.texture));
 
-            draw_to(&self.context, &self.pressure_textures.next(), || {
-                self.context
-                    .draw_elements_with_i32(GL::TRIANGLES, 6, GL::UNSIGNED_SHORT, 0);
-            });
-
-            self.pressure_textures.swap();
+                    self.context
+                        .draw_elements_with_i32(GL::TRIANGLES, 6, GL::UNSIGNED_SHORT, 0);
+                });
         }
     }
 
     pub fn subtract_gradient(&self) -> () {
-        self.context
-            .use_program(Some(&self.subtract_gradient_pass.program));
+        self.subtract_gradient_pass.use_program();
 
-        draw_to(&self.context, &self.velocity_textures.next(), || {
-            self.context.active_texture(GL::TEXTURE0);
-            self.context.bind_texture(
-                GL::TEXTURE_2D,
-                Some(&self.velocity_textures.current().texture),
-            );
-            self.context.active_texture(GL::TEXTURE1);
-            self.context.bind_texture(
-                GL::TEXTURE_2D,
-                Some(&self.pressure_textures.current().texture),
-            );
-            // self.context
-            //     .bind_buffer_base(GL::UNIFORM_BUFFER, 0, Some(&self.uniform_buffer.id));
+        self.velocity_textures
+            .draw_to(&self.context, |velocity_texture| {
+                self.context.active_texture(GL::TEXTURE0);
+                self.context
+                    .bind_texture(GL::TEXTURE_2D, Some(&velocity_texture.texture));
+                self.context.active_texture(GL::TEXTURE1);
+                self.context.bind_texture(
+                    GL::TEXTURE_2D,
+                    Some(&self.pressure_textures.current().texture),
+                );
+                // self.context
+                //     .bind_buffer_base(GL::UNIFORM_BUFFER, 0, Some(&self.uniform_buffer.id));
 
-            self.context
-                .draw_elements_with_i32(GL::TRIANGLES, 6, GL::UNSIGNED_SHORT, 0);
-        });
+                self.context
+                    .draw_elements_with_i32(GL::TRIANGLES, 6, GL::UNSIGNED_SHORT, 0);
+            });
 
         self.velocity_textures.swap();
     }
@@ -418,18 +380,4 @@ impl Fluid {
     pub fn get_velocity_textures(&self) -> &DoubleFramebuffer {
         &self.velocity_textures
     }
-}
-
-pub fn draw_to<T>(context: &Context, framebuffer: &Framebuffer, draw: T) -> Result<()>
-where
-    T: Fn() -> (),
-{
-    context.bind_framebuffer(GL::DRAW_FRAMEBUFFER, Some(&framebuffer.id));
-    context.viewport(0, 0, framebuffer.width as i32, framebuffer.height as i32);
-
-    draw();
-
-    context.bind_framebuffer(GL::DRAW_FRAMEBUFFER, None);
-
-    Ok(())
 }

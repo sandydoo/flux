@@ -5,12 +5,12 @@ precision mediump sampler2D;
 layout(std140) uniform Uniforms
 {
   highp float deltaT;
-  highp float pad1;
-  highp vec2 uTexelSize;
   highp float epsilon;
   highp float halfEpsilon;
   highp float dissipation;
-  highp float padding;
+  highp vec2 uTexelSize;
+  lowp float pad1;
+  lowp float pad2;
 };
 
 uniform sampler2D velocityTexture;

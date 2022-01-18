@@ -20,6 +20,9 @@ type Result<T> = std::result::Result<T, Problem>;
 
 #[derive(Error, Debug)]
 pub enum Problem {
+    #[error("Ran out of memory")]
+    OutOfMemory,
+
     #[error("Cannot create buffer")]
     CannotCreateBuffer,
 
@@ -339,6 +342,16 @@ impl Framebuffer {
 
         Ok(())
     }
+
+    pub fn draw_to<T>(&self, context: &Context, draw_call: T)
+    where
+        T: Fn() -> (),
+    {
+        context.bind_framebuffer(GL::DRAW_FRAMEBUFFER, Some(&self.id));
+        context.viewport(0, 0, self.width as i32, self.height as i32);
+        draw_call();
+        context.bind_framebuffer(GL::DRAW_FRAMEBUFFER, None);
+    }
 }
 
 pub struct DoubleFramebuffer {
@@ -401,6 +414,21 @@ impl DoubleFramebuffer {
     pub fn swap(&self) -> () {
         self.front.swap(&self.back);
     }
+
+    pub fn draw_to<T>(&self, context: &Context, draw_call: T)
+    where
+        T: Fn(&Framebuffer) -> (),
+    {
+        let framebuffer = self.next();
+
+        context.bind_framebuffer(GL::DRAW_FRAMEBUFFER, Some(&framebuffer.id));
+        context.viewport(0, 0, framebuffer.width as i32, framebuffer.height as i32);
+        draw_call(&self.current());
+        context.bind_framebuffer(GL::DRAW_FRAMEBUFFER, None);
+
+        drop(framebuffer);
+        self.swap();
+    }
 }
 
 #[derive(Clone)]
@@ -409,6 +437,7 @@ pub struct Program {
     pub program: WebGlProgram,
     attributes: HashMap<String, AttributeInfo, BuildHasherDefault<FnvHasher>>,
     uniforms: HashMap<String, UniformInfo, BuildHasherDefault<FnvHasher>>,
+    uniform_blocks: HashMap<String, u32, BuildHasherDefault<FnvHasher>>,
 }
 
 impl Program {
@@ -490,9 +519,10 @@ impl Program {
             .as_f64()
             .unwrap() as u32;
         for num in 0..uniform_count {
-            super::log!("{}", num);
             if let Some(info) = context.get_active_uniform(&program, num) {
+                super::log!("{}", info.name());
                 if let Some(location) = context.get_uniform_location(&program, &info.name()) {
+                    super::log!("{}", info.name());
                     uniforms.insert(
                         info.name(),
                         UniformInfo {
@@ -505,15 +535,32 @@ impl Program {
             }
         }
 
+        let mut uniform_blocks = HashMap::with_hasher(Default::default());
+        let uniform_block_count = context
+            .get_program_parameter(&program, GL::ACTIVE_UNIFORM_BLOCKS)
+            .as_f64()
+            .unwrap() as u32;
+        for index in 0..uniform_block_count {
+            if let Some(name) = context.get_active_uniform_block_name(&program, index) {
+                let block_index = context.get_uniform_block_index(&program, &name);
+                super::log!("UNIFORM BLOCK {} {} {}", name, index, block_index);
+                uniform_blocks.insert(name, index);
+            }
+        }
+
         Ok(Program {
             context: Rc::clone(context),
             program,
             attributes,
             uniforms,
+            uniform_blocks,
         })
     }
 
-    // Move to uniform impl instead? Or not
+    pub fn use_program(&self) -> () {
+        self.context.use_program(Some(&self.program));
+    }
+
     pub fn set_uniform(&self, uniform: &Uniform) {
         let context = &self.context;
         context.use_program(Some(&self.program));
@@ -561,16 +608,23 @@ impl Program {
         }
     }
 
+    pub fn set_uniform_block(&self, name: &str, index: u32) -> () {
+        if let Some(location) = self.get_uniform_buffer_location(name) {
+            self.context
+                .uniform_block_binding(&self.program, location, index);
+        }
+    }
+
     pub fn get_attrib_location(&self, name: &str) -> Option<u32> {
-        self.attributes
-            .get(name)
-            .and_then(|info| Some(info.location))
+        self.attributes.get(name).map(|info| info.location)
     }
 
     pub fn get_uniform_location(&self, name: &str) -> Option<WebGlUniformLocation> {
-        self.uniforms
-            .get(name)
-            .and_then(|info| Some(info.location.clone()))
+        self.uniforms.get(name).map(|info| info.location.clone())
+    }
+
+    pub fn get_uniform_buffer_location(&self, name: &str) -> Option<u32> {
+        self.uniform_blocks.get(name).map(|location| *location)
     }
 }
 
@@ -638,11 +692,6 @@ pub fn compile_shader(context: &GL, shader_type: u32, source: &str) -> Result<We
         )))
     }
 }
-
-// pub struct VertexBuffer<'a> {
-//     pub buffer: &'a Buffer,
-//     pub binding: BindingInfo,
-// }
 
 #[derive(Default)]
 pub struct VertexBufferLayout {
@@ -859,46 +908,6 @@ impl RenderPipeline {
     }
 }
 
-// pub fn bind_attributes(
-//     context: &Context,
-//     program: &Program,
-//     buffer: &Buffer,
-//     buffer_layout: &VertexBufferLayout,
-// ) -> Result<()> {
-//     context.bind_buffer(GL::ARRAY_BUFFER, Some(&buffer.id));
-//     let location =
-//         program
-//             .get_attrib_location(&binding.name)
-//             .ok_or(Problem::CannotFindAttributeBinding(
-//                 binding.name.to_string(),
-//             ))?;
-//     context.enable_vertex_attrib_array(location);
-
-//     match binding.type_ {
-//         GL::FLOAT => context.vertex_attrib_pointer_with_i32(
-//             location,
-//             binding.size as i32,
-//             binding.type_,
-//             false,
-//             binding.stride as i32,
-//             binding.offset as i32,
-//         ),
-//         GL::UNSIGNED_SHORT | GL::UNSIGNED_INT | GL::INT => context
-//             .vertex_attrib_i_pointer_with_i32(
-//                 location,
-//                 binding.size as i32,
-//                 binding.type_,
-//                 binding.stride as i32,
-//                 binding.offset as i32,
-//             ),
-//         _ => return Err(Problem::CannotBindUnsupportedVertexType),
-//     };
-
-//     context.vertex_attrib_divisor(location, binding.divisor);
-
-//     Ok(())
-// }
-
 pub struct MsaaPass {
     context: Context,
     width: u32,
@@ -1044,15 +1053,20 @@ pub fn create_vertex_array(
     context: &Context,
     program: &Program,
     vertices: &[(&Buffer, VertexBufferLayout)],
-) -> WebGlVertexArrayObject {
-    let vao = context.create_vertex_array().unwrap();
+    indices: Option<&Buffer>,
+) -> Result<WebGlVertexArrayObject> {
+    let vao = context.create_vertex_array().ok_or(Problem::OutOfMemory)?;
     context.bind_vertex_array(Some(&vao));
 
-    for (buffer, vertex) in vertices.iter() {
-        bind_attributes(&context, &program, buffer, vertex);
+    for (vertex, attribute) in vertices.iter() {
+        bind_attributes(&context, &program, vertex, attribute)?;
     }
 
-    vao
+    context.bind_buffer(GL::ELEMENT_ARRAY_BUFFER, indices.map(|buffer| &buffer.id));
+
+    context.bind_vertex_array(None);
+
+    Ok(vao)
 }
 
 pub fn bind_attributes(

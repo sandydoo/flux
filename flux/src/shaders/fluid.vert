@@ -1,18 +1,18 @@
 #version 300 es
 precision highp float;
 
-in vec3 position;
-
 layout(std140) uniform Uniforms
 {
   highp float deltaT;
-  highp float pad1;
-  highp vec2 uTexelSize;
   highp float epsilon;
   highp float halfEpsilon;
   highp float dissipation;
-  highp float padding;
+  highp vec2 uTexelSize;
+  lowp float pad1;
+  lowp float pad2;
 };
+
+in vec3 position;
 
 out vec2 textureCoord;
 out vec2 vL;

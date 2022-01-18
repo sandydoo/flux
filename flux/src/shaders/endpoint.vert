@@ -2,15 +2,6 @@
 #define PI 3.1415926535897932384626433832795
 precision highp float;
 
-in vec2 vertex;
-in vec2 basepoint;
-
-in vec2 iEndpointVector;
-in vec2 iVelocityVector;
-in float iLineWidth;
-in vec4 iColor;
-in float iOpacity;
-
 layout(std140) uniform Projection
 {
   mat4 uProjection;
@@ -28,6 +19,15 @@ layout(std140) uniform LineUniforms
   mediump vec2 padding;
   mediump vec4 uColorWheel[6];
 };
+
+in vec2 vertex;
+in vec2 basepoint;
+
+in vec2 iEndpointVector;
+in vec2 iVelocityVector;
+in float iLineWidth;
+in vec4 iColor;
+in float iOpacity;
 
 out vec2 vPosition;
 out vec3 vColor;

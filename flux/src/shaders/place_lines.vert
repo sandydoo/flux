@@ -68,7 +68,7 @@ float random1f(in vec2 st) {
 }
 
 void main() {
-  float springStiffness = 0.5;
+  float springStiffness = 0.12;
   float springRestLength = 0.01;
   float springVariance = 0.12; // 12%
   float mass = 7.0;
@@ -110,7 +110,6 @@ void main() {
     2.0 * PI
   );
   vColor = vec4(getColor(uColorWheel, angle), 0.0);
-  // vColor = vec4(1.0, 0.0, 0.0, 1.0);
 
   // Width
   vec2 velocityDirection = normalize(-vVelocityVector);
