@@ -38,7 +38,7 @@ pub struct Fluid {
     grid_size: f32,
 
     uniform_buffer: Buffer,
-    fluid_vertex_buffer: WebGlVertexArrayObject,
+    vertex_buffer: WebGlVertexArrayObject,
 
     velocity_textures: DoubleFramebuffer,
     divergence_texture: Framebuffer,
@@ -141,11 +141,11 @@ impl Fluid {
             GL::STATIC_DRAW,
         )?;
 
-        advection_program.set_uniform_block("Uniforms", 0);
-        diffusion_program.set_uniform_block("Uniforms", 0);
-        divergence_program.set_uniform_block("Uniforms", 0);
-        pressure_program.set_uniform_block("Uniforms", 0);
-        subtract_gradient_program.set_uniform_block("Uniforms", 0);
+        advection_program.set_uniform_block("FluidUniforms", 0);
+        diffusion_program.set_uniform_block("FluidUniforms", 0);
+        divergence_program.set_uniform_block("FluidUniforms", 0);
+        pressure_program.set_uniform_block("FluidUniforms", 0);
+        subtract_gradient_program.set_uniform_block("FluidUniforms", 0);
 
         // TODO can I add this to the uniform buffer? Is that even worth it?
         advection_program.set_uniform(&Uniform {
@@ -185,7 +185,7 @@ impl Fluid {
             value: UniformValue::Texture2D(1),
         });
 
-        let fluid_vertex_buffer = render::create_vertex_array(
+        let vertex_buffer = render::create_vertex_array(
             &context,
             &advection_program,
             &[(
@@ -208,7 +208,7 @@ impl Fluid {
             grid_size,
 
             uniform_buffer,
-            fluid_vertex_buffer,
+            vertex_buffer,
 
             velocity_textures,
             divergence_texture,
@@ -252,13 +252,12 @@ impl Fluid {
             .bind_buffer(GL::UNIFORM_BUFFER, Some(&self.uniform_buffer.id));
         self.context.buffer_sub_data_with_i32_and_u8_array(
             GL::UNIFORM_BUFFER,
-            0 * 4,
+            0,
             &bytemuck::bytes_of(&timestep),
         );
         self.context.bind_buffer(GL::UNIFORM_BUFFER, None);
 
-        self.context
-            .bind_vertex_array(Some(&self.fluid_vertex_buffer));
+        self.context.bind_vertex_array(Some(&self.vertex_buffer));
 
         self.context
             .bind_buffer_base(GL::UNIFORM_BUFFER, 0, Some(&self.uniform_buffer.id));

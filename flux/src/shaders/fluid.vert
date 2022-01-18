@@ -1,7 +1,7 @@
 #version 300 es
 precision highp float;
 
-layout(std140) uniform Uniforms
+layout(std140) uniform FluidUniforms
 {
   highp float deltaT;
   highp float epsilon;

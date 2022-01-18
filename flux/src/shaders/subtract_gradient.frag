@@ -2,7 +2,7 @@
 precision mediump float;
 precision mediump sampler2D;
 
-layout(std140) uniform Uniforms
+layout(std140) uniform FluidUniforms
 {
   highp float deltaT;
   highp float epsilon;
