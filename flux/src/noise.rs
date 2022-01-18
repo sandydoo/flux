@@ -1,7 +1,7 @@
 use crate::{data, render, settings};
 use render::{
-    Buffer, Context, DoubleFramebuffer, Framebuffer, Program, RenderPipeline, TextureOptions,
-    Uniform, UniformValue, VertexBufferLayout,
+    Buffer, Context, DoubleFramebuffer, Framebuffer, Program, TextureOptions, Uniform,
+    UniformValue, VertexBufferLayout,
 };
 use settings::Noise;
 
@@ -123,6 +123,33 @@ impl NoiseInjector {
         blend_with_curl_program.set_uniform_block("NoiseUniforms", 3);
         blend_with_wiggle_program.set_uniform_block("NoiseUniforms", 3);
 
+        blend_with_curl_program.use_program();
+        context.uniform1i(
+            blend_with_curl_program
+                .get_uniform_location("inputTexture")
+                .as_ref(),
+            0,
+        );
+        context.uniform1i(
+            blend_with_curl_program
+                .get_uniform_location("noiseTexture")
+                .as_ref(),
+            1,
+        );
+        blend_with_wiggle_program.use_program();
+        context.uniform1i(
+            blend_with_wiggle_program
+                .get_uniform_location("inputTexture")
+                .as_ref(),
+            0,
+        );
+        context.uniform1i(
+            blend_with_wiggle_program
+                .get_uniform_location("noiseTexture")
+                .as_ref(),
+            1,
+        );
+
         Ok(Self {
             context: Rc::clone(context),
             channels: Vec::new(),
@@ -185,7 +212,6 @@ impl NoiseInjector {
             let time_since_last_update = elapsed_time - channel.blend_begin_time;
 
             if time_since_last_update >= channel.noise.delay {
-                super::log!("new noise");
                 self.generate_noise_pass.use_program();
                 self.context.bind_vertex_array(Some(&self.noise_buffer));
 
@@ -260,22 +286,13 @@ impl NoiseInjector {
                     value: UniformValue::Float(delta_blend_progress),
                 });
 
-                // self.context.active_texture(GL::TEXTURE0);
-                // self.context
-                //     .bind_texture(GL::TEXTURE_2D, Some(&target_texture.texture));
+                self.context.active_texture(GL::TEXTURE0);
+                self.context
+                    .bind_texture(GL::TEXTURE_2D, Some(&target_texture.texture));
 
-                // self.context.active_texture(GL::TEXTURE1);
-                // self.context
-                //     .bind_texture(GL::TEXTURE_2D, Some(&channel.texture.texture));
-
-                blend_pass.set_uniform(&Uniform {
-                    name: "inputTexture",
-                    value: UniformValue::Texture2D(&target_texture.texture, 0),
-                });
-                blend_pass.set_uniform(&Uniform {
-                    name: "noiseTexture",
-                    value: UniformValue::Texture2D(&channel.texture.texture, 1),
-                });
+                self.context.active_texture(GL::TEXTURE1);
+                self.context
+                    .bind_texture(GL::TEXTURE_2D, Some(&channel.texture.texture));
 
                 self.context
                     .draw_elements_with_i32(GL::TRIANGLES, 6, GL::UNSIGNED_SHORT, 0);

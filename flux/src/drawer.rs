@@ -1,11 +1,11 @@
 use crate::{data, render, settings};
-use render::{Buffer, Context, Framebuffer, Indices, Uniform, UniformValue, VertexBufferLayout};
+use render::{Buffer, Context, Framebuffer, Uniform, UniformValue, VertexBufferLayout};
 use settings::Settings;
 
-use web_sys::WebGl2RenderingContext as GL;
-use web_sys::{WebGlBuffer, WebGlTransformFeedback, WebGlVertexArrayObject};
+use web_sys::{WebGl2RenderingContext as GL, WebGlTransformFeedback, WebGlVertexArrayObject};
 extern crate nalgebra_glm as glm;
 use bytemuck::{Pod, Zeroable};
+use std::f32::consts::PI;
 use std::rc::Rc;
 
 static LINE_VERT_SHADER: &'static str = include_str!("./shaders/line.vert");
@@ -16,6 +16,16 @@ static TEXTURE_VERT_SHADER: &'static str = include_str!("./shaders/texture.vert"
 static TEXTURE_FRAG_SHADER: &'static str = include_str!("./shaders/texture.frag");
 static PLACE_LINES_VERT_SHADER: &'static str = include_str!("./shaders/place_lines.vert");
 static PLACE_LINES_FRAG_SHADER: &'static str = include_str!("./shaders/place_lines.frag");
+
+#[rustfmt::skip]
+const LINE_VERTICES: [f32; 12] = [
+    0.0, -0.5,
+    1.0, -0.5,
+    1.0, 0.5,
+    0.0, -0.5,
+    1.0, 0.5,
+    0.0, 0.5,
+];
 
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
@@ -89,7 +99,6 @@ impl Drawer {
 
         let line_count =
             (grid_width / settings.grid_spacing) * (grid_height / settings.grid_spacing);
-        // let line_state = data::new_line_state(grid_width, grid_height, settings.grid_spacing);
         let line_state = new_line_state(grid_width, grid_height, settings.grid_spacing);
         let line_state_buffer = Buffer::from_f32_array(
             &context,
@@ -101,21 +110,21 @@ impl Drawer {
             .create_transform_feedback()
             .ok_or(render::Problem::OutOfMemory)?;
 
-        let line_vertices = Buffer::from_f32(
+        let line_vertices = Buffer::from_f32_array(
             &context,
-            &data::LINE_VERTICES.to_vec(),
+            &bytemuck::cast_slice(&LINE_VERTICES),
             GL::ARRAY_BUFFER,
             GL::STATIC_DRAW,
         )?;
         let basepoint_buffer = Buffer::from_f32(
             &context,
-            &data::new_points(grid_width, grid_height, settings.grid_spacing),
+            &new_basepoints(grid_width, grid_height, settings.grid_spacing),
             GL::ARRAY_BUFFER,
             GL::STATIC_DRAW,
         )?;
         let circle_vertices = Buffer::from_f32(
             &context,
-            &data::new_semicircle(8),
+            &new_semicircle(8),
             GL::ARRAY_BUFFER,
             GL::STATIC_DRAW,
         )?;
@@ -433,6 +442,14 @@ impl Drawer {
 
         place_lines_program.set_uniform_block("Projection", 0);
         place_lines_program.set_uniform_block("LineUniforms", 1);
+        place_lines_program.use_program();
+        context.uniform1i(
+            place_lines_program
+                .get_uniform_location("velocityTexture")
+                .as_ref(),
+            0,
+        );
+
         draw_lines_program.set_uniform_block("Projection", 0);
         draw_lines_program.set_uniform_block("LineUniforms", 1);
         draw_endpoints_program.set_uniform_block("Projection", 0);
@@ -507,7 +524,23 @@ impl Drawer {
         self.grid_height = grid_height;
 
         // self.projection_matrix = new_projection_matrix(grid_width, grid_height);
+        self.update_projection(&new_projection_matrix(grid_width, grid_height));
         self.antialiasing_pass.resize(width, height);
+    }
+
+    fn update_projection(&self, projection: &glm::TMat4<f32>) {
+        let projection: [f32; 16] = projection.as_slice().try_into().unwrap();
+        self.context
+            .bind_buffer(GL::UNIFORM_BUFFER, Some(&self.view_buffer.id));
+        self.context
+            .buffer_sub_data_with_i32_and_u8_array_and_src_offset_and_length(
+                GL::UNIFORM_BUFFER,
+                0 * 4,
+                &bytemuck::cast_slice(&projection),
+                0,
+                16 * 4,
+            );
+        self.context.bind_buffer(GL::UNIFORM_BUFFER, None);
     }
 
     pub fn place_lines(&self, timestep: f32, texture: &Framebuffer) -> () {
@@ -536,10 +569,9 @@ impl Drawer {
         self.context
             .bind_buffer_base(GL::UNIFORM_BUFFER, 1, Some(&self.line_uniforms.id));
 
-        self.place_lines_pass.set_uniform(&Uniform {
-            name: "velocityTexture",
-            value: UniformValue::Texture2D(&texture.texture, 0),
-        });
+        self.context.active_texture(GL::TEXTURE0);
+        self.context
+            .bind_texture(GL::TEXTURE_2D, Some(&texture.texture));
 
         self.context.bind_transform_feedback(
             GL::TRANSFORM_FEEDBACK,
@@ -680,6 +712,28 @@ fn new_projection_matrix(width: u32, height: u32) -> glm::TMat4<f32> {
 }
 
 // World space coordinates: zero-centered, width x height
+fn new_basepoints(width: u32, height: u32, grid_spacing: u32) -> Vec<f32> {
+    let half_width = (width as f32) / 2.0;
+    let half_height = (height as f32) / 2.0;
+
+    let rows = height / grid_spacing;
+    let cols = width / grid_spacing;
+    let mut data = Vec::with_capacity((rows * cols * 2) as usize);
+
+    for v in 0..rows {
+        for u in 0..cols {
+            let x: f32 = (u * grid_spacing) as f32;
+            let y: f32 = (v * grid_spacing) as f32;
+
+            data.push(x - half_width);
+            data.push(y - half_height);
+        }
+    }
+
+    data
+}
+
+// World space coordinates: zero-centered, width x height
 fn new_line_state(width: u32, height: u32, grid_spacing: u32) -> Vec<LineState> {
     let rows = height / grid_spacing;
     let cols = width / grid_spacing;
@@ -699,4 +753,19 @@ fn new_line_state(width: u32, height: u32, grid_spacing: u32) -> Vec<LineState> 
     }
 
     data
+}
+
+fn new_semicircle(resolution: u32) -> Vec<f32> {
+    let mut segments = Vec::with_capacity((resolution * 2 + 1) as usize);
+
+    segments.push(0.0);
+    segments.push(0.0);
+
+    for section in 0..=resolution {
+        let angle = PI * (section as f32) / (resolution as f32);
+        segments.push(angle.cos());
+        segments.push(angle.sin());
+    }
+
+    segments
 }

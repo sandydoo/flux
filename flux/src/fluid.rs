@@ -1,6 +1,6 @@
 use crate::{data, render, settings};
 use render::{
-    Buffer, Context, DoubleFramebuffer, Framebuffer, Indices, TextureOptions, Uniform, UniformValue,
+    Buffer, Context, DoubleFramebuffer, Framebuffer, TextureOptions, Uniform, UniformValue,
 };
 use settings::Settings;
 

@@ -1,5 +1,4 @@
 use fnv::FnvHasher;
-use std::borrow::Cow;
 use std::cell::{Ref, RefCell};
 use std::collections::HashMap;
 use std::hash::BuildHasherDefault;
@@ -10,8 +9,7 @@ use js_sys::WebAssembly;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{
     WebGl2RenderingContext as GL, WebGlBuffer, WebGlFramebuffer, WebGlProgram, WebGlRenderbuffer,
-    WebGlShader, WebGlTexture, WebGlTransformFeedback, WebGlUniformLocation,
-    WebGlVertexArrayObject,
+    WebGlShader, WebGlTexture, WebGlUniformLocation, WebGlVertexArrayObject,
 };
 
 pub type Context = Rc<GL>;
@@ -35,12 +33,6 @@ pub enum Problem {
     #[error("Cannot create renderbuffer")]
     CannotCreateRenderbuffer,
 
-    #[error("Cannot create transform feedback")]
-    CannotCreateTransformFeedback,
-
-    #[error("Cannot create vertex array object")]
-    CannotCreateVertexArrayObject,
-
     #[error("{}", match .0 {
         Some(n) => format!("Cannot create shader: {}", n),
         None => format!("Cannot create shader"),
@@ -61,12 +53,6 @@ pub enum Problem {
 
     #[error("Cannot write to texture")]
     UnsupportedTextureFormat,
-
-    #[error("Can’t find the attribute {0}")]
-    CannotFindAttributeBinding(String),
-
-    #[error("The vertex buffers have different numbers of vertices")]
-    VerticesCountMismatch,
 
     #[error("Vertex attribute type is not supported")]
     CannotBindUnsupportedVertexType,
@@ -520,9 +506,7 @@ impl Program {
             .unwrap() as u32;
         for num in 0..uniform_count {
             if let Some(info) = context.get_active_uniform(&program, num) {
-                super::log!("{}", info.name());
                 if let Some(location) = context.get_uniform_location(&program, &info.name()) {
-                    super::log!("{}", info.name());
                     uniforms.insert(
                         info.name(),
                         UniformInfo {
@@ -543,7 +527,6 @@ impl Program {
         for index in 0..uniform_block_count {
             if let Some(name) = context.get_active_uniform_block_name(&program, index) {
                 let block_index = context.get_uniform_block_index(&program, &name);
-                super::log!("UNIFORM BLOCK {} {} {}", name, index, block_index);
                 uniform_blocks.insert(name, index);
             }
         }
@@ -600,9 +583,6 @@ impl Program {
             ),
 
             UniformValue::Texture2D(ref texture, id) => {
-                context.active_texture(GL::TEXTURE0 + id);
-                context.bind_texture(GL::TEXTURE_2D, Some(&texture));
-
                 context.uniform1i(self.get_uniform_location(&uniform.name).as_ref(), id as i32);
             }
         }
@@ -610,7 +590,6 @@ impl Program {
 
     pub fn set_uniform_block(&self, name: &str, index: u32) -> () {
         if let Some(location) = self.get_uniform_block_location(name) {
-            super::log!("set uniform block {}", name);
             self.context
                 .uniform_block_binding(&self.program, location, index);
         }
@@ -650,6 +629,16 @@ pub struct Attribute {
     pub divisor: u32,
 }
 
+pub struct TransformFeedback<'a> {
+    pub names: &'a [&'static str],
+    pub mode: u32,
+}
+
+pub struct Uniform<'a> {
+    pub name: &'static str,
+    pub value: UniformValue<'a>,
+}
+
 #[allow(dead_code)]
 #[derive(Clone)]
 pub enum UniformValue<'a> {
@@ -662,16 +651,6 @@ pub enum UniformValue<'a> {
     Vec3Array(&'a [f32]),
     Mat4(&'a [f32]),
     Texture2D(&'a WebGlTexture, u32),
-}
-
-pub struct Uniform<'a> {
-    pub name: &'static str,
-    pub value: UniformValue<'a>,
-}
-
-pub struct TransformFeedback<'a> {
-    pub names: &'a [&'static str],
-    pub mode: u32,
 }
 
 pub fn compile_shader(context: &GL, shader_type: u32, source: &str) -> Result<WebGlShader> {
@@ -702,211 +681,6 @@ pub struct VertexBufferLayout {
     pub divisor: u32,
     pub stride: u32,
     pub offset: u32,
-}
-
-pub enum Indices {
-    IndexBuffer(u32),
-    NoIndices(u32),
-}
-
-// pub struct RenderPass<'a> {
-//     context: Context,
-//     vertex_buffers: &'a [VertexBuffer<'a>],
-//     indices: &'a Indices<'a>,
-//     program: &'a Program,
-//     vao: WebGlVertexArrayObject,
-// }
-
-// impl<'a> RenderPass<'static> {
-//     pub fn new(
-//         context: &Context,
-//         vertex_buffers: &'static [VertexBuffer],
-//         indices: &'static Indices,
-//         program: &'static Program,
-//     ) -> Result<Self> {
-//         let vao = context
-//             .create_vertex_array()
-//             .ok_or(Problem::CannotCreateVertexArrayObject)?;
-//         context.bind_vertex_array(Some(&vao));
-
-//         for VertexBuffer {
-//             ref buffer,
-//             ref binding,
-//         } in vertex_buffers.iter()
-//         {
-//             bind_attributes(&context, &program, buffer, binding)?;
-//         }
-
-//         if let Indices::IndexBuffer { ref buffer, .. } = indices {
-//             context.bind_buffer(GL::ELEMENT_ARRAY_BUFFER, Some(&buffer.id));
-//         }
-
-//         context.bind_vertex_array(None);
-//         context.bind_buffer(GL::ARRAY_BUFFER, None);
-//         context.bind_buffer(GL::ELEMENT_ARRAY_BUFFER, None);
-
-//         Ok(Self {
-//             context: Rc::clone(context),
-//             vertex_buffers,
-//             indices,
-//             program,
-//             vao,
-//         })
-//     }
-
-//     pub fn set_uniform(&self, uniform: &Uniform) {
-//         self.program.set_uniform(&uniform);
-//     }
-
-//     pub fn draw(&self, uniforms: &[Uniform], instance_count: u32) -> Result<()> {
-//         self.draw_impl(&[], uniforms, None, instance_count)
-//     }
-
-//     pub fn draw_impl(
-//         &self,
-//         vertex_buffers: &[VertexBuffer],
-//         uniforms: &[Uniform],
-//         transform_feedback: Option<&TransformFeedbackBuffer>,
-//         instance_count: u32,
-//     ) -> Result<()> {
-//         let context = &self.context;
-//         context.use_program(Some(&self.program.program));
-
-//         context.bind_vertex_array(Some(&self.vao));
-
-//         for VertexBuffer {
-//             ref buffer,
-//             ref binding,
-//         } in vertex_buffers.iter()
-//         {
-//             bind_attributes(&context, &self.program, buffer, binding)?;
-//         }
-
-//         for uniform in uniforms.into_iter() {
-//             self.set_uniform(&uniform);
-//         }
-
-//         if let Some(feedback_buffer) = transform_feedback {
-//             context.bind_transform_feedback(GL::TRANSFORM_FEEDBACK, Some(&feedback_buffer.id));
-//             context.bind_buffer_base(
-//                 GL::TRANSFORM_FEEDBACK_BUFFER,
-//                 0,
-//                 Some(&feedback_buffer.next().id),
-//             );
-
-//             context.enable(GL::RASTERIZER_DISCARD);
-//             context.begin_transform_feedback(GL::POINTS);
-//         }
-
-//         let mut vertices_count: Option<usize> = None;
-
-//         for VertexBuffer { buffer, binding } in self.vertex_buffers.iter() {
-//             if binding.divisor > 0 {
-//                 break;
-//             }
-//             // TODO: convert binding.size to usize
-//             // TODO: doesnt take into account stride
-//             let elements_count = buffer.size / (binding.size as usize);
-//             if let Some(current) = vertices_count {
-//                 if current != elements_count {
-//                     vertices_count = None;
-//                     break;
-//                 }
-//             } else {
-//                 vertices_count = Some(elements_count);
-//             }
-//         }
-
-//         match self.indices {
-//             Indices::IndexBuffer {
-//                 ref buffer,
-//                 ref primitive,
-//             } => {
-//                 if instance_count > 1 {
-//                     context.draw_elements_instanced_with_i32(
-//                         *primitive,
-//                         buffer.size as i32,
-//                         GL::UNSIGNED_SHORT,
-//                         0,
-//                         instance_count as i32,
-//                     );
-//                 } else {
-//                     context.draw_elements_with_i32(
-//                         *primitive,
-//                         buffer.size as i32,
-//                         GL::UNSIGNED_SHORT,
-//                         0,
-//                     );
-//                 }
-//             }
-
-//             Indices::NoIndices(primitive) => {
-//                 let vertices_count = match vertices_count {
-//                     Some(count) => count,
-//                     None => return Err(Problem::VerticesCountMismatch),
-//                 };
-
-//                 if instance_count > 1 {
-//                     context.draw_arrays_instanced(
-//                         *primitive,
-//                         0,
-//                         vertices_count as i32,
-//                         instance_count as i32,
-//                     );
-//                 } else {
-//                     context.draw_arrays(*primitive, 0, vertices_count as i32);
-//                 }
-//             }
-//         }
-
-//         if transform_feedback.is_some() {
-//             context.end_transform_feedback();
-
-//             context.bind_buffer_base(GL::TRANSFORM_FEEDBACK_BUFFER, 0, None);
-//             context.bind_transform_feedback(GL::TRANSFORM_FEEDBACK, None);
-
-//             context.disable(GL::RASTERIZER_DISCARD);
-//         }
-
-//         context.bind_vertex_array(None);
-
-//         Ok(())
-//     }
-
-//     pub fn draw_to(
-//         &self,
-//         framebuffer: &Framebuffer,
-//         uniforms: &[Uniform],
-//         instance_count: u32,
-//     ) -> Result<()> {
-//         self.context
-//             .bind_framebuffer(GL::DRAW_FRAMEBUFFER, Some(&framebuffer.id));
-//         self.context
-//             .viewport(0, 0, framebuffer.width as i32, framebuffer.height as i32);
-
-//         self.draw_impl(&[], &uniforms, None, instance_count)?;
-
-//         self.context.bind_framebuffer(GL::DRAW_FRAMEBUFFER, None);
-
-//         Ok(())
-//     }
-// }
-
-pub struct RenderPipeline {
-    pub program: Program,
-}
-
-impl RenderPipeline {
-    pub fn new(
-        context: &Context,
-        vertices: &[VertexBufferLayout],
-        indices: &Indices,
-        program: &Program,
-    ) -> Result<RenderPipeline> {
-        Ok(RenderPipeline {
-            program: program.clone(),
-        })
-    }
 }
 
 pub struct MsaaPass {
@@ -1079,7 +853,6 @@ pub fn bind_attributes(
     context.bind_buffer(GL::ARRAY_BUFFER, Some(&buffer.id));
 
     if let Some(location) = program.get_attrib_location(&buffer_layout.name) {
-        super::log!("Binding attr {}", buffer_layout.name);
         context.enable_vertex_attrib_array(location);
 
         match buffer_layout.type_ {
