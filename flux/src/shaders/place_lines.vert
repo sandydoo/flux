@@ -81,8 +81,13 @@ void main() {
 
   // Spring forces
   float variance = 1.0 + springVariance * (random1f(basepoint ) * 2.0 - 1.0);
-  vec2 direction = normalize(iEndpointVector);
   float currentLength = length(iEndpointVector);
+  vec2 direction;
+  if (currentLength == 0.0) {
+    direction = vec2(0.0);
+  } else {
+    direction = normalize(iEndpointVector);
+  }
 
   // Main spring
   vVelocityVector -= springForce(
