@@ -93,11 +93,10 @@ pub enum Canvas {
 
 impl Canvas {
     pub fn new(html_canvas: web_sys::HtmlCanvasElement) -> Self {
-        Canvas::OnscreenCanvas(html_canvas)
-        // match html_canvas.transfer_control_to_offscreen() {
-        //     Ok(offscreen_canvas) => Canvas::OffscreenCanvas(html_canvas, offscreen_canvas),
-        //     Err(_) => Canvas::OnscreenCanvas(html_canvas),
-        // }
+        match html_canvas.transfer_control_to_offscreen() {
+            Ok(offscreen_canvas) => Canvas::OffscreenCanvas(html_canvas, offscreen_canvas),
+            Err(_) => Canvas::OnscreenCanvas(html_canvas),
+        }
     }
 
     pub fn get_context_with_context_options(
