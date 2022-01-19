@@ -217,7 +217,7 @@ updateSettings msg settings =
             { settings | lineBeginOffset = newLineBeginOffset }
 
         SetLineFadeOutLength newLineFadeOutLength ->
-            { settings | lineFadeOutLength = newLineFadeOutLength }
+            { settings | lineFadeOutLength = newLineFadeOutLength / settings.lineLength }
 
         SetAdjustAdvection newAdjustAdvection ->
             { settings | adjustAdvection = newAdjustAdvection }
@@ -435,23 +435,27 @@ viewSettings settings =
                     }
                 )
         , viewControl <|
+            let
+                toAbsoluteLength : Float -> Float
+                toAbsoluteLength offset = settings.lineLength * offset
+            in
             Control
                 "Fog level"
                 """
-                Adjust the height of the fog that hides shorter lines.
+                Adjust the height of the fog which consumes shorter lines.
                 """
                 (Slider
                     { min = 0.0
-                    , max = 0.5
-                    , step = 0.01
-                    , value = settings.lineFadeOutLength
+                    , max = toAbsoluteLength 0.5
+                    , step = 0.1
+                    , value = toAbsoluteLength settings.lineFadeOutLength
                     , onInput =
                         \value ->
                             String.toFloat value
                                 |> Maybe.withDefault 0.0
                                 |> SetLineFadeOutLength
                                 |> SaveSetting
-                    , toString = formatFloat 2
+                    , toString = formatFloat 1
                     }
                 )
         , viewControl <|
