@@ -31,8 +31,9 @@ in float iOpacity;
 
 out vec2 vPosition;
 out vec3 vColor;
-out float vSize;
+out vec3 vPremultipliedLineColor;
 out float vOpacity;
+out vec2 vPerpendicularVector;
 
 mat4 translate(vec3 v) {
   return mat4(
@@ -40,15 +41,6 @@ mat4 translate(vec3 v) {
     vec4(0.0, 1.0, 0.0, 0.0),
     vec4(0.0, 0.0, 1.0, 0.0),
     vec4(v.x, v.y, v.z, 1.0)
-  );
-}
-
-mat4 scale(vec3 v) {
-  return mat4(
-    v.x, 0.0, 0.0, 0.0,
-    0.0, v.y, 0.0, 0.0,
-    0.0, 0.0, v.z, 0.0,
-    0.0, 0.0, 0.0, 1.0
   );
 }
 
@@ -68,13 +60,7 @@ mat4 rotateZ(float angle) {
 void main() {
   vec2 endpoint = basepoint + iEndpointVector * uLineLength;
 
-  float width = iLineWidth;
-  float height = length(iEndpointVector);
-
-  vec2 direction = normalize(endpoint - basepoint);
-  float angle = -atan(direction.y, direction.x) + PI / 2.0;
-
-  float pointSize = uLineWidth * width;
+  float pointSize = uLineWidth * iLineWidth;
   mat4 modelMatrix = mat4(
     0.5 * pointSize, 0.0, 0.0, 0.0,
     0.0, 0.5 * pointSize, 0.0, 0.0,
@@ -82,10 +68,12 @@ void main() {
     0.0, 0.0, 0.0, 1.0
   );
 
-  gl_Position = uProjection * uView * translate(vec3(endpoint, 0.0)) * rotateZ(angle) * modelMatrix * vec4(vertex, 0.0, 1.0);
+  gl_Position = uProjection * uView * translate(vec3(endpoint, 0.0)) * modelMatrix * vec4(vertex, 0.0, 1.0);
 
+  float endpointOpacity = smoothstep(uLineFadeOutLength, uLineFadeOutLength + 0.2, length(iEndpointVector));
   vPosition = vertex;
   vColor = iColor.rgb;
-  vSize = height;
-  vOpacity = iOpacity;
+  vPremultipliedLineColor = vColor * uLineBaseOpacity * iOpacity;
+  vOpacity = endpointOpacity;
+  vPerpendicularVector = (rotateZ(PI / 2.0) * vec4(iEndpointVector, 0.0, 1.0)).xy;
 }
