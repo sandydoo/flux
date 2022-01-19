@@ -54,7 +54,6 @@ type alias Settings =
     , lineLength : Float
     , lineWidth : Float
     , lineBeginOffset : Float
-    , lineOpacity : Float
     , lineFadeOutLength : Float
     , adjustAdvection : Float
     , gridSpacing : Int
@@ -99,7 +98,6 @@ defaultSettings =
     , colorScheme = Plasma
     , lineLength = 150.0
     , lineWidth = 3.5
-    , lineOpacity = 0.9
     , lineBeginOffset = 0.3
     , lineFadeOutLength = 0.06
     , adjustAdvection = 16.0
@@ -175,7 +173,6 @@ type SettingMsg
     | SetLineLength Float
     | SetLineWidth Float
     | SetLineBeginOffset Float
-    | SetLineOpacity Float
     | SetLineFadeOutLength Float
     | SetAdjustAdvection Float
     | SetNoiseChannel1 NoiseMsg
@@ -218,9 +215,6 @@ updateSettings msg settings =
 
         SetLineBeginOffset newLineBeginOffset ->
             { settings | lineBeginOffset = newLineBeginOffset }
-
-        SetLineOpacity newLineOpacity ->
-            { settings | lineOpacity = newLineOpacity }
 
         SetLineFadeOutLength newLineFadeOutLength ->
             { settings | lineFadeOutLength = newLineFadeOutLength }
@@ -436,26 +430,6 @@ viewSettings settings =
                             String.toFloat value
                                 |> Maybe.withDefault 0.0
                                 |> SetLineBeginOffset
-                                |> SaveSetting
-                    , toString = formatFloat 2
-                    }
-                )
-        , viewControl <|
-            Control
-                "Line Opacity"
-                """
-                Adjust the transparency of the lines.
-                """
-                (Slider
-                    { min = 0.0
-                    , max = 1.0
-                    , step = 0.01
-                    , value = settings.lineOpacity
-                    , onInput =
-                        \value ->
-                            String.toFloat value
-                                |> Maybe.withDefault 0.0
-                                |> SetLineOpacity
                                 |> SaveSetting
                     , toString = formatFloat 2
                     }
@@ -859,7 +833,6 @@ encodeSettings settings =
         , ( "lineWidth", Encode.float settings.lineWidth )
         , ( "lineBeginOffset", Encode.float settings.lineBeginOffset )
         , ( "lineFadeOutLength", Encode.float settings.lineFadeOutLength )
-        , ( "lineOpacity", Encode.float settings.lineOpacity )
         , ( "adjustAdvection", Encode.float settings.adjustAdvection )
         , ( "gridSpacing", Encode.int settings.gridSpacing )
         , ( "viewScale", Encode.float settings.viewScale )
