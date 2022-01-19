@@ -68,8 +68,8 @@ float random1f(in vec2 st) {
 }
 
 void main() {
-  float springStiffness = 0.12;
-  float springRestLength = 0.01;
+  float springStiffness = 0.18;
+  float springRestLength = 0.00;
   float springVariance = 0.12; // 12%
   float mass = 7.0;
 
@@ -120,8 +120,8 @@ void main() {
   vec2 velocityDirection = normalize(-vVelocityVector);
   vec2 lineDirection = normalize(vEndpointVector);
   float directionAlignment = clamp(dot(lineDirection, velocityDirection), -1.0, 1.0);
-  float directionMultiplier = 1.0 * length(deltaVelocity);
-  float referenceWidth = smoothstep(0.00, 0.6, currentLength);
+  float directionMultiplier = 0.8 * length(deltaVelocity);
+  float referenceWidth = smoothstep(-0.2, 0.6, currentLength);
 
   vLineWidth = clamp(
     iLineWidth + directionMultiplier * deltaT * directionAlignment,
@@ -130,5 +130,7 @@ void main() {
   );
 
   // Opacity
-  vOpacity = smoothstep(uLineFadeOutLength, uLineFadeOutLength + 0.2, currentLength);
+  // This is only for the line. The endpoints have their own fade out curve.
+  // TODO can we improve this?
+  vOpacity = smoothstep(uLineFadeOutLength, uLineFadeOutLength + 0.5, currentLength);
 }

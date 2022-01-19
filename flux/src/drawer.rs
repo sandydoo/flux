@@ -63,7 +63,7 @@ impl LineUniforms {
             line_width: settings.line_width,
             line_length: settings.line_length,
             line_begin_offset: settings.line_begin_offset,
-            line_opacity: settings.line_opacity,
+            line_opacity: 1.0,
             line_fade_out_length: settings.line_fade_out_length,
             timestep,
             padding: [0.0, 0.0],
@@ -136,9 +136,9 @@ impl Drawer {
             GL::ARRAY_BUFFER,
             GL::STATIC_DRAW,
         )?;
-        let circle_vertices = Buffer::from_f32(
+        let endpoint_vertices = Buffer::from_f32(
             &context,
-            &new_semicircle(8),
+            &new_endpoint(16),
             GL::ARRAY_BUFFER,
             GL::STATIC_DRAW,
         )?;
@@ -340,7 +340,7 @@ impl Drawer {
             &draw_endpoints_program,
             &[
                 (
-                    &circle_vertices,
+                    &endpoint_vertices,
                     VertexBufferLayout {
                         name: "vertex",
                         size: 2,
@@ -659,7 +659,7 @@ impl Drawer {
             .bind_buffer_base(GL::UNIFORM_BUFFER, 1, Some(&self.line_uniforms.id));
 
         self.context
-            .draw_arrays_instanced(GL::TRIANGLE_FAN, 0, 10, self.line_count as i32);
+            .draw_arrays_instanced(GL::TRIANGLE_FAN, 0, 18, self.line_count as i32);
 
         self.context.disable(GL::BLEND);
     }
@@ -762,14 +762,14 @@ fn new_line_state(width: u32, height: u32, grid_spacing: u32) -> Vec<LineState> 
     data
 }
 
-fn new_semicircle(resolution: u32) -> Vec<f32> {
+fn new_endpoint(resolution: u32) -> Vec<f32> {
     let mut segments = Vec::with_capacity((resolution * 2 + 1) as usize);
 
     segments.push(0.0);
     segments.push(0.0);
 
     for section in 0..=resolution {
-        let angle = PI * (section as f32) / (resolution as f32);
+        let angle = 2.0 * PI * (section as f32) / (resolution as f32);
         segments.push(angle.cos());
         segments.push(angle.sin());
     }

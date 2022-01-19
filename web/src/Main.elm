@@ -54,7 +54,6 @@ type alias Settings =
     , lineLength : Float
     , lineWidth : Float
     , lineBeginOffset : Float
-    , lineOpacity : Float
     , lineFadeOutLength : Float
     , adjustAdvection : Float
     , gridSpacing : Int
@@ -97,11 +96,10 @@ defaultSettings =
     , diffusionIterations = 30
     , pressureIterations = 30
     , colorScheme = Plasma
-    , lineLength = 160.0
+    , lineLength = 150.0
     , lineWidth = 3.5
-    , lineBeginOffset = 0.5
-    , lineOpacity = 0.9
-    , lineFadeOutLength = 0.0
+    , lineBeginOffset = 0.3
+    , lineFadeOutLength = 0.06
     , adjustAdvection = 16.0
     , gridSpacing = 18
     , viewScale = 1.6
@@ -111,8 +109,8 @@ defaultSettings =
         , offset1 = 0.0
         , offset2 = 1.0
         , offsetIncrement = 1.0
-        , delay = 8.0
-        , blendDuration = 7.0
+        , delay = 5.0
+        , blendDuration = 5.0
         , blendMethod = Curl
         }
     , noiseChannel2 =
@@ -175,7 +173,6 @@ type SettingMsg
     | SetLineLength Float
     | SetLineWidth Float
     | SetLineBeginOffset Float
-    | SetLineOpacity Float
     | SetLineFadeOutLength Float
     | SetAdjustAdvection Float
     | SetNoiseChannel1 NoiseMsg
@@ -219,11 +216,8 @@ updateSettings msg settings =
         SetLineBeginOffset newLineBeginOffset ->
             { settings | lineBeginOffset = newLineBeginOffset }
 
-        SetLineOpacity newLineOpacity ->
-            { settings | lineOpacity = newLineOpacity }
-
         SetLineFadeOutLength newLineFadeOutLength ->
-            { settings | lineFadeOutLength = newLineFadeOutLength }
+            { settings | lineFadeOutLength = newLineFadeOutLength / settings.lineLength }
 
         SetAdjustAdvection newAdjustAdvection ->
             { settings | adjustAdvection = newAdjustAdvection }
@@ -441,43 +435,27 @@ viewSettings settings =
                     }
                 )
         , viewControl <|
-            Control
-                "Line Opacity"
-                """
-                Adjust the transparency of the lines.
-                """
-                (Slider
-                    { min = 0.0
-                    , max = 1.0
-                    , step = 0.01
-                    , value = settings.lineOpacity
-                    , onInput =
-                        \value ->
-                            String.toFloat value
-                                |> Maybe.withDefault 0.0
-                                |> SetLineOpacity
-                                |> SaveSetting
-                    , toString = formatFloat 2
-                    }
-                )
-        , viewControl <|
+            let
+                toAbsoluteLength : Float -> Float
+                toAbsoluteLength offset = settings.lineLength * offset
+            in
             Control
                 "Fog level"
                 """
-                Adjust the height of the fog that hides shorter lines.
+                Adjust the height of the fog which consumes shorter lines.
                 """
                 (Slider
                     { min = 0.0
-                    , max = 0.5
-                    , step = 0.01
-                    , value = settings.lineFadeOutLength
+                    , max = toAbsoluteLength 0.5
+                    , step = 0.1
+                    , value = toAbsoluteLength settings.lineFadeOutLength
                     , onInput =
                         \value ->
                             String.toFloat value
                                 |> Maybe.withDefault 0.0
                                 |> SetLineFadeOutLength
                                 |> SaveSetting
-                    , toString = formatFloat 2
+                    , toString = formatFloat 1
                     }
                 )
         , viewControl <|
@@ -859,7 +837,6 @@ encodeSettings settings =
         , ( "lineWidth", Encode.float settings.lineWidth )
         , ( "lineBeginOffset", Encode.float settings.lineBeginOffset )
         , ( "lineFadeOutLength", Encode.float settings.lineFadeOutLength )
-        , ( "lineOpacity", Encode.float settings.lineOpacity )
         , ( "adjustAdvection", Encode.float settings.adjustAdvection )
         , ( "gridSpacing", Encode.int settings.gridSpacing )
         , ( "viewScale", Encode.float settings.viewScale )
