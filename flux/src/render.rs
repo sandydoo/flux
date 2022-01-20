@@ -544,9 +544,15 @@ impl Program {
         self.context.use_program(Some(&self.program));
     }
 
+    pub fn set_uniforms(&self, uniforms: &[&Uniform]) {
+        for uniform in uniforms.iter() {
+            self.set_uniform(uniform);
+        }
+    }
+
     pub fn set_uniform(&self, uniform: &Uniform) {
         let context = &self.context;
-        context.use_program(Some(&self.program));
+        self.use_program();
 
         match uniform.value {
             UniformValue::UnsignedInt(value) => {
@@ -572,6 +578,11 @@ impl Program {
             ),
 
             UniformValue::Vec3Array(ref value) => context.uniform3fv_with_f32_array(
+                self.get_uniform_location(&uniform.name).as_ref(),
+                &value,
+            ),
+
+            UniformValue::Vec4Array(ref value) => context.uniform4fv_with_f32_array(
                 self.get_uniform_location(&uniform.name).as_ref(),
                 &value,
             ),
@@ -649,6 +660,7 @@ pub enum UniformValue<'a> {
     Vec3(&'a [f32; 3]),
     // TODO: use nalgebra types here
     Vec3Array(&'a [f32]),
+    Vec4Array(&'a [f32]),
     Mat4(&'a [f32]),
     Texture2D(u32),
 }

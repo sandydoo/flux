@@ -13,11 +13,7 @@ layout(std140) uniform LineUniforms
   highp float uLineWidth;
   highp float uLineLength;
   highp float uLineBeginOffset;
-  highp float uLineBaseOpacity;
   highp float uLineFadeOutLength;
-  highp float deltaT;
-  mediump vec2 padding;
-  mediump vec4 uColorWheel[6];
 };
 
 in vec2 vertex;
@@ -73,7 +69,7 @@ void main() {
   float endpointOpacity = smoothstep(uLineFadeOutLength, uLineFadeOutLength + 0.2, length(iEndpointVector));
   vPosition = vertex;
   vColor = iColor.rgb;
-  vPremultipliedLineColor = vColor * uLineBaseOpacity * iOpacity;
+  vPremultipliedLineColor = vColor * iOpacity;
   vOpacity = endpointOpacity;
   vPerpendicularVector = (rotateZ(PI / 2.0) * vec4(iEndpointVector, 0.0, 1.0)).xy;
 }

@@ -50,11 +50,7 @@ struct LineUniforms {
     line_width: f32,
     line_length: f32,
     line_begin_offset: f32,
-    line_opacity: f32,
     line_fade_out_length: f32,
-    timestep: f32,
-    padding: [f32; 2],
-    color_wheel: [f32; 24],
 }
 
 impl LineUniforms {
@@ -63,11 +59,7 @@ impl LineUniforms {
             line_width: settings.line_width,
             line_length: settings.line_length,
             line_begin_offset: settings.line_begin_offset,
-            line_opacity: 1.0,
             line_fade_out_length: settings.line_fade_out_length,
-            timestep,
-            padding: [0.0, 0.0],
-            color_wheel: settings::color_wheel_from_scheme(&settings.color_scheme),
         }
     }
 }
@@ -445,12 +437,29 @@ impl Drawer {
             GL::STATIC_DRAW,
         )?;
 
-        place_lines_program.set_uniform_block("Projection", 0);
-        place_lines_program.set_uniform_block("LineUniforms", 1);
-        place_lines_program.set_uniform(&Uniform {
-            name: "velocityTexture",
-            value: UniformValue::Texture2D(0),
-        });
+        // Workaround for iOS
+        //
+        // Safari on iOS crashes if you use a uniform block buffer together with
+        // transform feedback.
+        let color_wheel = settings::color_wheel_from_scheme(&settings.color_scheme);
+        place_lines_program.set_uniforms(&[
+            &Uniform {
+                name: "velocityTexture",
+                value: UniformValue::Texture2D(0),
+            },
+            &Uniform {
+                name: "uLineFadeOutLength",
+                value: UniformValue::Float(settings.line_fade_out_length),
+            },
+            &Uniform {
+                name: "uColorWheel[0]",
+                value: UniformValue::Vec4Array(&color_wheel),
+            },
+            &Uniform {
+                name: "uProjection",
+                value: UniformValue::Mat4(&projection_matrix.as_slice()),
+            },
+        ]);
 
         draw_lines_program.set_uniform_block("Projection", 0);
         draw_lines_program.set_uniform_block("LineUniforms", 1);
@@ -524,6 +533,19 @@ impl Drawer {
         );
 
         self.context.bind_buffer(GL::UNIFORM_BUFFER, None);
+
+        // Workaround for iOS
+        let color_wheel = settings::color_wheel_from_scheme(&new_settings.color_scheme);
+        self.place_lines_pass.set_uniforms(&[
+            &Uniform {
+                name: "uLineFadeOutLength",
+                value: UniformValue::Float(new_settings.line_fade_out_length),
+            },
+            &Uniform {
+                name: "uColorWheel[0]",
+                value: UniformValue::Vec4Array(&color_wheel),
+            },
+        ]);
     }
 
     pub fn resize(&mut self, width: u32, height: u32) -> () {
@@ -551,6 +573,12 @@ impl Drawer {
                 16 * 4,
             );
         self.context.bind_buffer(GL::UNIFORM_BUFFER, None);
+
+        // Workaround for iOS
+        self.place_lines_pass.set_uniform(&Uniform {
+            name: "uProjection",
+            value: UniformValue::Mat4(&projection),
+        });
     }
 
     pub fn place_lines(&self, timestep: f32, texture: &Framebuffer) -> () {
@@ -559,22 +587,14 @@ impl Drawer {
         self.context.disable(GL::BLEND);
 
         self.place_lines_pass.use_program();
+
         self.context
             .bind_vertex_array(Some(&self.place_lines_buffer));
 
-        self.context
-            .bind_buffer(GL::UNIFORM_BUFFER, Some(&self.line_uniforms.id));
-        self.context.buffer_sub_data_with_i32_and_u8_array(
-            GL::UNIFORM_BUFFER,
-            5 * 4,
-            &bytemuck::bytes_of(&timestep),
-        );
-        self.context.bind_buffer(GL::UNIFORM_BUFFER, None);
-
-        self.context
-            .bind_buffer_base(GL::UNIFORM_BUFFER, 0, Some(&self.view_buffer.id));
-        self.context
-            .bind_buffer_base(GL::UNIFORM_BUFFER, 1, Some(&self.line_uniforms.id));
+        self.place_lines_pass.set_uniform(&Uniform {
+            name: "deltaT",
+            value: UniformValue::Float(timestep),
+        });
 
         self.context.active_texture(GL::TEXTURE0);
         self.context

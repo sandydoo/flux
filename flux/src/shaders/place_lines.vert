@@ -6,7 +6,6 @@ precision highp sampler2D;
 
 // static input
 in vec2 basepoint;
-// in uint lineIndex;
 
 // dynamic input
 in vec2 iEndpointVector;
@@ -15,23 +14,10 @@ in vec4 iColor;
 in float iLineWidth;
 in float iOpacity;
 
-layout(std140) uniform Projection
-{
-  mat4 uProjection;
-  mat4 uView;
-};
-
-layout(std140) uniform LineUniforms
-{
-  highp float uLineWidth;
-  highp float uLineLength;
-  highp float uLineBeginOffset;
-  highp float uLineBaseOpacity;
-  highp float uLineFadeOutLength;
-  highp float deltaT;
-  mediump vec2 padding;
-  mediump vec4 uColorWheel[6];
-};
+uniform float deltaT;
+uniform float uLineFadeOutLength;
+uniform mediump vec4 uColorWheel[6];
+uniform mat4 uProjection;
 
 uniform sampler2D velocityTexture;
 

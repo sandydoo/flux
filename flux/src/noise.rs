@@ -133,22 +133,31 @@ impl NoiseInjector {
         blend_with_curl_program.set_uniform_block("NoiseUniforms", 3);
         blend_with_wiggle_program.set_uniform_block("NoiseUniforms", 3);
 
-        blend_with_curl_program.set_uniform(&Uniform {
-            name: "inputTexture",
-            value: UniformValue::Texture2D(0),
+        simplex_noise_program.set_uniform(&Uniform {
+            name: "uResolution",
+            value: UniformValue::Vec2(&[width as f32, height as f32]),
         });
-        blend_with_curl_program.set_uniform(&Uniform {
-            name: "noiseTexture",
-            value: UniformValue::Texture2D(1),
-        });
-        blend_with_wiggle_program.set_uniform(&Uniform {
-            name: "inputTexture",
-            value: UniformValue::Texture2D(0),
-        });
-        blend_with_wiggle_program.set_uniform(&Uniform {
-            name: "noiseTexture",
-            value: UniformValue::Texture2D(1),
-        });
+
+        blend_with_curl_program.set_uniforms(&[
+            &Uniform {
+                name: "inputTexture",
+                value: UniformValue::Texture2D(0),
+            },
+            &Uniform {
+                name: "noiseTexture",
+                value: UniformValue::Texture2D(1),
+            },
+        ]);
+        blend_with_wiggle_program.set_uniforms(&[
+            &Uniform {
+                name: "inputTexture",
+                value: UniformValue::Texture2D(0),
+            },
+            &Uniform {
+                name: "noiseTexture",
+                value: UniformValue::Texture2D(1),
+            },
+        ]);
 
         Ok(Self {
             context: Rc::clone(context),
@@ -214,11 +223,6 @@ impl NoiseInjector {
             if time_since_last_update >= channel.noise.delay {
                 self.generate_noise_pass.use_program();
                 self.context.bind_vertex_array(Some(&self.noise_buffer));
-
-                self.generate_noise_pass.set_uniform(&Uniform {
-                    name: "uResolution",
-                    value: UniformValue::Vec2(&[self.width as f32, self.height as f32]),
-                });
 
                 self.context
                     .bind_buffer_base(GL::UNIFORM_BUFFER, 3, Some(&channel.uniforms.id));

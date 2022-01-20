@@ -148,42 +148,50 @@ impl Fluid {
         subtract_gradient_program.set_uniform_block("FluidUniforms", 0);
 
         // TODO can I add this to the uniform buffer? Is that even worth it?
-        advection_program.set_uniform(&Uniform {
-            name: "inputTexture",
-            value: UniformValue::Texture2D(0),
-        });
-        advection_program.set_uniform(&Uniform {
-            name: "velocityTexture",
-            value: UniformValue::Texture2D(1),
-        });
-        diffusion_program.set_uniform(&Uniform {
-            name: "divergenceTexture",
-            value: UniformValue::Texture2D(0),
-        });
-        diffusion_program.set_uniform(&Uniform {
-            name: "pressureTexture",
-            value: UniformValue::Texture2D(1),
-        });
+        advection_program.set_uniforms(&[
+            &Uniform {
+                name: "inputTexture",
+                value: UniformValue::Texture2D(0),
+            },
+            &Uniform {
+                name: "velocityTexture",
+                value: UniformValue::Texture2D(1),
+            },
+        ]);
+        diffusion_program.set_uniforms(&[
+            &Uniform {
+                name: "divergenceTexture",
+                value: UniformValue::Texture2D(0),
+            },
+            &Uniform {
+                name: "pressureTexture",
+                value: UniformValue::Texture2D(1),
+            },
+        ]);
         divergence_program.set_uniform(&Uniform {
             name: "velocityTexture",
             value: UniformValue::Texture2D(0),
         });
-        pressure_program.set_uniform(&Uniform {
-            name: "divergenceTexture",
-            value: UniformValue::Texture2D(0),
-        });
-        pressure_program.set_uniform(&Uniform {
-            name: "pressureTexture",
-            value: UniformValue::Texture2D(1),
-        });
-        subtract_gradient_program.set_uniform(&Uniform {
-            name: "velocityTexture",
-            value: UniformValue::Texture2D(0),
-        });
-        subtract_gradient_program.set_uniform(&Uniform {
-            name: "pressureTexture",
-            value: UniformValue::Texture2D(1),
-        });
+        pressure_program.set_uniforms(&[
+            &Uniform {
+                name: "divergenceTexture",
+                value: UniformValue::Texture2D(0),
+            },
+            &Uniform {
+                name: "pressureTexture",
+                value: UniformValue::Texture2D(1),
+            },
+        ]);
+        subtract_gradient_program.set_uniforms(&[
+            &Uniform {
+                name: "velocityTexture",
+                value: UniformValue::Texture2D(0),
+            },
+            &Uniform {
+                name: "pressureTexture",
+                value: UniformValue::Texture2D(1),
+            },
+        ]);
 
         let vertex_buffer = render::create_vertex_array(
             &context,
@@ -284,26 +292,20 @@ impl Fluid {
         let center_factor = self.grid_size.powf(2.0) / (self.settings.viscosity * timestep);
         let stencil_factor = 1.0 / (4.0 + center_factor);
 
-        let uniforms = [
-            Uniform {
+        self.diffusion_pass.set_uniforms(&[
+            &Uniform {
                 name: "uTexelSize",
                 value: UniformValue::Vec2(&self.texel_size),
             },
-            Uniform {
+            &Uniform {
                 name: "alpha",
                 value: UniformValue::Float(center_factor),
             },
-            Uniform {
+            &Uniform {
                 name: "rBeta",
                 value: UniformValue::Float(stencil_factor),
             },
-        ];
-
-        for uniform in uniforms.into_iter() {
-            self.diffusion_pass.set_uniform(&uniform);
-        }
-
-        self.diffusion_pass.use_program();
+        ]);
 
         for _ in 0..self.settings.diffusion_iterations {
             self.velocity_textures
@@ -342,26 +344,20 @@ impl Fluid {
 
         self.pressure_textures.zero_out().unwrap();
 
-        self.pressure_pass.use_program();
-
-        let uniforms = [
-            Uniform {
+        self.pressure_pass.set_uniforms(&[
+            &Uniform {
                 name: "uTexelSize",
                 value: UniformValue::Vec2(&self.texel_size),
             },
-            Uniform {
+            &Uniform {
                 name: "alpha",
                 value: UniformValue::Float(alpha),
             },
-            Uniform {
+            &Uniform {
                 name: "rBeta",
                 value: UniformValue::Float(r_beta),
             },
-        ];
-
-        for uniform in uniforms.into_iter() {
-            self.diffusion_pass.set_uniform(&uniform);
-        }
+        ]);
 
         self.context.active_texture(GL::TEXTURE0);
         self.context
