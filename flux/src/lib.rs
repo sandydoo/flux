@@ -106,6 +106,8 @@ impl Flux {
             self.canvas.set_width(new_width);
             self.canvas.set_height(new_height);
             self.drawer.resize(new_width, new_height);
+            self.width = new_width;
+            self.height = new_height
         }
 
         let timestep = self
