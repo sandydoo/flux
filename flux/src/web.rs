@@ -114,20 +114,6 @@ impl Canvas {
         }
     }
 
-    pub fn client_width(&self) -> i32 {
-        match self {
-            Canvas::OnscreenCanvas(ref canvas) => canvas.client_width(),
-            Canvas::OffscreenCanvas(ref html_canvas, _) => html_canvas.client_width(),
-        }
-    }
-
-    pub fn client_height(&self) -> i32 {
-        match self {
-            Canvas::OnscreenCanvas(ref canvas) => canvas.client_height(),
-            Canvas::OffscreenCanvas(ref html_canvas, _) => html_canvas.client_height(),
-        }
-    }
-
     pub fn set_width(&self, width: u32) {
         match self {
             Canvas::OnscreenCanvas(ref canvas) => canvas.set_width(width),

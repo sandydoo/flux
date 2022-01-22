@@ -98,16 +98,24 @@ impl Flux {
         })
     }
 
-    pub fn animate(&mut self, timestamp: f32) {
-        let new_width = (self.pixel_ratio * f64::from(self.canvas.client_width())) as u32;
-        let new_height = (self.pixel_ratio * f64::from(self.canvas.client_height())) as u32;
+    pub fn resize(&mut self, width: u32, height: u32) -> Result<(), JsValue> {
+        let new_width = (self.pixel_ratio * f64::from(width)) as u32;
+        let new_height = (self.pixel_ratio * f64::from(height)) as u32;
 
         if (self.width != new_width) || (self.height != new_height) {
             self.canvas.set_width(new_width);
             self.canvas.set_height(new_height);
-            self.drawer.resize(new_width, new_height);
+            self.drawer
+                .resize(new_width, new_height)
+                .map_err(|err| err.to_string())?;
+            self.width = new_width;
+            self.height = new_height;
         }
 
+        Ok(())
+    }
+
+    pub fn animate(&mut self, timestamp: f32) {
         let timestep = self
             .max_frame_time
             .min(0.001 * (timestamp - self.last_timestamp));

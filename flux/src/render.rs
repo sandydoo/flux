@@ -836,24 +836,61 @@ fn detect_texture_format(internal_format: GlDataType) -> Result<TextureFormat> {
     }
 }
 
-pub fn create_vertex_array(
-    context: &Context,
-    program: &Program,
-    vertices: &[(&Buffer, VertexBufferLayout)],
-    indices: Option<&Buffer>,
-) -> Result<WebGlVertexArrayObject> {
-    let vao = context.create_vertex_array().ok_or(Problem::OutOfMemory)?;
-    context.bind_vertex_array(Some(&vao));
+pub struct VertexArrayObject {
+    context: Context,
+    pub id: WebGlVertexArrayObject,
+}
 
-    for (vertex, attribute) in vertices.iter() {
-        bind_attributes(&context, &program, vertex, attribute)?;
+impl VertexArrayObject {
+    pub fn empty(context: &Context) -> Result<Self> {
+        let id = context.create_vertex_array().ok_or(Problem::OutOfMemory)?;
+        Ok(Self {
+            id,
+            context: Rc::clone(context),
+        })
     }
 
-    context.bind_buffer(GL::ELEMENT_ARRAY_BUFFER, indices.map(|buffer| &buffer.id));
+    pub fn new(
+        context: &Context,
+        program: &Program,
+        vertices: &[(&Buffer, VertexBufferLayout)],
+        indices: Option<&Buffer>,
+    ) -> Result<Self> {
+        let vao = Self::empty(context)?;
+        context.bind_vertex_array(Some(&vao.id));
 
-    context.bind_vertex_array(None);
+        for (vertex, attribute) in vertices.iter() {
+            bind_attributes(&context, &program, vertex, attribute)?;
+        }
 
-    Ok(vao)
+        context.bind_buffer(GL::ELEMENT_ARRAY_BUFFER, indices.map(|buffer| &buffer.id));
+
+        context.bind_vertex_array(None);
+
+        Ok(vao)
+    }
+
+    pub fn update(
+        &self,
+        program: &Program,
+        vertices: &[(&Buffer, VertexBufferLayout)],
+        indices: Option<&Buffer>,
+    ) -> Result<()> {
+        self.context.bind_vertex_array(Some(&self.id));
+
+        for (vertex, attribute) in vertices.iter() {
+            bind_attributes(&self.context, &program, vertex, attribute)?;
+        }
+
+        if indices.is_some() {
+            self.context
+                .bind_buffer(GL::ELEMENT_ARRAY_BUFFER, indices.map(|buffer| &buffer.id));
+        }
+
+        self.context.bind_vertex_array(None);
+
+        Ok(())
+    }
 }
 
 pub fn bind_attributes(
