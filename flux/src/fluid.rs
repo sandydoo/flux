@@ -103,13 +103,13 @@ impl Fluid {
         // Geometry
         let plane_vertices = Buffer::from_f32(
             &context,
-            &data::PLANE_VERTICES.to_vec(),
+            &data::PLANE_VERTICES,
             GL::ARRAY_BUFFER,
             GL::STATIC_DRAW,
         )?;
         let plane_indices = Buffer::from_u16(
             &context,
-            &data::PLANE_INDICES.to_vec(),
+            &data::PLANE_INDICES,
             GL::ELEMENT_ARRAY_BUFFER,
             GL::STATIC_DRAW,
         )?;
@@ -134,7 +134,7 @@ impl Fluid {
             pad2: 0.0,
         };
 
-        let uniform_buffer = Buffer::from_f32_array(
+        let uniform_buffer = Buffer::from_f32(
             &context,
             &bytemuck::cast_slice(&[uniforms]),
             GL::ARRAY_BUFFER,

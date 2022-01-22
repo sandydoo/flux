@@ -68,12 +68,7 @@ pub struct Buffer {
 
 #[allow(dead_code)]
 impl Buffer {
-    pub fn from_f32_array(
-        context: &Context,
-        data: &[f32],
-        buffer_type: u32,
-        usage: u32,
-    ) -> Result<Self> {
+    pub fn from_f32(context: &Context, data: &[f32], buffer_type: u32, usage: u32) -> Result<Self> {
         let memory_buffer = wasm_bindgen::memory()
             .dyn_into::<WebAssembly::Memory>()
             .unwrap() // fix
@@ -96,40 +91,7 @@ impl Buffer {
         })
     }
 
-    pub fn from_f32(
-        context: &Context,
-        data: &Vec<f32>,
-        buffer_type: u32,
-        usage: u32,
-    ) -> Result<Self> {
-        let memory_buffer = wasm_bindgen::memory()
-            .dyn_into::<WebAssembly::Memory>()
-            .unwrap() // fix
-            .buffer();
-        let arr_location = data.as_ptr() as u32 / 4;
-        let data_array = js_sys::Float32Array::new(&memory_buffer)
-            .subarray(arr_location, arr_location + data.len() as u32);
-
-        let buffer = context.create_buffer().ok_or(Problem::CannotCreateBuffer)?;
-
-        context.bind_buffer(buffer_type, Some(&buffer));
-        context.buffer_data_with_array_buffer_view(buffer_type, &data_array, usage);
-        context.bind_buffer(buffer_type, None);
-
-        Ok(Self {
-            context: Rc::clone(context),
-            id: buffer,
-            size: data.len(),
-            type_: buffer_type,
-        })
-    }
-
-    pub fn from_u16(
-        context: &Context,
-        data: &Vec<u16>,
-        buffer_type: u32,
-        usage: u32,
-    ) -> Result<Self> {
+    pub fn from_u16(context: &Context, data: &[u16], buffer_type: u32, usage: u32) -> Result<Self> {
         let memory_buffer = wasm_bindgen::memory()
             .dyn_into::<WebAssembly::Memory>()
             .unwrap() // fix

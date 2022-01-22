@@ -1,4 +1,4 @@
-use crate::{render, settings};
+use crate::{data, render, settings};
 use render::{
     Buffer, Context, Framebuffer, Uniform, UniformValue, VertexArrayObject, VertexBufferLayout,
 };
@@ -110,7 +110,7 @@ impl Drawer {
         let line_count =
             (grid_width / settings.grid_spacing) * (grid_height / settings.grid_spacing);
         let line_state = new_line_state(grid_width, grid_height, settings.grid_spacing);
-        let line_state_buffer = Buffer::from_f32_array(
+        let line_state_buffer = Buffer::from_f32(
             &context,
             &bytemuck::cast_slice(&line_state),
             GL::ARRAY_BUFFER,
@@ -120,7 +120,7 @@ impl Drawer {
             .create_transform_feedback()
             .ok_or(render::Problem::OutOfMemory)?;
 
-        let line_vertices = Buffer::from_f32_array(
+        let line_vertices = Buffer::from_f32(
             &context,
             &bytemuck::cast_slice(&LINE_VERTICES),
             GL::ARRAY_BUFFER,
@@ -140,13 +140,13 @@ impl Drawer {
         )?;
         let plane_vertices = Buffer::from_f32(
             &context,
-            &data::PLANE_VERTICES.to_vec(),
+            &data::PLANE_VERTICES,
             GL::ARRAY_BUFFER,
             GL::STATIC_DRAW,
         )?;
         let plane_indices = Buffer::from_u16(
             &context,
-            &data::PLANE_INDICES.to_vec(),
+            &data::PLANE_INDICES,
             GL::ELEMENT_ARRAY_BUFFER,
             GL::STATIC_DRAW,
         )?;
@@ -220,7 +220,7 @@ impl Drawer {
             projection: projection_matrix.as_slice().try_into().unwrap(),
             view: view_matrix.as_slice().try_into().unwrap(),
         };
-        let view_buffer = Buffer::from_f32_array(
+        let view_buffer = Buffer::from_f32(
             &context,
             &bytemuck::cast_slice(&[projection]),
             GL::ARRAY_BUFFER,
@@ -228,7 +228,7 @@ impl Drawer {
         )?;
 
         let uniforms = LineUniforms::new(&settings, 0.0);
-        let line_uniforms = Buffer::from_f32_array(
+        let line_uniforms = Buffer::from_f32(
             &context,
             &bytemuck::cast_slice(&[uniforms]),
             GL::ARRAY_BUFFER,
@@ -297,7 +297,7 @@ impl Drawer {
 
             basepoint_buffer,
             line_state_buffer,
-            line_state_feedback_buffer: Buffer::from_f32_array(
+            line_state_feedback_buffer: Buffer::from_f32(
                 &context,
                 &bytemuck::cast_slice(&line_state),
                 GL::ARRAY_BUFFER,
@@ -374,14 +374,14 @@ impl Drawer {
         )?;
 
         let line_state = new_line_state(grid_width, grid_height, grid_spacing);
-        self.line_state_buffer = Buffer::from_f32_array(
+        self.line_state_buffer = Buffer::from_f32(
             &self.context,
             &bytemuck::cast_slice(&line_state),
             GL::ARRAY_BUFFER,
             GL::STATIC_DRAW,
         )?;
 
-        self.line_state_feedback_buffer = Buffer::from_f32_array(
+        self.line_state_feedback_buffer = Buffer::from_f32(
             &self.context,
             &bytemuck::cast_slice(&line_state),
             GL::ARRAY_BUFFER,

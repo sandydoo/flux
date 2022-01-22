@@ -96,13 +96,13 @@ impl NoiseInjector {
         // Geometry
         let plane_vertices = Buffer::from_f32(
             &context,
-            &data::PLANE_VERTICES.to_vec(), // fix
+            &data::PLANE_VERTICES,
             GL::ARRAY_BUFFER,
             GL::STATIC_DRAW,
         )?;
         let plane_indices = Buffer::from_u16(
             &context,
-            &data::PLANE_INDICES.to_vec(),
+            &data::PLANE_INDICES,
             GL::ELEMENT_ARRAY_BUFFER,
             GL::STATIC_DRAW,
         )?;
@@ -195,7 +195,7 @@ impl NoiseInjector {
             pad2: 0.0,
         };
 
-        let uniforms = Buffer::from_f32_array(
+        let uniforms = Buffer::from_f32(
             &self.context,
             &bytemuck::cast_slice(&[uniforms]),
             GL::ARRAY_BUFFER,
