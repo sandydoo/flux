@@ -68,12 +68,7 @@ pub struct Buffer {
 
 #[allow(dead_code)]
 impl Buffer {
-    pub fn from_f32_array(
-        context: &Context,
-        data: &[f32],
-        buffer_type: u32,
-        usage: u32,
-    ) -> Result<Self> {
+    pub fn from_f32(context: &Context, data: &[f32], buffer_type: u32, usage: u32) -> Result<Self> {
         let memory_buffer = wasm_bindgen::memory()
             .dyn_into::<WebAssembly::Memory>()
             .unwrap() // fix
@@ -96,40 +91,7 @@ impl Buffer {
         })
     }
 
-    pub fn from_f32(
-        context: &Context,
-        data: &Vec<f32>,
-        buffer_type: u32,
-        usage: u32,
-    ) -> Result<Self> {
-        let memory_buffer = wasm_bindgen::memory()
-            .dyn_into::<WebAssembly::Memory>()
-            .unwrap() // fix
-            .buffer();
-        let arr_location = data.as_ptr() as u32 / 4;
-        let data_array = js_sys::Float32Array::new(&memory_buffer)
-            .subarray(arr_location, arr_location + data.len() as u32);
-
-        let buffer = context.create_buffer().ok_or(Problem::CannotCreateBuffer)?;
-
-        context.bind_buffer(buffer_type, Some(&buffer));
-        context.buffer_data_with_array_buffer_view(buffer_type, &data_array, usage);
-        context.bind_buffer(buffer_type, None);
-
-        Ok(Self {
-            context: Rc::clone(context),
-            id: buffer,
-            size: data.len(),
-            type_: buffer_type,
-        })
-    }
-
-    pub fn from_u16(
-        context: &Context,
-        data: &Vec<u16>,
-        buffer_type: u32,
-        usage: u32,
-    ) -> Result<Self> {
+    pub fn from_u16(context: &Context, data: &[u16], buffer_type: u32, usage: u32) -> Result<Self> {
         let memory_buffer = wasm_bindgen::memory()
             .dyn_into::<WebAssembly::Memory>()
             .unwrap() // fix
@@ -836,24 +798,61 @@ fn detect_texture_format(internal_format: GlDataType) -> Result<TextureFormat> {
     }
 }
 
-pub fn create_vertex_array(
-    context: &Context,
-    program: &Program,
-    vertices: &[(&Buffer, VertexBufferLayout)],
-    indices: Option<&Buffer>,
-) -> Result<WebGlVertexArrayObject> {
-    let vao = context.create_vertex_array().ok_or(Problem::OutOfMemory)?;
-    context.bind_vertex_array(Some(&vao));
+pub struct VertexArrayObject {
+    context: Context,
+    pub id: WebGlVertexArrayObject,
+}
 
-    for (vertex, attribute) in vertices.iter() {
-        bind_attributes(&context, &program, vertex, attribute)?;
+impl VertexArrayObject {
+    pub fn empty(context: &Context) -> Result<Self> {
+        let id = context.create_vertex_array().ok_or(Problem::OutOfMemory)?;
+        Ok(Self {
+            id,
+            context: Rc::clone(context),
+        })
     }
 
-    context.bind_buffer(GL::ELEMENT_ARRAY_BUFFER, indices.map(|buffer| &buffer.id));
+    pub fn new(
+        context: &Context,
+        program: &Program,
+        vertices: &[(&Buffer, VertexBufferLayout)],
+        indices: Option<&Buffer>,
+    ) -> Result<Self> {
+        let vao = Self::empty(context)?;
+        context.bind_vertex_array(Some(&vao.id));
 
-    context.bind_vertex_array(None);
+        for (vertex, attribute) in vertices.iter() {
+            bind_attributes(&context, &program, vertex, attribute)?;
+        }
 
-    Ok(vao)
+        context.bind_buffer(GL::ELEMENT_ARRAY_BUFFER, indices.map(|buffer| &buffer.id));
+
+        context.bind_vertex_array(None);
+
+        Ok(vao)
+    }
+
+    pub fn update(
+        &self,
+        program: &Program,
+        vertices: &[(&Buffer, VertexBufferLayout)],
+        indices: Option<&Buffer>,
+    ) -> Result<()> {
+        self.context.bind_vertex_array(Some(&self.id));
+
+        for (vertex, attribute) in vertices.iter() {
+            bind_attributes(&self.context, &program, vertex, attribute)?;
+        }
+
+        if indices.is_some() {
+            self.context
+                .bind_buffer(GL::ELEMENT_ARRAY_BUFFER, indices.map(|buffer| &buffer.id));
+        }
+
+        self.context.bind_vertex_array(None);
+
+        Ok(())
+    }
 }
 
 pub fn bind_attributes(

@@ -18,11 +18,18 @@ ui.ports.initFlux.subscribe(function (settings) {
     window.requestAnimationFrame(animate);
   }
 
+  const resizeObserver = new ResizeObserver(([entry]) => {
+    let { width, height } = entry.contentRect;
+    flux.resize(width, height);
+  });
+  resizeObserver.observe(document.getElementById("canvas"));
+
   window.requestAnimationFrame(animate);
+
+
 });
 
 // Update settings
 ui.ports.setSettings.subscribe(function (newSettings) {
   flux.settings = newSettings;
 });
-

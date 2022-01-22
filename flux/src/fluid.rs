@@ -1,6 +1,7 @@
 use crate::{data, render, settings};
 use render::{
     Buffer, Context, DoubleFramebuffer, Framebuffer, TextureOptions, Uniform, UniformValue,
+    VertexArrayObject,
 };
 use settings::Settings;
 
@@ -9,7 +10,6 @@ use std::cell::Ref;
 use std::rc::Rc;
 
 use web_sys::WebGl2RenderingContext as GL;
-use web_sys::WebGlVertexArrayObject;
 
 static FLUID_VERT_SHADER: &'static str = include_str!("./shaders/fluid.vert");
 static ADVECTION_FRAG_SHADER: &'static str = include_str!("./shaders/advection.frag");
@@ -38,7 +38,7 @@ pub struct Fluid {
     grid_size: f32,
 
     uniform_buffer: Buffer,
-    vertex_buffer: WebGlVertexArrayObject,
+    vertex_buffer: VertexArrayObject,
 
     velocity_textures: DoubleFramebuffer,
     divergence_texture: Framebuffer,
@@ -103,13 +103,13 @@ impl Fluid {
         // Geometry
         let plane_vertices = Buffer::from_f32(
             &context,
-            &data::PLANE_VERTICES.to_vec(),
+            &data::PLANE_VERTICES,
             GL::ARRAY_BUFFER,
             GL::STATIC_DRAW,
         )?;
         let plane_indices = Buffer::from_u16(
             &context,
-            &data::PLANE_INDICES.to_vec(),
+            &data::PLANE_INDICES,
             GL::ELEMENT_ARRAY_BUFFER,
             GL::STATIC_DRAW,
         )?;
@@ -134,7 +134,7 @@ impl Fluid {
             pad2: 0.0,
         };
 
-        let uniform_buffer = Buffer::from_f32_array(
+        let uniform_buffer = Buffer::from_f32(
             &context,
             &bytemuck::cast_slice(&[uniforms]),
             GL::ARRAY_BUFFER,
@@ -193,7 +193,7 @@ impl Fluid {
             },
         ]);
 
-        let vertex_buffer = render::create_vertex_array(
+        let vertex_buffer = VertexArrayObject::new(
             &context,
             &advection_program,
             &[(
@@ -265,7 +265,7 @@ impl Fluid {
         );
         self.context.bind_buffer(GL::UNIFORM_BUFFER, None);
 
-        self.context.bind_vertex_array(Some(&self.vertex_buffer));
+        self.context.bind_vertex_array(Some(&self.vertex_buffer.id));
 
         self.context
             .bind_buffer_base(GL::UNIFORM_BUFFER, 0, Some(&self.uniform_buffer.id));

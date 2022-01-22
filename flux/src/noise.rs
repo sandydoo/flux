@@ -1,14 +1,13 @@
 use crate::{data, render, settings};
 use render::{
     Buffer, Context, DoubleFramebuffer, Framebuffer, Program, TextureOptions, Uniform,
-    UniformValue, VertexBufferLayout,
+    UniformValue, VertexArrayObject, VertexBufferLayout,
 };
 use settings::Noise;
 
 use bytemuck::{Pod, Zeroable};
 use std::rc::Rc;
 use web_sys::WebGl2RenderingContext as GL;
-use web_sys::WebGlVertexArrayObject;
 
 static NOISE_VERT_SHADER: &'static str = include_str!("./shaders/noise.vert");
 static SIMPLEX_NOISE_FRAG_SHADER: &'static str = include_str!("./shaders/simplex_noise.frag");
@@ -64,7 +63,7 @@ pub struct NoiseInjector {
     blend_with_curl_pass: Program,
     blend_with_wiggle_pass: Program,
 
-    noise_buffer: WebGlVertexArrayObject,
+    noise_buffer: VertexArrayObject,
 }
 
 impl NoiseInjector {
@@ -97,13 +96,13 @@ impl NoiseInjector {
         // Geometry
         let plane_vertices = Buffer::from_f32(
             &context,
-            &data::PLANE_VERTICES.to_vec(), // fix
+            &data::PLANE_VERTICES,
             GL::ARRAY_BUFFER,
             GL::STATIC_DRAW,
         )?;
         let plane_indices = Buffer::from_u16(
             &context,
-            &data::PLANE_INDICES.to_vec(),
+            &data::PLANE_INDICES,
             GL::ELEMENT_ARRAY_BUFFER,
             GL::STATIC_DRAW,
         )?;
@@ -114,7 +113,7 @@ impl NoiseInjector {
         let blend_with_wiggle_program =
             Program::new(&context, (NOISE_VERT_SHADER, BLEND_WITH_WIGGLE))?;
 
-        let noise_buffer = render::create_vertex_array(
+        let noise_buffer = VertexArrayObject::new(
             &context,
             &simplex_noise_program,
             &[(
@@ -196,7 +195,7 @@ impl NoiseInjector {
             pad2: 0.0,
         };
 
-        let uniforms = Buffer::from_f32_array(
+        let uniforms = Buffer::from_f32(
             &self.context,
             &bytemuck::cast_slice(&[uniforms]),
             GL::ARRAY_BUFFER,
@@ -222,7 +221,7 @@ impl NoiseInjector {
 
             if time_since_last_update >= channel.noise.delay {
                 self.generate_noise_pass.use_program();
-                self.context.bind_vertex_array(Some(&self.noise_buffer));
+                self.context.bind_vertex_array(Some(&self.noise_buffer.id));
 
                 self.context
                     .bind_buffer_base(GL::UNIFORM_BUFFER, 3, Some(&channel.uniforms.id));
@@ -239,7 +238,7 @@ impl NoiseInjector {
     pub fn generate_by_channel_number(&mut self, channel_number: usize, elapsed_time: f32) {
         if let Some(channel) = self.channels.get_mut(channel_number) {
             self.generate_noise_pass.use_program();
-            self.context.bind_vertex_array(Some(&self.noise_buffer));
+            self.context.bind_vertex_array(Some(&self.noise_buffer.id));
 
             self.generate_noise_pass.set_uniform(&Uniform {
                 name: "uResolution",
@@ -280,7 +279,7 @@ impl NoiseInjector {
 
             target_textures.draw_to(&self.context, |target_texture| {
                 blend_pass.use_program();
-                self.context.bind_vertex_array(Some(&self.noise_buffer));
+                self.context.bind_vertex_array(Some(&self.noise_buffer.id));
 
                 self.context
                     .bind_buffer_base(GL::UNIFORM_BUFFER, 3, Some(&channel.uniforms.id));
