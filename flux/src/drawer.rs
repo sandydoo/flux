@@ -280,6 +280,7 @@ impl Drawer {
             )],
             Some(&plane_indices),
         )?;
+        draw_texture_program.set_uniform_block("Projection", 0);
 
         let antialiasing_samples = 4;
         let antialiasing_pass =
@@ -673,6 +674,7 @@ impl Drawer {
         self.draw_texture_pass.use_program();
 
         self.context
+            .bind_buffer_base(GL::UNIFORM_BUFFER, 0, Some(&self.view_buffer.id));
 
         self.context
             .bind_vertex_array(Some(&self.draw_texture_buffer.id));
