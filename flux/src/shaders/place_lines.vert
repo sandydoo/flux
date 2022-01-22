@@ -16,6 +16,7 @@ in float iOpacity;
 
 uniform float deltaT;
 uniform float uLineFadeOutLength;
+uniform float uAdjustAdvection;
 uniform mediump vec4 uColorWheel[6];
 uniform mat4 uProjection;
 
@@ -53,11 +54,17 @@ float random1f(in vec2 st) {
   return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
 }
 
+float easeInOutQuad(float t) {
+  float p = 2.0 * t * t;
+  return t < 0.5 ? p : -p + (4.0 * t) - 1.0;
+}
+
 void main() {
-  float springStiffness = 0.18;
+  float advectionDirection = -1.0;
+  float springStiffness = 0.25;
   float springRestLength = 0.00;
   float springVariance = 0.12; // 12%
-  float mass = 7.0;
+  float mass = 2.0;
 
   // Velocity
   vec2 basepointInClipSpace = (uProjection * vec4(basepoint, 0.0, 1.0)).xy;
@@ -76,23 +83,14 @@ void main() {
   }
 
   // Main spring
-  vVelocityVector -= springForce(
+  vVelocityVector += advectionDirection * springForce(
     variance * springStiffness,
     mass, // mass
     currentLength - springRestLength
   ) * direction * deltaT;
 
-  // Second spring after full extension
-  if (currentLength > 1.0) {
-    vVelocityVector -= springForce(
-      variance * 0.1,
-      mass, // mass
-      currentLength - 1.0
-    ) * direction * deltaT;
-  }
-
   // Advect forward
-  vEndpointVector = iEndpointVector - vVelocityVector * deltaT;
+  vEndpointVector = iEndpointVector + uAdjustAdvection * advectionDirection * vVelocityVector * deltaT;
   currentLength = length(vEndpointVector);
 
   // Color
@@ -101,22 +99,22 @@ void main() {
     2.0 * PI
   );
   vColor = vec4(getColor(uColorWheel, angle), 0.0);
+  // Debug spring extension
+  // vColor = mix(vColor, vec4(1.0), smoothstep(0.95, 1.05, currentLength));
 
   // Width
-  vec2 velocityDirection = normalize(-vVelocityVector);
+  vec2 velocityDirection = normalize(advectionDirection * vVelocityVector);
   vec2 lineDirection = normalize(vEndpointVector);
   float directionAlignment = clamp(dot(lineDirection, velocityDirection), -1.0, 1.0);
-  float directionMultiplier = 0.8 * length(deltaVelocity);
-  float referenceWidth = smoothstep(-0.2, 0.6, currentLength);
 
   vLineWidth = clamp(
-    iLineWidth + directionMultiplier * deltaT * directionAlignment,
-    max(0.0, referenceWidth * 0.7),
-    min(1.0, referenceWidth * 2.0)
+    iLineWidth + uAdjustAdvection * directionAlignment * length(vVelocityVector) * deltaT,
+    0.15,
+    1.0
   );
 
   // Opacity
   // This is only for the line. The endpoints have their own fade out curve.
   // TODO can we improve this?
-  vOpacity = smoothstep(uLineFadeOutLength, uLineFadeOutLength + 0.5, currentLength);
+  vOpacity = easeInOutQuad(smoothstep(uLineFadeOutLength, 0.8, currentLength));
 }

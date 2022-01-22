@@ -77,6 +77,7 @@ impl Flux {
             .map_err(|msg| msg.to_string())?;
 
         noise_injector.generate_by_channel_number(0, 0.0);
+        noise_injector.blend_noise_into(&fluid.get_velocity_textures(), 2000.0);
         context.flush();
 
         Ok(Flux {
@@ -140,10 +141,8 @@ impl Flux {
 
         // TODO: the line animation is still dependent on the client’s fps. Is
         // this worth fixing?
-        self.drawer.place_lines(
-            timestep * self.settings.adjust_advection,
-            &self.fluid.get_velocity(),
-        );
+        self.drawer
+            .place_lines(timestep, &self.fluid.get_velocity());
 
         self.drawer.with_antialiasing(|| {
             self.context.clear_color(0.0, 0.0, 0.0, 1.0);

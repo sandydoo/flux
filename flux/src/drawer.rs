@@ -250,6 +250,10 @@ impl Drawer {
                 value: UniformValue::Float(settings.line_fade_out_length),
             },
             &Uniform {
+                name: "uAdjustAdvection",
+                value: UniformValue::Float(settings.adjust_advection),
+            },
+            &Uniform {
                 name: "uColorWheel[0]",
                 value: UniformValue::Vec4Array(&color_wheel),
             },
@@ -282,7 +286,7 @@ impl Drawer {
         )?;
         draw_texture_program.set_uniform_block("Projection", 0);
 
-        let antialiasing_samples = 4;
+        let antialiasing_samples = 2;
         let antialiasing_pass =
             render::MsaaPass::new(context, screen_width, screen_height, antialiasing_samples)?;
 
@@ -345,6 +349,10 @@ impl Drawer {
             &Uniform {
                 name: "uLineFadeOutLength",
                 value: UniformValue::Float(new_settings.line_fade_out_length),
+            },
+            &Uniform {
+                name: "uAdjustAdvection",
+                value: UniformValue::Float(new_settings.adjust_advection),
             },
             &Uniform {
                 name: "uColorWheel[0]",
