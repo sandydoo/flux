@@ -55,6 +55,10 @@ type alias Settings =
     , lineWidth : Float
     , lineBeginOffset : Float
     , lineFadeOutLength : Float
+    , springStiffness : Float
+    , springVariance : Float
+    , springMass : Float
+    , springRestLength : Float
     , adjustAdvection : Float
     , gridSpacing : Int
     , viewScale : Float
@@ -102,6 +106,10 @@ defaultSettings =
     , lineFadeOutLength = 0.038
     , adjustAdvection = 14.0
     , gridSpacing = 32
+    , springStiffness = 0.25
+    , springVariance = 0.12
+    , springMass = 2.0
+    , springRestLength = 0.0
     , viewScale = 1.2
     , noiseChannel1 =
         { scale = 1.0
@@ -174,6 +182,10 @@ type SettingMsg
     | SetLineWidth Float
     | SetLineBeginOffset Float
     | SetLineFadeOutLength Float
+    | SetSpringStiffness Float
+    | SetSpringVariance Float
+    | SetSpringMass Float
+    | SetSpringRestLength Float
     | SetAdjustAdvection Float
     | SetNoiseChannel1 NoiseMsg
     | SetNoiseChannel2 NoiseMsg
@@ -218,6 +230,18 @@ updateSettings msg settings =
 
         SetLineFadeOutLength newLineFadeOutLength ->
             { settings | lineFadeOutLength = newLineFadeOutLength / settings.lineLength }
+
+        SetSpringStiffness newSpringStiffness ->
+            { settings | springStiffness = newSpringStiffness }
+
+        SetSpringVariance newSpringVariance ->
+            { settings | springVariance = newSpringVariance }
+
+        SetSpringMass newSpringMass ->
+            { settings | springMass = newSpringMass }
+
+        SetSpringRestLength newSpringRestLength ->
+            { settings | springRestLength = newSpringRestLength }
 
         SetAdjustAdvection newAdjustAdvection ->
             { settings | adjustAdvection = newAdjustAdvection }
@@ -456,6 +480,86 @@ viewSettings settings =
                                 |> SetLineFadeOutLength
                                 |> SaveSetting
                     , toString = formatFloat 1
+                    }
+                )
+        , viewControl <|
+            Control
+                "Stiffness"
+                """
+                The stiffness of the line determines the amount of force needed to extend it.
+                """
+                (Slider
+                    { min = 0.0
+                    , max = 1.0
+                    , step = 0.01
+                    , value = settings.springStiffness
+                    , onInput =
+                        \value ->
+                            String.toFloat value
+                                |> Maybe.withDefault 0.0
+                                |> SetSpringStiffness
+                                |> SaveSetting
+                    , toString = formatFloat 2
+                    }
+                )
+        , viewControl <|
+            Control
+                "Mass"
+                """
+                Adjust the weight of each line. More mass means more momentum and more sluggish movement.
+                """
+                (Slider
+                    { min = 1.0
+                    , max = 20.0
+                    , step = 0.1
+                    , value = settings.springMass
+                    , onInput =
+                        \value ->
+                            String.toFloat value
+                                |> Maybe.withDefault 0.0
+                                |> SetSpringMass
+                                |> SaveSetting
+                    , toString = formatFloat 1
+                    }
+                )
+        , viewControl <|
+            Control
+                "Variance"
+                """
+                Give each line a slightly different amount of mass.
+                """
+                (Slider
+                    { min = 0.0
+                    , max = 1.0
+                    , step = 0.01
+                    , value = settings.springVariance
+                    , onInput =
+                        \value ->
+                            String.toFloat value
+                                |> Maybe.withDefault 0.0
+                                |> SetSpringVariance
+                                |> SaveSetting
+                    , toString = formatFloat 2
+                    }
+                )
+        , viewControl <|
+            Control
+                "Resting length"
+                """
+                The length of a line at rest, when no forces are applied to it.
+                """
+                (Slider
+                    { min = 0.0
+                    , max = 1.0
+                    , step = 0.01
+                    , value = settings.springRestLength
+                    , onInput =
+                        \value ->
+                            String.toFloat value
+                                |> Maybe.withDefault 0.0
+                                |> SetSpringRestLength
+                                |> SaveSetting
+                    , toString = formatFloat 2
                     }
                 )
         , viewControl <|
@@ -837,6 +941,10 @@ encodeSettings settings =
         , ( "lineWidth", Encode.float settings.lineWidth )
         , ( "lineBeginOffset", Encode.float settings.lineBeginOffset )
         , ( "lineFadeOutLength", Encode.float settings.lineFadeOutLength )
+        , ( "springStiffness", Encode.float settings.springStiffness )
+        , ( "springVariance", Encode.float settings.springVariance )
+        , ( "springMass", Encode.float settings.springMass )
+        , ( "springRestLength", Encode.float settings.springRestLength )
         , ( "adjustAdvection", Encode.float settings.adjustAdvection )
         , ( "gridSpacing", Encode.int settings.gridSpacing )
         , ( "viewScale", Encode.float settings.viewScale )

@@ -250,6 +250,22 @@ impl Drawer {
                 value: UniformValue::Float(settings.line_fade_out_length),
             },
             &Uniform {
+                name: "uSpringStiffness",
+                value: UniformValue::Float(settings.spring_stiffness),
+            },
+            &Uniform {
+                name: "uSpringVariance",
+                value: UniformValue::Float(settings.spring_variance),
+            },
+            &Uniform {
+                name: "uSpringMass",
+                value: UniformValue::Float(settings.spring_mass),
+            },
+            &Uniform {
+                name: "uSpringRestLength",
+                value: UniformValue::Float(settings.spring_rest_length),
+            },
+            &Uniform {
                 name: "uAdjustAdvection",
                 value: UniformValue::Float(settings.adjust_advection),
             },
@@ -330,11 +346,11 @@ impl Drawer {
         Ok(drawer)
     }
 
-    pub fn update(&mut self, new_settings: &Rc<Settings>) -> () {
+    pub fn update(&mut self, settings: &Rc<Settings>) -> () {
         self.context
             .bind_buffer(GL::UNIFORM_BUFFER, Some(&self.line_uniforms.id));
 
-        let uniforms = LineUniforms::new(new_settings, 0.0);
+        let uniforms = LineUniforms::new(settings, 0.0);
         self.context.buffer_sub_data_with_i32_and_u8_array(
             GL::UNIFORM_BUFFER,
             0,
@@ -344,15 +360,31 @@ impl Drawer {
         self.context.bind_buffer(GL::UNIFORM_BUFFER, None);
 
         // Workaround for iOS
-        let color_wheel = settings::color_wheel_from_scheme(&new_settings.color_scheme);
+        let color_wheel = settings::color_wheel_from_scheme(&settings.color_scheme);
         self.place_lines_pass.set_uniforms(&[
             &Uniform {
                 name: "uLineFadeOutLength",
-                value: UniformValue::Float(new_settings.line_fade_out_length),
+                value: UniformValue::Float(settings.line_fade_out_length),
+            },
+            &Uniform {
+                name: "uSpringStiffness",
+                value: UniformValue::Float(settings.spring_stiffness),
+            },
+            &Uniform {
+                name: "uSpringVariance",
+                value: UniformValue::Float(settings.spring_variance),
+            },
+            &Uniform {
+                name: "uSpringMass",
+                value: UniformValue::Float(settings.spring_mass),
+            },
+            &Uniform {
+                name: "uSpringRestLength",
+                value: UniformValue::Float(settings.spring_rest_length),
             },
             &Uniform {
                 name: "uAdjustAdvection",
-                value: UniformValue::Float(new_settings.adjust_advection),
+                value: UniformValue::Float(settings.adjust_advection),
             },
             &Uniform {
                 name: "uColorWheel[0]",

@@ -15,6 +15,10 @@ in float iLineWidth;
 in float iOpacity;
 
 uniform float deltaT;
+uniform float uSpringStiffness;
+uniform float uSpringVariance;
+uniform float uSpringMass;
+uniform float uSpringRestLength;
 uniform float uLineFadeOutLength;
 uniform float uAdjustAdvection;
 uniform mediump vec4 uColorWheel[6];
@@ -61,19 +65,15 @@ float easeInOutQuad(float t) {
 
 void main() {
   float advectionDirection = -1.0;
-  float springStiffness = 0.25;
-  float springRestLength = 0.00;
-  float springVariance = 0.12; // 12%
-  float mass = 2.0;
 
   // Velocity
   vec2 basepointInClipSpace = (uProjection * vec4(basepoint, 0.0, 1.0)).xy;
   vec2 currentVelocityVector = texture(velocityTexture, basepointInClipSpace * 0.5 + 0.5).xy;
   vec2 deltaVelocity = currentVelocityVector - iVelocityVector;
-  vVelocityVector = iVelocityVector + (deltaVelocity / mass) * deltaT;
+  vVelocityVector = iVelocityVector + (deltaVelocity / uSpringMass) * deltaT;
 
   // Spring forces
-  float variance = 1.0 + springVariance * (random1f(basepoint ) * 2.0 - 1.0);
+  float variance = 1.0 + uSpringVariance * random1f(basepoint);
   float currentLength = length(iEndpointVector);
   vec2 direction;
   if (currentLength == 0.0) {
@@ -84,9 +84,9 @@ void main() {
 
   // Main spring
   vVelocityVector += advectionDirection * springForce(
-    variance * springStiffness,
-    mass, // mass
-    currentLength - springRestLength
+    uSpringStiffness,
+    uSpringMass * variance,
+    currentLength - uSpringRestLength
   ) * direction * deltaT;
 
   // Advect forward
