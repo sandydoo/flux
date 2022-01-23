@@ -266,6 +266,10 @@ impl Drawer {
                 value: UniformValue::Float(settings.spring_rest_length),
             },
             &Uniform {
+                name: "uAdvectionDirection",
+                value: UniformValue::Float(settings.advection_direction),
+            },
+            &Uniform {
                 name: "uAdjustAdvection",
                 value: UniformValue::Float(settings.adjust_advection),
             },
@@ -381,6 +385,10 @@ impl Drawer {
             &Uniform {
                 name: "uSpringRestLength",
                 value: UniformValue::Float(settings.spring_rest_length),
+            },
+            &Uniform {
+                name: "uAdvectionDirection",
+                value: UniformValue::Float(settings.advection_direction),
             },
             &Uniform {
                 name: "uAdjustAdvection",

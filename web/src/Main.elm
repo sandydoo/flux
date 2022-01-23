@@ -59,12 +59,18 @@ type alias Settings =
     , springVariance : Float
     , springMass : Float
     , springRestLength : Float
+    , advectionDirection : AdvectionDirection
     , adjustAdvection : Float
     , gridSpacing : Int
     , viewScale : Float
     , noiseChannel1 : Noise
     , noiseChannel2 : Noise
     }
+
+
+type AdvectionDirection
+    = Forward
+    | Reverse
 
 
 type ColorScheme
@@ -111,6 +117,7 @@ defaultSettings =
     , springVariance = 0.12
     , springMass = 2.0
     , springRestLength = 0.0
+    , advectionDirection = Forward
     , viewScale = 1.2
     , noiseChannel1 =
         { scale = 1.0
@@ -189,6 +196,7 @@ type SettingMsg
     | SetSpringVariance Float
     | SetSpringMass Float
     | SetSpringRestLength Float
+    | SetAdvectionDirection AdvectionDirection
     | SetAdjustAdvection Float
     | SetNoiseChannel1 NoiseMsg
     | SetNoiseChannel2 NoiseMsg
@@ -246,6 +254,9 @@ updateSettings msg settings =
 
         SetSpringRestLength newSpringRestLength ->
             { settings | springRestLength = newSpringRestLength }
+
+        SetAdvectionDirection newDirection ->
+            { settings | advectionDirection = newDirection }
 
         SetAdjustAdvection newAdjustAdvection ->
             { settings | adjustAdvection = newAdjustAdvection }
@@ -401,6 +412,23 @@ viewSettings settings =
             [ ( "Plasma", Plasma )
             , ( "Poolside", Poolside )
             , ( "Pollen", Pollen )
+            ]
+        , Html.div
+            [ HA.class "col-span-2-md" ]
+            [ Html.h2 [] [ Html.text "Advection" ]
+            , Html.p
+                [ HA.class "control-description" ]
+                [ Html.text
+                    """
+                    Advection is the transport of some substance by motion of a fluid, and that substance is the field of lines.
+                    In “forward” mode, the lines point in the direction of fluid movement and tend to curl outwards. And in “reverse”, the lines create whirlpools as they spiral inwards.
+                    """
+                ]
+            ]
+        , viewButtonGroup (SetAdvectionDirection >> SaveSetting)
+            settings.advectionDirection
+            [ ( "Forward", Forward )
+            , ( "Reverse", Reverse )
             ]
         , Html.h2
             [ HA.class "col-span-2-md" ]
@@ -971,12 +999,28 @@ encodeSettings settings =
         , ( "springVariance", Encode.float settings.springVariance )
         , ( "springMass", Encode.float settings.springMass )
         , ( "springRestLength", Encode.float settings.springRestLength )
+        , ( "advectionDirection", encodeAdvectionDirection settings.advectionDirection )
         , ( "adjustAdvection", Encode.float settings.adjustAdvection )
         , ( "gridSpacing", Encode.int settings.gridSpacing )
         , ( "viewScale", Encode.float settings.viewScale )
         , ( "noiseChannel1", encodeNoise settings.noiseChannel1 )
         , ( "noiseChannel2", encodeNoise settings.noiseChannel2 )
         ]
+
+
+encodeAdvectionDirection : AdvectionDirection -> Encode.Value
+encodeAdvectionDirection =
+    advectionDirectionToInt >> Encode.int
+
+
+advectionDirectionToInt : AdvectionDirection -> Int
+advectionDirectionToInt direction =
+    case direction of
+        Forward ->
+            1
+
+        Reverse ->
+            -1
 
 
 encodeColorScheme : ColorScheme -> Encode.Value
