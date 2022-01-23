@@ -87,7 +87,7 @@ type alias Noise =
     , offsetIncrement : Float
     , delay : Float
     , blendDuration : Float
-    , blendThreshold: Float
+    , blendThreshold : Float
     , blendMethod : BlendMethod
     }
 
@@ -337,8 +337,8 @@ type Input number
 view : Model -> Html Msg
 view model =
     let
-        classNameWhen className bool =
-            if model.isOpen then
+        classNameWhen className condition =
+            if condition then
                 className
 
             else
@@ -399,7 +399,7 @@ viewSettings settings =
                 [ Html.text "← Back" ]
             , Html.h2 [ HA.id "control-title" ] [ Html.text "Controls" ]
             , Html.p
-                [ HA.id "control-description" ]
+                [ HA.class "control-description" ]
                 [ Html.text
                     """
                     Use this collection of knobs and dials to adjust the look and feel of the fluid simulation.
@@ -496,7 +496,8 @@ viewSettings settings =
         , viewControl <|
             let
                 toAbsoluteLength : Float -> Float
-                toAbsoluteLength offset = settings.lineLength * offset
+                toAbsoluteLength offset =
+                    settings.lineLength * offset
             in
             Control
                 "Fog level"
@@ -1028,6 +1029,7 @@ encodeColorScheme =
     colorSchemeToString >> Encode.string
 
 
+colorSchemeToString : ColorScheme -> String
 colorSchemeToString colorscheme =
     case colorscheme of
         Plasma ->
@@ -1045,6 +1047,7 @@ encodeBlendMethod =
     blendMethodToString >> Encode.string
 
 
+blendMethodToString : BlendMethod -> String
 blendMethodToString blendMethod =
     case blendMethod of
         Curl ->
