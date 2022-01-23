@@ -60,21 +60,20 @@ impl Flux {
         };
 
         let fluid_frame_time = 1.0 / settings.fluid_simulation_frame_rate;
-        let fluid = Fluid::new(&context, &settings).map_err(|msg| msg.to_string())?;
+        let fluid = Fluid::new(&context, &settings).map_err(report_to_js)?;
 
-        let drawer =
-            Drawer::new(&context, width, height, &settings).map_err(|msg| msg.to_string())?;
+        let drawer = Drawer::new(&context, width, height, &settings).map_err(report_to_js)?;
 
         let mut noise_injector =
             NoiseInjector::new(&context, settings.fluid_width, settings.fluid_height)
-                .map_err(|msg| msg.to_string())?;
+                .map_err(report_to_js)?;
 
         noise_injector
             .add_noise(settings.noise_channel_1.clone())
-            .map_err(|msg| msg.to_string())?;
+            .map_err(report_to_js)?;
         noise_injector
             .add_noise(settings.noise_channel_2.clone())
-            .map_err(|msg| msg.to_string())?;
+            .map_err(report_to_js)?;
 
         noise_injector.generate_by_channel_number(0, 0.0);
         noise_injector.blend_noise_into(&fluid.get_velocity_textures(), 2000.0);
@@ -159,4 +158,8 @@ impl Flux {
             self.drawer.draw_endpoints();
         });
     }
+}
+
+fn report_to_js(problem: render::Problem) -> String {
+    problem.to_string()
 }
