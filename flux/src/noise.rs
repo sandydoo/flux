@@ -21,9 +21,8 @@ pub struct NoiseUniforms {
     offset_1: f32,
     offset_2: f32,
     multiplier: f32,
-
     texel_size: [f32; 2],
-    pad1: f32,
+    blend_threshold: f32,
     pad2: f32,
 }
 
@@ -77,7 +76,7 @@ impl NoiseInjector {
                 offset_2: noise.offset_2,
                 multiplier: noise.multiplier,
                 texel_size: [1.0 / self.width as f32, 1.0 / self.height as f32],
-                pad1: 0.0,
+                blend_threshold: noise.blend_threshold,
                 pad2: 0.0,
             };
 
@@ -191,7 +190,7 @@ impl NoiseInjector {
             offset_2: noise.offset_2,
             multiplier: noise.multiplier,
             texel_size: [1.0 / self.width as f32, 1.0 / self.height as f32],
-            pad1: 0.0,
+            blend_threshold: noise.blend_threshold,
             pad2: 0.0,
         };
 

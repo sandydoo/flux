@@ -81,6 +81,7 @@ type alias Noise =
     , offsetIncrement : Float
     , delay : Float
     , blendDuration : Float
+    , blendThreshold: Float
     , blendMethod : BlendMethod
     }
 
@@ -119,6 +120,7 @@ defaultSettings =
         , offsetIncrement = 0.2
         , delay = 4.0
         , blendDuration = 4.0
+        , blendThreshold = 0.4
         , blendMethod = Curl
         }
     , noiseChannel2 =
@@ -129,6 +131,7 @@ defaultSettings =
         , offsetIncrement = 0.1
         , delay = 0.3
         , blendDuration = 0.3
+        , blendThreshold = 0.0
         , blendMethod = Wiggle
         }
     }
@@ -199,6 +202,7 @@ type NoiseMsg
     | SetNoiseOffsetIncrement Float
     | SetNoiseDelay Float
     | SetNoiseBlendDuration Float
+    | SetNoiseBlendThreshold Float
 
 
 updateSettings : SettingMsg -> Settings -> Settings
@@ -276,6 +280,9 @@ updateNoise msg noise =
 
         SetNoiseBlendDuration newBlendDuration ->
             { noise | blendDuration = newBlendDuration }
+
+        SetNoiseBlendThreshold newBlendThreshold ->
+            { noise | blendThreshold = newBlendThreshold }
 
 
 
@@ -839,6 +846,25 @@ viewNoiseChannel title setNoiseChannel noiseChannel =
                     , toString = formatFloat 1
                     }
                 )
+        , viewControl <|
+            Control
+                "Blend threshold"
+                ""
+                (Slider
+                    { min = 0.0
+                    , max = 0.6
+                    , step = 0.01
+                    , value = noiseChannel.blendThreshold
+                    , onInput =
+                        \value ->
+                            String.toFloat value
+                                |> Maybe.withDefault 0.0
+                                |> SetNoiseBlendThreshold
+                                |> setNoiseChannel
+                                |> SaveSetting
+                    , toString = formatFloat 2
+                    }
+                )
         ]
 
 
@@ -994,5 +1020,6 @@ encodeNoise noise =
         , ( "offsetIncrement", Encode.float noise.offsetIncrement )
         , ( "delay", Encode.float noise.delay )
         , ( "blendDuration", Encode.float noise.blendDuration )
+        , ( "blendThreshold", Encode.float noise.blendThreshold )
         , ( "blendMethod", encodeBlendMethod noise.blendMethod )
         ]

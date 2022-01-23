@@ -9,7 +9,7 @@ layout(std140) uniform NoiseUniforms {
   highp float uOffset2;
   highp float uMultiplier;
   highp vec2 uTexelSize;
-  lowp float pad1;
+  highp float uBlendThreshold;
   lowp float pad2;
 };
 
@@ -31,10 +31,13 @@ void main() {
   float R = texture(noiseTexture, vR).y;
   float T = texture(noiseTexture, vT).x;
   float B = texture(noiseTexture, vB).x;
-  // TODO play around with these values
   vec2 force = vec2(abs(T) - abs(B), abs(L) - abs(R));
   // vec2 force =  vec2(R - L, T - B); // magnetic flowers
   force /= length(force) + 0.0001;
+
+  if (length(force) < uBlendThreshold) {
+    force *= 0.0;
+  }
 
   vec2 inputValue = texture(inputTexture, textureCoord).xy;
   outputValue = inputValue + uBlendProgress * uMultiplier * force;
