@@ -7,7 +7,7 @@ layout(std140) uniform NoiseUniforms {
   highp float uOffset2;
   highp float uMultiplier;
   highp vec2 uTexelSize;
-  lowp float pad1;
+  highp float uBlendThreshold;
   lowp float pad2;
 };
 

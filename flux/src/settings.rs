@@ -54,6 +54,7 @@ pub struct Noise {
     pub offset_increment: f32,
     pub delay: f32,
     pub blend_duration: f32,
+    pub blend_threshold: f32,
     pub blend_method: BlendMethod,
 }
 
