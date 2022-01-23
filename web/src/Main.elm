@@ -107,24 +107,24 @@ defaultSettings =
     , diffusionIterations = 30
     , pressureIterations = 60
     , colorScheme = Plasma
-    , lineLength = 130.0
+    , lineLength = 150.0
     , lineWidth = 6.0
-    , lineBeginOffset = 0.3
-    , lineFadeOutLength = 0.038
-    , adjustAdvection = 14.0
-    , gridSpacing = 32
-    , springStiffness = 0.25
-    , springVariance = 0.12
-    , springMass = 2.0
+    , lineBeginOffset = 0.4
+    , lineFadeOutLength = 0.05
+    , springStiffness = 0.27
+    , springVariance = 0.18
+    , springMass = 3.5
     , springRestLength = 0.0
     , advectionDirection = Forward
+    , adjustAdvection = 16.0
+    , gridSpacing = 22
     , viewScale = 1.2
     , noiseChannel1 =
-        { scale = 1.0
-        , multiplier = 0.30
-        , offset1 = 10.0
-        , offset2 = 15.0
-        , offsetIncrement = 0.2
+        { scale = 1.3
+        , multiplier = 0.35
+        , offset1 = 5.0
+        , offset2 = 12.0
+        , offsetIncrement = 0.1
         , delay = 4.0
         , blendDuration = 4.0
         , blendThreshold = 0.4
@@ -132,7 +132,7 @@ defaultSettings =
         }
     , noiseChannel2 =
         { scale = 15.0
-        , multiplier = 0.09
+        , multiplier = 0.1
         , offset1 = 1.0
         , offset2 = 1.0
         , offsetIncrement = 0.1
@@ -600,13 +600,13 @@ viewSettings settings =
                 )
         , viewControl <|
             Control
-                "Adjust advection"
+                "Advection speed"
                 """
                 Adjust how quickly the lines respond to changes in the fluid.
                 """
                 (Slider
                     { min = 0.1
-                    , max = 20.0
+                    , max = 50.0
                     , step = 0.1
                     , value = settings.adjustAdvection
                     , onInput =
