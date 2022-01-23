@@ -59,12 +59,18 @@ type alias Settings =
     , springVariance : Float
     , springMass : Float
     , springRestLength : Float
+    , advectionDirection : AdvectionDirection
     , adjustAdvection : Float
     , gridSpacing : Int
     , viewScale : Float
     , noiseChannel1 : Noise
     , noiseChannel2 : Noise
     }
+
+
+type AdvectionDirection
+    = Forward
+    | Reverse
 
 
 type ColorScheme
@@ -81,7 +87,7 @@ type alias Noise =
     , offsetIncrement : Float
     , delay : Float
     , blendDuration : Float
-    , blendThreshold: Float
+    , blendThreshold : Float
     , blendMethod : BlendMethod
     }
 
@@ -101,23 +107,24 @@ defaultSettings =
     , diffusionIterations = 30
     , pressureIterations = 60
     , colorScheme = Plasma
-    , lineLength = 130.0
+    , lineLength = 150.0
     , lineWidth = 6.0
-    , lineBeginOffset = 0.3
-    , lineFadeOutLength = 0.038
-    , adjustAdvection = 14.0
-    , gridSpacing = 32
-    , springStiffness = 0.25
-    , springVariance = 0.12
-    , springMass = 2.0
+    , lineBeginOffset = 0.4
+    , lineFadeOutLength = 0.05
+    , springStiffness = 0.27
+    , springVariance = 0.18
+    , springMass = 3.5
     , springRestLength = 0.0
+    , advectionDirection = Forward
+    , adjustAdvection = 16.0
+    , gridSpacing = 22
     , viewScale = 1.2
     , noiseChannel1 =
-        { scale = 1.0
-        , multiplier = 0.30
-        , offset1 = 10.0
-        , offset2 = 15.0
-        , offsetIncrement = 0.2
+        { scale = 1.3
+        , multiplier = 0.35
+        , offset1 = 5.0
+        , offset2 = 12.0
+        , offsetIncrement = 0.1
         , delay = 4.0
         , blendDuration = 4.0
         , blendThreshold = 0.4
@@ -125,7 +132,7 @@ defaultSettings =
         }
     , noiseChannel2 =
         { scale = 15.0
-        , multiplier = 0.09
+        , multiplier = 0.1
         , offset1 = 1.0
         , offset2 = 1.0
         , offsetIncrement = 0.1
@@ -189,6 +196,7 @@ type SettingMsg
     | SetSpringVariance Float
     | SetSpringMass Float
     | SetSpringRestLength Float
+    | SetAdvectionDirection AdvectionDirection
     | SetAdjustAdvection Float
     | SetNoiseChannel1 NoiseMsg
     | SetNoiseChannel2 NoiseMsg
@@ -246,6 +254,9 @@ updateSettings msg settings =
 
         SetSpringRestLength newSpringRestLength ->
             { settings | springRestLength = newSpringRestLength }
+
+        SetAdvectionDirection newDirection ->
+            { settings | advectionDirection = newDirection }
 
         SetAdjustAdvection newAdjustAdvection ->
             { settings | adjustAdvection = newAdjustAdvection }
@@ -326,8 +337,8 @@ type Input number
 view : Model -> Html Msg
 view model =
     let
-        classNameWhen className bool =
-            if model.isOpen then
+        classNameWhen className condition =
+            if condition then
                 className
 
             else
@@ -388,7 +399,7 @@ viewSettings settings =
                 [ Html.text "← Back" ]
             , Html.h2 [ HA.id "control-title" ] [ Html.text "Controls" ]
             , Html.p
-                [ HA.id "control-description" ]
+                [ HA.class "control-description" ]
                 [ Html.text
                     """
                     Use this collection of knobs and dials to adjust the look and feel of the fluid simulation.
@@ -401,6 +412,23 @@ viewSettings settings =
             [ ( "Plasma", Plasma )
             , ( "Poolside", Poolside )
             , ( "Pollen", Pollen )
+            ]
+        , Html.div
+            [ HA.class "col-span-2-md" ]
+            [ Html.h2 [] [ Html.text "Advection" ]
+            , Html.p
+                [ HA.class "control-description" ]
+                [ Html.text
+                    """
+                    Advection is the transport of some substance by motion of a fluid, and that substance is the field of lines.
+                    In “forward” mode, the lines point in the direction of fluid movement and tend to curl outwards. And in “reverse”, the lines create whirlpools as they spiral inwards.
+                    """
+                ]
+            ]
+        , viewButtonGroup (SetAdvectionDirection >> SaveSetting)
+            settings.advectionDirection
+            [ ( "Forward", Forward )
+            , ( "Reverse", Reverse )
             ]
         , Html.h2
             [ HA.class "col-span-2-md" ]
@@ -468,7 +496,8 @@ viewSettings settings =
         , viewControl <|
             let
                 toAbsoluteLength : Float -> Float
-                toAbsoluteLength offset = settings.lineLength * offset
+                toAbsoluteLength offset =
+                    settings.lineLength * offset
             in
             Control
                 "Fog level"
@@ -571,13 +600,13 @@ viewSettings settings =
                 )
         , viewControl <|
             Control
-                "Adjust advection"
+                "Advection speed"
                 """
                 Adjust how quickly the lines respond to changes in the fluid.
                 """
                 (Slider
                     { min = 0.1
-                    , max = 20.0
+                    , max = 50.0
                     , step = 0.1
                     , value = settings.adjustAdvection
                     , onInput =
@@ -971,6 +1000,7 @@ encodeSettings settings =
         , ( "springVariance", Encode.float settings.springVariance )
         , ( "springMass", Encode.float settings.springMass )
         , ( "springRestLength", Encode.float settings.springRestLength )
+        , ( "advectionDirection", encodeAdvectionDirection settings.advectionDirection )
         , ( "adjustAdvection", Encode.float settings.adjustAdvection )
         , ( "gridSpacing", Encode.int settings.gridSpacing )
         , ( "viewScale", Encode.float settings.viewScale )
@@ -979,11 +1009,27 @@ encodeSettings settings =
         ]
 
 
+encodeAdvectionDirection : AdvectionDirection -> Encode.Value
+encodeAdvectionDirection =
+    advectionDirectionToInt >> Encode.int
+
+
+advectionDirectionToInt : AdvectionDirection -> Int
+advectionDirectionToInt direction =
+    case direction of
+        Forward ->
+            1
+
+        Reverse ->
+            -1
+
+
 encodeColorScheme : ColorScheme -> Encode.Value
 encodeColorScheme =
     colorSchemeToString >> Encode.string
 
 
+colorSchemeToString : ColorScheme -> String
 colorSchemeToString colorscheme =
     case colorscheme of
         Plasma ->
@@ -1001,6 +1047,7 @@ encodeBlendMethod =
     blendMethodToString >> Encode.string
 
 
+blendMethodToString : BlendMethod -> String
 blendMethodToString blendMethod =
     case blendMethod of
         Curl ->

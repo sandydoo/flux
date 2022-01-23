@@ -21,6 +21,7 @@ uniform float uSpringMass;
 uniform float uSpringRestLength;
 uniform float uLineFadeOutLength;
 uniform float uAdjustAdvection;
+uniform float uAdvectionDirection;
 uniform mediump vec4 uColorWheel[6];
 uniform mat4 uProjection;
 
@@ -64,8 +65,6 @@ float easeInOutQuad(float t) {
 }
 
 void main() {
-  float advectionDirection = -1.0;
-
   // Velocity
   vec2 basepointInClipSpace = (uProjection * vec4(basepoint, 0.0, 1.0)).xy;
   vec2 currentVelocityVector = texture(velocityTexture, basepointInClipSpace * 0.5 + 0.5).xy;
@@ -83,19 +82,19 @@ void main() {
   }
 
   // Main spring
-  vVelocityVector += advectionDirection * springForce(
+  vVelocityVector += uAdvectionDirection * springForce(
     uSpringStiffness,
     uSpringMass * variance,
     currentLength - uSpringRestLength
   ) * direction * deltaT;
 
   // Advect forward
-  vEndpointVector = iEndpointVector + uAdjustAdvection * advectionDirection * vVelocityVector * deltaT;
+  vEndpointVector = iEndpointVector + uAdjustAdvection * uAdvectionDirection * vVelocityVector * deltaT;
   currentLength = length(vEndpointVector);
 
   // Color
   float angle = mod(
-    PI * currentLength + (PI + atan(iEndpointVector.y, iEndpointVector.x)),
+    PI / 2.0 * currentLength + (PI + atan(iEndpointVector.y, iEndpointVector.x)),
     2.0 * PI
   );
   vColor = vec4(getColor(uColorWheel, angle), 0.0);
@@ -103,7 +102,7 @@ void main() {
   // vColor = mix(vColor, vec4(1.0), smoothstep(0.95, 1.05, currentLength));
 
   // Width
-  vec2 velocityDirection = normalize(advectionDirection * vVelocityVector);
+  vec2 velocityDirection = normalize(uAdvectionDirection * vVelocityVector);
   vec2 lineDirection = normalize(vEndpointVector);
   float directionAlignment = clamp(dot(lineDirection, velocityDirection), -1.0, 1.0);
 
