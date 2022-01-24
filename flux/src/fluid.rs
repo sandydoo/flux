@@ -294,10 +294,6 @@ impl Fluid {
 
         self.diffusion_pass.set_uniforms(&[
             &Uniform {
-                name: "uTexelSize",
-                value: UniformValue::Vec2(&self.texel_size),
-            },
-            &Uniform {
                 name: "alpha",
                 value: UniformValue::Float(center_factor),
             },
@@ -345,10 +341,6 @@ impl Fluid {
         self.pressure_textures.zero_out().unwrap();
 
         self.pressure_pass.set_uniforms(&[
-            &Uniform {
-                name: "uTexelSize",
-                value: UniformValue::Vec2(&self.texel_size),
-            },
             &Uniform {
                 name: "alpha",
                 value: UniformValue::Float(alpha),
