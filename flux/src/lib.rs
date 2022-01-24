@@ -123,11 +123,11 @@ impl Flux {
         self.elapsed_time += timestep;
         self.frame_time += timestep;
 
-        self.noise_injector.generate_all(self.elapsed_time);
-        self.noise_injector
-            .blend_noise_into(&self.fluid.get_velocity_textures(), self.elapsed_time);
-
         while self.frame_time >= self.fluid_frame_time {
+            self.noise_injector.generate_all(self.elapsed_time);
+            self.noise_injector
+                .blend_noise_into(&self.fluid.get_velocity_textures(), self.elapsed_time);
+
             self.fluid.prepare_pass(self.fluid_frame_time);
             self.fluid.advect();
             self.fluid.diffuse(self.fluid_frame_time); // <- Convection
@@ -148,8 +148,7 @@ impl Flux {
             self.context.clear(GL::COLOR_BUFFER_BIT);
 
             // Debugging
-            // self.drawer
-            //     .draw_texture(self.noise_injector.get_noise_channel(0).unwrap());
+            // self.drawer.draw_texture(self.noise_injector.get_noise_channel(0).unwrap());
             // self.drawer.draw_texture(self.noise_injector.get_noise_channel(1).unwrap());
             // self.drawer.draw_texture(&self.fluid.get_velocity());
             // self.drawer.draw_texture(&self.fluid.get_pressure());

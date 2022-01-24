@@ -239,11 +239,6 @@ impl NoiseInjector {
             self.generate_noise_pass.use_program();
             self.context.bind_vertex_array(Some(&self.noise_buffer.id));
 
-            self.generate_noise_pass.set_uniform(&Uniform {
-                name: "uResolution",
-                value: UniformValue::Vec2(&[self.width as f32, self.height as f32]),
-            });
-
             self.context
                 .bind_buffer_base(GL::UNIFORM_BUFFER, 3, Some(&channel.uniforms.id));
 

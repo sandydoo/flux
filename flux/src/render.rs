@@ -1,7 +1,5 @@
-use fnv::FnvHasher;
+use rustc_hash::FxHashMap;
 use std::cell::{Ref, RefCell};
-use std::collections::HashMap;
-use std::hash::BuildHasherDefault;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -382,9 +380,9 @@ impl DoubleFramebuffer {
 pub struct Program {
     context: Context,
     pub program: WebGlProgram,
-    attributes: HashMap<String, AttributeInfo, BuildHasherDefault<FnvHasher>>,
-    uniforms: HashMap<String, UniformInfo, BuildHasherDefault<FnvHasher>>,
-    uniform_blocks: HashMap<String, u32, BuildHasherDefault<FnvHasher>>,
+    attributes: FxHashMap<String, AttributeInfo>,
+    uniforms: FxHashMap<String, UniformInfo>,
+    uniform_blocks: FxHashMap<String, u32>,
 }
 
 impl Program {
@@ -441,7 +439,7 @@ impl Program {
         context.delete_shader(Some(&fragment_shader));
 
         // Get attribute locations
-        let mut attributes = HashMap::with_hasher(Default::default());
+        let mut attributes = FxHashMap::default();
         let attribute_count = context
             .get_program_parameter(&program, GL::ACTIVE_ATTRIBUTES)
             .as_f64()
@@ -460,7 +458,7 @@ impl Program {
         }
 
         // Get uniform locations
-        let mut uniforms = HashMap::with_hasher(Default::default());
+        let mut uniforms = FxHashMap::default();
         let uniform_count = context
             .get_program_parameter(&program, GL::ACTIVE_UNIFORMS)
             .as_f64()
@@ -480,7 +478,7 @@ impl Program {
             }
         }
 
-        let mut uniform_blocks = HashMap::with_hasher(Default::default());
+        let mut uniform_blocks = FxHashMap::default();
         let uniform_block_count = context
             .get_program_parameter(&program, GL::ACTIVE_UNIFORM_BLOCKS)
             .as_f64()
