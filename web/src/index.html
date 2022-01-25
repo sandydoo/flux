@@ -62,13 +62,12 @@
 
       .button-group {
         display: flex;
-        align-items: center;
-        justify-content: space-evenly;
+        flex-direction: column;
+        align-items: stretch;
       }
 
       .button-group .button {
-        margin-left: 0.5em;
-        margin-right: 0.5em;
+        margin: 0.5em 0;
       }
 
       .button {
@@ -320,6 +319,16 @@
       @media (min-width: 640px) {
         .col-span-2-md {
           grid-column: span 2;
+        }
+
+        .button-group {
+          flex-direction: row;
+          align-items: center;
+          justify-content: space-evenly;
+        }
+
+        .button-group .button {
+          margin: 0 0.5em;
         }
 
         .control-container {

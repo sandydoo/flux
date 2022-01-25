@@ -94,7 +94,7 @@ void main() {
 
   // Color
   float angle = mod(
-    PI / 2.0 * currentLength + (PI + atan(iEndpointVector.y, iEndpointVector.x)),
+    PI / 6.0 * currentLength + (PI + atan(iEndpointVector.y, iEndpointVector.x)),
     2.0 * PI
   );
   vColor = vec4(getColor(uColorWheel, angle), 0.0);
