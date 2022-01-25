@@ -75,6 +75,7 @@ type AdvectionDirection
 
 type ColorScheme
     = Plasma
+    | Peacock
     | Poolside
     | Pollen
 
@@ -106,7 +107,7 @@ defaultSettings =
     , fluidSimulationFrameRate = 20
     , diffusionIterations = 20
     , pressureIterations = 40
-    , colorScheme = Plasma
+    , colorScheme = Peacock
     , lineLength = 150.0
     , lineWidth = 6.0
     , lineBeginOffset = 0.4
@@ -410,6 +411,7 @@ viewSettings settings =
         , viewButtonGroup (SetColorScheme >> SaveSetting)
             settings.colorScheme
             [ ( "Plasma", Plasma )
+            , ( "Peacock", Peacock )
             , ( "Poolside", Poolside )
             , ( "Pollen", Pollen )
             ]
@@ -1034,6 +1036,9 @@ colorSchemeToString colorscheme =
     case colorscheme of
         Plasma ->
             "Plasma"
+
+        Peacock ->
+            "Peacock"
 
         Poolside ->
             "Poolside"
