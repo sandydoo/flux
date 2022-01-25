@@ -97,7 +97,9 @@ void main() {
     PI / 6.0 * currentLength + (PI + atan(iEndpointVector.y, iEndpointVector.x)),
     2.0 * PI
   );
-  vColor = vec4(getColor(uColorWheel, angle), 0.0);
+  vec4 newColor = vec4(getColor(uColorWheel, angle), 0.0);
+  vec4 colorDiff = newColor - iColor;
+  vColor = iColor + colorDiff * deltaT;
   // Debug spring extension
   // vColor = mix(vColor, vec4(1.0), smoothstep(0.95, 1.05, currentLength));
 
