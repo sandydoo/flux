@@ -5,12 +5,9 @@ use thiserror::Error;
 
 use js_sys::WebAssembly;
 use wasm_bindgen::{JsCast, JsValue};
-use web_sys::{
-    WebGl2RenderingContext as GL, WebGlBuffer, WebGlFramebuffer, WebGlProgram, WebGlRenderbuffer,
-    WebGlShader, WebGlTexture, WebGlUniformLocation, WebGlVertexArrayObject,
-};
 
-pub type Context = Rc<GL>;
+use glow::HasContext;
+pub type Context = Rc<glow::Context>;
 type GlDataType = u32;
 type Result<T> = std::result::Result<T, Problem>;
 
@@ -59,7 +56,7 @@ pub enum Problem {
 #[derive(Clone, Debug)]
 pub struct Buffer {
     context: Context,
-    pub id: WebGlBuffer,
+    pub id: glow::Buffer,
     pub size: usize,
     pub type_: u32,
 }
@@ -67,19 +64,25 @@ pub struct Buffer {
 #[allow(dead_code)]
 impl Buffer {
     pub fn from_f32(context: &Context, data: &[f32], buffer_type: u32, usage: u32) -> Result<Self> {
-        let memory_buffer = wasm_bindgen::memory()
-            .dyn_into::<WebAssembly::Memory>()
-            .unwrap() // fix
-            .buffer();
-        let arr_location = data.as_ptr() as u32 / 4;
-        let data_array = js_sys::Float32Array::new(&memory_buffer)
-            .subarray(arr_location, arr_location + data.len() as u32);
+        // let memory_buffer = wasm_bindgen::memory()
+        //     .dyn_into::<WebAssembly::Memory>()
+        //     .unwrap() // fix
+        //     .buffer();
+        // let arr_location = data.as_ptr() as u32 / 4;
+        // let data_array = js_sys::Float32Array::new(&memory_buffer)
+        //     .subarray(arr_location, arr_location + data.len() as u32);
 
-        let buffer = context.create_buffer().ok_or(Problem::CannotCreateBuffer)?;
+        let buffer = unsafe {
+            let buffer = context
+                .create_buffer()
+                .map_err(|_| Problem::CannotCreateBuffer)?;
 
-        context.bind_buffer(buffer_type, Some(&buffer));
-        context.buffer_data_with_array_buffer_view(buffer_type, &data_array, usage);
-        context.bind_buffer(buffer_type, None);
+            context.bind_buffer(buffer_type, Some(buffer));
+            context.buffer_data_u8_slice(buffer_type, &bytemuck::cast_slice(&data), usage);
+            context.bind_buffer(buffer_type, None);
+
+            buffer
+        };
 
         Ok(Self {
             context: Rc::clone(context),
@@ -90,19 +93,25 @@ impl Buffer {
     }
 
     pub fn from_u16(context: &Context, data: &[u16], buffer_type: u32, usage: u32) -> Result<Self> {
-        let memory_buffer = wasm_bindgen::memory()
-            .dyn_into::<WebAssembly::Memory>()
-            .unwrap() // fix
-            .buffer();
-        let data_location = data.as_ptr() as u32 / 2;
-        let data_array = js_sys::Uint16Array::new(&memory_buffer)
-            .subarray(data_location, data_location + data.len() as u32);
+        // let memory_buffer = wasm_bindgen::memory()
+        //     .dyn_into::<WebAssembly::Memory>()
+        //     .unwrap() // fix
+        //     .buffer();
+        // let data_location = data.as_ptr() as u32 / 2;
+        // let data_array = js_sys::Uint16Array::new(&memory_buffer)
+        //     .subarray(data_location, data_location + data.len() as u32);
 
-        let buffer = context.create_buffer().ok_or(Problem::CannotCreateBuffer)?;
+        let buffer = unsafe {
+            let buffer = context
+                .create_buffer()
+                .map_err(|_| Problem::CannotCreateBuffer)?;
 
-        context.bind_buffer(buffer_type, Some(&buffer));
-        context.buffer_data_with_array_buffer_view(buffer_type, &data_array, usage);
-        context.bind_buffer(buffer_type, None);
+            context.bind_buffer(buffer_type, Some(buffer));
+            context.buffer_data_u8_slice(buffer_type, &bytemuck::cast_slice(&data), usage);
+            context.bind_buffer(buffer_type, None);
+
+            buffer
+        };
 
         Ok(Self {
             context: Rc::clone(context),
@@ -118,19 +127,25 @@ impl Buffer {
         buffer_type: u32,
         usage: u32,
     ) -> Result<Self> {
-        let memory_buffer = wasm_bindgen::memory()
-            .dyn_into::<WebAssembly::Memory>()
-            .unwrap() // fix
-            .buffer();
-        let data_location = data.as_ptr() as u32 / 4;
-        let data_array = js_sys::Uint16Array::new(&memory_buffer)
-            .subarray(data_location, data_location + data.len() as u32);
+        // let memory_buffer = wasm_bindgen::memory()
+        //     .dyn_into::<WebAssembly::Memory>()
+        //     .unwrap() // fix
+        //     .buffer();
+        // let data_location = data.as_ptr() as u32 / 4;
+        // let data_array = js_sys::Uint16Array::new(&memory_buffer)
+        //     .subarray(data_location, data_location + data.len() as u32);
 
-        let buffer = context.create_buffer().ok_or(Problem::CannotCreateBuffer)?;
+        let buffer = unsafe {
+            let buffer = context
+                .create_buffer()
+                .map_err(|_| Problem::CannotCreateBuffer)?;
 
-        context.bind_buffer(buffer_type, Some(&buffer));
-        context.buffer_data_with_array_buffer_view(buffer_type, &data_array, usage);
-        context.bind_buffer(buffer_type, None);
+            context.bind_buffer(buffer_type, Some(buffer));
+            context.buffer_data_u8_slice(buffer_type, &bytemuck::cast_slice(&data), usage);
+            context.bind_buffer(buffer_type, None);
+
+            buffer
+        };
 
         Ok(Self {
             context: Rc::clone(context),
@@ -153,11 +168,11 @@ pub struct TextureOptions {
 impl Default for TextureOptions {
     fn default() -> Self {
         TextureOptions {
-            mag_filter: GL::NEAREST,
-            min_filter: GL::NEAREST,
-            wrap_s: GL::CLAMP_TO_EDGE,
-            wrap_t: GL::CLAMP_TO_EDGE,
-            format: GL::RGBA32F,
+            mag_filter: glow::NEAREST,
+            min_filter: glow::NEAREST,
+            wrap_s: glow::CLAMP_TO_EDGE,
+            wrap_t: glow::CLAMP_TO_EDGE,
+            format: glow::RGBA32F,
         }
     }
 }
@@ -165,10 +180,10 @@ impl Default for TextureOptions {
 #[derive(Clone)]
 pub struct Framebuffer {
     context: Context,
-    pub id: WebGlFramebuffer,
+    pub id: glow::Framebuffer,
     pub width: u32,
     pub height: u32,
-    pub texture: WebGlTexture,
+    pub texture: glow::Texture,
     pub options: TextureOptions,
 }
 
@@ -188,28 +203,40 @@ impl Framebuffer {
         height: u32,
         options: TextureOptions,
     ) -> Result<Self> {
-        let texture = context
-            .create_texture()
-            .ok_or(Problem::CannotCreateTexture)?;
+        let (framebuffer, texture) = unsafe {
+            let texture = context
+                .create_texture()
+                .map_err(|_| Problem::CannotCreateTexture)?;
 
-        context.bind_texture(GL::TEXTURE_2D, Some(&texture));
-        context.tex_parameteri(
-            GL::TEXTURE_2D,
-            GL::TEXTURE_MAG_FILTER,
-            options.mag_filter as i32,
-        );
-        context.tex_parameteri(
-            GL::TEXTURE_2D,
-            GL::TEXTURE_MIN_FILTER,
-            options.min_filter as i32,
-        );
-        context.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_S, options.wrap_s as i32);
-        context.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_T, options.wrap_t as i32);
-        context.bind_texture(GL::TEXTURE_2D, None);
+            context.bind_texture(glow::TEXTURE_2D, Some(texture));
+            context.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_MAG_FILTER,
+                options.mag_filter as i32,
+            );
+            context.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_MIN_FILTER,
+                options.min_filter as i32,
+            );
+            context.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_WRAP_S,
+                options.wrap_s as i32,
+            );
+            context.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_WRAP_T,
+                options.wrap_t as i32,
+            );
+            context.bind_texture(glow::TEXTURE_2D, None);
 
-        let framebuffer = context
-            .create_framebuffer()
-            .ok_or(Problem::CannotCreateFramebuffer)?;
+            let framebuffer = context
+                .create_framebuffer()
+                .map_err(|_| Problem::CannotCreateFramebuffer)?;
+
+            (framebuffer, texture)
+        };
 
         Ok(Self {
             context: Rc::clone(context),
@@ -221,7 +248,7 @@ impl Framebuffer {
         })
     }
 
-    pub fn with_f32_data(self, data: &Vec<f32>) -> Result<Self> {
+    pub fn with_f32_data(self, data: &[f32]) -> Result<Self> {
         let TextureFormat {
             internal_format,
             format,
@@ -237,12 +264,13 @@ impl Framebuffer {
             });
         }
 
-        self.context
-            .bind_texture(GL::TEXTURE_2D, Some(&self.texture));
         unsafe {
-            let array = js_sys::Float32Array::view(data);
-            self.context.tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_array_buffer_view(
-                GL::TEXTURE_2D,
+            self.context
+                .bind_texture(glow::TEXTURE_2D, Some(self.texture));
+
+            // let array = js_sys::Float32Array::view(data);
+            self.context.tex_image_2d(
+                glow::TEXTURE_2D,
                 0,
                 internal_format as i32,
                 self.width as i32,
@@ -250,21 +278,23 @@ impl Framebuffer {
                 0,
                 format,
                 type_,
-                Some(&array),
-            ).or(Err(Problem::CannotWriteToTexture))?;
-        }
-        self.context.bind_texture(GL::TEXTURE_2D, None);
+                Some(&bytemuck::cast_slice(&data)),
+            );
+            // .map_err(|Err(Problem::CannotWriteToTexture))?;
 
-        self.context
-            .bind_framebuffer(GL::FRAMEBUFFER, Some(&self.id));
-        self.context.framebuffer_texture_2d(
-            GL::FRAMEBUFFER,
-            GL::COLOR_ATTACHMENT0,
-            GL::TEXTURE_2D,
-            Some(&self.texture),
-            0,
-        );
-        self.context.bind_framebuffer(GL::FRAMEBUFFER, None);
+            self.context.bind_texture(glow::TEXTURE_2D, None);
+
+            self.context
+                .bind_framebuffer(glow::FRAMEBUFFER, Some(self.id));
+            self.context.framebuffer_texture_2d(
+                glow::FRAMEBUFFER,
+                glow::COLOR_ATTACHMENT0,
+                glow::TEXTURE_2D,
+                Some(self.texture),
+                0,
+            );
+            self.context.bind_framebuffer(glow::FRAMEBUFFER, None);
+        }
 
         Ok(self)
     }
@@ -274,16 +304,18 @@ impl Framebuffer {
     }
 
     pub fn clear_color_with(&self, color: [f32; 4]) -> Result<()> {
-        self.context
-            .bind_framebuffer(GL::FRAMEBUFFER, Some(&self.id));
+        unsafe {
+            self.context
+                .bind_framebuffer(glow::FRAMEBUFFER, Some(self.id));
 
-        self.context
-            .viewport(0, 0, self.width as i32, self.height as i32);
-        self.context
-            .clear_color(color[0], color[1], color[2], color[3]);
-        self.context.clear(GL::COLOR_BUFFER_BIT);
+            self.context
+                .viewport(0, 0, self.width as i32, self.height as i32);
+            self.context
+                .clear_color(color[0], color[1], color[2], color[3]);
+            self.context.clear(glow::COLOR_BUFFER_BIT);
 
-        self.context.bind_framebuffer(GL::FRAMEBUFFER, None);
+            self.context.bind_framebuffer(glow::FRAMEBUFFER, None);
+        }
 
         Ok(())
     }
@@ -292,10 +324,12 @@ impl Framebuffer {
     where
         T: Fn() -> (),
     {
-        context.bind_framebuffer(GL::DRAW_FRAMEBUFFER, Some(&self.id));
-        context.viewport(0, 0, self.width as i32, self.height as i32);
-        draw_call();
-        context.bind_framebuffer(GL::DRAW_FRAMEBUFFER, None);
+        unsafe {
+            context.bind_framebuffer(glow::DRAW_FRAMEBUFFER, Some(self.id));
+            context.viewport(0, 0, self.width as i32, self.height as i32);
+            draw_call();
+            context.bind_framebuffer(glow::DRAW_FRAMEBUFFER, None);
+        }
     }
 }
 
@@ -323,7 +357,7 @@ impl DoubleFramebuffer {
         })
     }
 
-    pub fn with_f32_data(self, data: &Vec<f32>) -> Result<Self> {
+    pub fn with_f32_data(self, data: &[f32]) -> Result<Self> {
         // TODO: are these clones okay? The problem is that the builder pattern
         // doesn’t work well with RefCell in the DoubleBuffer. Another option is
         // to build with references and call a `finalize` method at the end.
@@ -366,10 +400,12 @@ impl DoubleFramebuffer {
     {
         let framebuffer = self.next();
 
-        context.bind_framebuffer(GL::DRAW_FRAMEBUFFER, Some(&framebuffer.id));
-        context.viewport(0, 0, framebuffer.width as i32, framebuffer.height as i32);
-        draw_call(&self.current());
-        context.bind_framebuffer(GL::DRAW_FRAMEBUFFER, None);
+        unsafe {
+            context.bind_framebuffer(glow::DRAW_FRAMEBUFFER, Some(framebuffer.id));
+            context.viewport(0, 0, framebuffer.width as i32, framebuffer.height as i32);
+            draw_call(&self.current());
+            context.bind_framebuffer(glow::DRAW_FRAMEBUFFER, None);
+        }
 
         drop(framebuffer);
         self.swap();
@@ -379,10 +415,9 @@ impl DoubleFramebuffer {
 #[derive(Clone)]
 pub struct Program {
     context: Context,
-    pub program: WebGlProgram,
+    pub program: glow::Program,
     attributes: FxHashMap<String, AttributeInfo>,
     uniforms: FxHashMap<String, UniformInfo>,
-    uniform_blocks: FxHashMap<String, u32>,
 }
 
 impl Program {
@@ -403,91 +438,74 @@ impl Program {
         shaders: (&str, &str),
         transform_feedback: Option<&TransformFeedback>,
     ) -> Result<Self> {
-        let vertex_shader = compile_shader(&context, GL::VERTEX_SHADER, shaders.0)?;
-        let fragment_shader = compile_shader(&context, GL::FRAGMENT_SHADER, shaders.1)?;
+        let vertex_shader = compile_shader(&context, glow::VERTEX_SHADER, shaders.0)?;
+        let fragment_shader = compile_shader(&context, glow::FRAGMENT_SHADER, shaders.1)?;
 
-        let program = context
-            .create_program()
-            .ok_or(Problem::CannotCreateProgram)?;
-        context.attach_shader(&program, &vertex_shader);
-        context.attach_shader(&program, &fragment_shader);
+        let program = unsafe {
+            let program = context
+                .create_program()
+                .map_err(|_| Problem::CannotCreateProgram)?;
+            context.attach_shader(program, vertex_shader);
+            context.attach_shader(program, fragment_shader);
 
-        if let Some(TransformFeedback { names, mode }) = transform_feedback {
-            context.transform_feedback_varyings(
-                &program,
-                &JsValue::from_serde(names).unwrap(),
-                *mode,
-            );
-        }
+            if let Some(TransformFeedback { names, mode }) = transform_feedback {
+                context.transform_feedback_varyings(program, names, *mode);
+            }
 
-        context.link_program(&program);
+            context.link_program(program);
 
-        if !context
-            .get_program_parameter(&program, GL::LINK_STATUS)
-            .as_bool()
-            .unwrap_or(false)
-        {
-            return Err(Problem::CannotLinkProgram(
-                context.get_program_info_log(&program).unwrap().to_string(),
-            ));
-        }
+            if !context.get_program_link_status(program) {
+                return Err(Problem::CannotLinkProgram(
+                    context.get_program_info_log(program),
+                ));
+            }
 
-        // Delete the shaders to free up memory
-        context.detach_shader(&program, &vertex_shader);
-        context.detach_shader(&program, &fragment_shader);
-        context.delete_shader(Some(&vertex_shader));
-        context.delete_shader(Some(&fragment_shader));
+            // Delete the shaders to free up memory
+            context.detach_shader(program, vertex_shader);
+            context.detach_shader(program, fragment_shader);
+            context.delete_shader(vertex_shader);
+            context.delete_shader(fragment_shader);
+
+            program
+        };
 
         // Get attribute locations
         let mut attributes = FxHashMap::default();
-        let attribute_count = context
-            .get_program_parameter(&program, GL::ACTIVE_ATTRIBUTES)
-            .as_f64()
-            .unwrap() as u32;
-        for num in 0..attribute_count {
-            let info = context.get_active_attrib(&program, num).unwrap();
-            let location = context.get_attrib_location(&program, &info.name());
-            attributes.insert(
-                info.name(),
-                AttributeInfo {
-                    type_: info.type_(),
-                    size: info.size() as u32,
-                    location: location as u32,
-                },
-            );
-        }
-
-        // Get uniform locations
-        let mut uniforms = FxHashMap::default();
-        let uniform_count = context
-            .get_program_parameter(&program, GL::ACTIVE_UNIFORMS)
-            .as_f64()
-            .unwrap() as u32;
-        for num in 0..uniform_count {
-            if let Some(info) = context.get_active_uniform(&program, num) {
-                if let Some(location) = context.get_uniform_location(&program, &info.name()) {
-                    uniforms.insert(
-                        info.name(),
-                        UniformInfo {
-                            type_: info.type_(),
-                            size: info.size(),
-                            location,
-                        },
-                    );
+        unsafe {
+            let attribute_count = context.get_active_attributes(program);
+            for num in 0..attribute_count {
+                if let Some(info) = context.get_active_attribute(program, num) {
+                    if let Some(location) = context.get_attrib_location(program, &info.name) {
+                        attributes.insert(
+                            info.name,
+                            AttributeInfo {
+                                type_: info.atype,
+                                size: info.size as u32,
+                                location: location,
+                            },
+                        );
+                    }
                 }
             }
         }
 
-        let mut uniform_blocks = FxHashMap::default();
-        let uniform_block_count = context
-            .get_program_parameter(&program, GL::ACTIVE_UNIFORM_BLOCKS)
-            .as_f64()
-            .unwrap() as u32;
-        for index in 0..uniform_block_count {
-            if let Some(name) = context.get_active_uniform_block_name(&program, index) {
-                // The index we get is the same as the block index
-                // let block_index = context.get_uniform_block_index(&program, &name);
-                uniform_blocks.insert(name, index);
+        // Get uniform locations
+        let mut uniforms = FxHashMap::default();
+        unsafe {
+            let uniform_count = context.get_active_uniforms(program);
+            for num in 0..uniform_count {
+                if let Some(info) = context.get_active_uniform(program, num) {
+                    if let Some(location) = context.get_uniform_location(program, &info.name) {
+                        uniforms.insert(
+                            info.name,
+                            UniformInfo {
+                                type_: info.utype,
+                                size: info.size,
+                                location,
+                            },
+                        );
+                    }
+                }
             }
         }
 
@@ -496,12 +514,13 @@ impl Program {
             program,
             attributes,
             uniforms,
-            uniform_blocks,
         })
     }
 
     pub fn use_program(&self) -> () {
-        self.context.use_program(Some(&self.program));
+        unsafe {
+            self.context.use_program(Some(self.program));
+        }
     }
 
     pub fn set_uniforms(&self, uniforms: &[&Uniform]) {
@@ -514,68 +533,75 @@ impl Program {
         let context = &self.context;
         self.use_program();
 
-        match uniform.value {
-            UniformValue::UnsignedInt(value) => {
-                context.uniform1ui(self.get_uniform_location(&uniform.name).as_ref(), value)
-            }
+        unsafe {
+            match uniform.value {
+                UniformValue::UnsignedInt(value) => {
+                    context.uniform_1_u32(self.get_uniform_location(&uniform.name).as_ref(), value)
+                }
 
-            UniformValue::SignedInt(value) => {
-                context.uniform1i(self.get_uniform_location(&uniform.name).as_ref(), value)
-            }
+                UniformValue::SignedInt(value) => {
+                    context.uniform_1_i32(self.get_uniform_location(&uniform.name).as_ref(), value)
+                }
 
-            UniformValue::Float(value) => {
-                context.uniform1f(self.get_uniform_location(&uniform.name).as_ref(), value)
-            }
+                UniformValue::Float(value) => {
+                    context.uniform_1_f32(self.get_uniform_location(&uniform.name).as_ref(), value)
+                }
 
-            UniformValue::Vec2(value) => context.uniform2fv_with_f32_array(
-                self.get_uniform_location(&uniform.name).as_ref(),
-                value,
-            ),
+                UniformValue::Vec2(value) => context.uniform_2_f32(
+                    self.get_uniform_location(&uniform.name).as_ref(),
+                    value[0],
+                    value[1],
+                ),
 
-            UniformValue::Vec3(value) => context.uniform3fv_with_f32_array(
-                self.get_uniform_location(&uniform.name).as_ref(),
-                value,
-            ),
+                UniformValue::Vec3(value) => context.uniform_3_f32(
+                    self.get_uniform_location(&uniform.name).as_ref(),
+                    value[0],
+                    value[1],
+                    value[2],
+                ),
 
-            UniformValue::Vec3Array(ref value) => context.uniform3fv_with_f32_array(
-                self.get_uniform_location(&uniform.name).as_ref(),
-                &value,
-            ),
+                UniformValue::Vec3Array(ref value) => context
+                    .uniform_3_f32_slice(self.get_uniform_location(&uniform.name).as_ref(), &value),
 
-            UniformValue::Vec4Array(ref value) => context.uniform4fv_with_f32_array(
-                self.get_uniform_location(&uniform.name).as_ref(),
-                &value,
-            ),
+                UniformValue::Vec4Array(ref value) => context
+                    .uniform_4_f32_slice(self.get_uniform_location(&uniform.name).as_ref(), &value),
 
-            UniformValue::Mat4(ref value) => context.uniform_matrix4fv_with_f32_array(
-                self.get_uniform_location(&uniform.name).as_ref(),
-                false,
-                &value,
-            ),
+                UniformValue::Mat4(ref value) => context.uniform_matrix_4_f32_slice(
+                    self.get_uniform_location(&uniform.name).as_ref(),
+                    false,
+                    &value,
+                ),
 
-            UniformValue::Texture2D(id) => {
-                context.uniform1i(self.get_uniform_location(&uniform.name).as_ref(), id as i32);
+                UniformValue::Texture2D(id) => {
+                    context.uniform_1_i32(
+                        self.get_uniform_location(&uniform.name).as_ref(),
+                        id as i32,
+                    );
+                }
             }
         }
     }
 
     pub fn set_uniform_block(&self, name: &str, index: u32) -> () {
         if let Some(location) = self.get_uniform_block_location(name) {
-            self.context
-                .uniform_block_binding(&self.program, location, index);
+            unsafe {
+                self.context
+                    .uniform_block_binding(self.program, location, index);
+            }
         }
+        // TODO return an error here?
     }
 
     pub fn get_attrib_location(&self, name: &str) -> Option<u32> {
         self.attributes.get(name).map(|info| info.location)
     }
 
-    pub fn get_uniform_location(&self, name: &str) -> Option<WebGlUniformLocation> {
+    pub fn get_uniform_location(&self, name: &str) -> Option<glow::UniformLocation> {
         self.uniforms.get(name).map(|info| info.location.clone())
     }
 
     pub fn get_uniform_block_location(&self, name: &str) -> Option<u32> {
-        self.uniform_blocks.get(name).map(|&location| location)
+        unsafe { self.context.get_uniform_block_index(self.program, name) }
     }
 }
 
@@ -590,7 +616,7 @@ struct AttributeInfo {
 struct UniformInfo {
     type_: u32,
     size: i32,
-    location: WebGlUniformLocation,
+    location: glow::UniformLocation,
 }
 
 #[derive(Default)]
@@ -625,23 +651,21 @@ pub enum UniformValue<'a> {
     Texture2D(u32),
 }
 
-pub fn compile_shader(context: &GL, shader_type: u32, source: &str) -> Result<WebGlShader> {
-    let shader = context
-        .create_shader(shader_type)
-        .ok_or(Problem::CannotCreateShader(None))?;
-    context.shader_source(&shader, source);
-    context.compile_shader(&shader);
+pub fn compile_shader(context: &Context, shader_type: u32, source: &str) -> Result<glow::Shader> {
+    unsafe {
+        let shader = context
+            .create_shader(shader_type)
+            .map_err(|_| Problem::CannotCreateShader(None))?;
+        context.shader_source(shader, source);
+        context.compile_shader(shader);
 
-    if context
-        .get_shader_parameter(&shader, GL::COMPILE_STATUS)
-        .as_bool()
-        .unwrap_or(false)
-    {
-        Ok(shader)
-    } else {
-        Err(Problem::CannotCreateShader(Some(
-            context.get_shader_info_log(&shader).unwrap(),
-        )))
+        if context.get_shader_compile_status(shader) {
+            Ok(shader)
+        } else {
+            Err(Problem::CannotCreateShader(Some(
+                context.get_shader_info_log(shader),
+            )))
+        }
     }
 }
 
@@ -660,43 +684,43 @@ pub struct MsaaPass {
     width: u32,
     height: u32,
     samples: u32,
-    framebuffer: WebGlFramebuffer,
-    renderbuffer: WebGlRenderbuffer,
+    framebuffer: glow::Framebuffer,
+    renderbuffer: glow::Renderbuffer,
 }
 
 impl MsaaPass {
     pub fn new(context: &Context, width: u32, height: u32, requested_samples: u32) -> Result<Self> {
-        let framebuffer = context
-            .create_framebuffer()
-            .ok_or(Problem::CannotCreateFramebuffer)?;
-        let renderbuffer = context
-            .create_renderbuffer()
-            .ok_or(Problem::CannotCreateRenderbuffer)?;
-        context.bind_framebuffer(GL::FRAMEBUFFER, Some(&framebuffer));
-        context.bind_renderbuffer(GL::RENDERBUFFER, Some(&renderbuffer));
+        let (framebuffer, renderbuffer, samples) = unsafe {
+            let framebuffer = context
+                .create_framebuffer()
+                .map_err(|_| Problem::CannotCreateFramebuffer)?;
+            let renderbuffer = context
+                .create_renderbuffer()
+                .map_err(|_| Problem::CannotCreateRenderbuffer)?;
+            context.bind_framebuffer(glow::FRAMEBUFFER, Some(framebuffer));
+            context.bind_renderbuffer(glow::RENDERBUFFER, Some(renderbuffer));
 
-        let mut max_samples: u32 = 0;
-        if let Ok(raw_max_samples) = context.get_parameter(GL::MAX_SAMPLES) {
-            max_samples = raw_max_samples.as_f64().unwrap_or(0.0) as u32;
-        }
+            let max_samples = context.get_parameter_i32(glow::MAX_SAMPLES) as u32;
+            let samples = u32::min(requested_samples, max_samples);
 
-        let samples = requested_samples.min(max_samples);
+            context.renderbuffer_storage_multisample(
+                glow::RENDERBUFFER,
+                samples as i32,
+                glow::RGBA8,
+                width as i32,
+                height as i32,
+            );
+            context.framebuffer_renderbuffer(
+                glow::FRAMEBUFFER,
+                glow::COLOR_ATTACHMENT0,
+                glow::RENDERBUFFER,
+                Some(renderbuffer),
+            );
+            context.bind_framebuffer(glow::FRAMEBUFFER, None);
+            context.bind_renderbuffer(glow::RENDERBUFFER, None);
 
-        context.renderbuffer_storage_multisample(
-            GL::RENDERBUFFER,
-            samples as i32,
-            GL::RGBA8,
-            width as i32,
-            height as i32,
-        );
-        context.framebuffer_renderbuffer(
-            GL::FRAMEBUFFER,
-            GL::COLOR_ATTACHMENT0,
-            GL::RENDERBUFFER,
-            Some(&renderbuffer),
-        );
-        context.bind_framebuffer(GL::FRAMEBUFFER, None);
-        context.bind_renderbuffer(GL::RENDERBUFFER, None);
+            (framebuffer, renderbuffer, samples)
+        };
 
         Ok(MsaaPass {
             context: Rc::clone(context),
@@ -712,16 +736,18 @@ impl MsaaPass {
         self.width = width;
         self.height = height;
 
-        self.context
-            .bind_renderbuffer(GL::RENDERBUFFER, Some(&self.renderbuffer));
-        self.context.renderbuffer_storage_multisample(
-            GL::RENDERBUFFER,
-            self.samples as i32,
-            GL::RGBA8,
-            width as i32,
-            height as i32,
-        );
-        self.context.bind_renderbuffer(GL::RENDERBUFFER, None);
+        unsafe {
+            self.context
+                .bind_renderbuffer(glow::RENDERBUFFER, Some(self.renderbuffer));
+            self.context.renderbuffer_storage_multisample(
+                glow::RENDERBUFFER,
+                self.samples as i32,
+                glow::RGBA8,
+                width as i32,
+                height as i32,
+            );
+            self.context.bind_renderbuffer(glow::RENDERBUFFER, None);
+        }
     }
 
     pub fn draw_to<T>(&self, draw_call: T) -> ()
@@ -731,30 +757,32 @@ impl MsaaPass {
         let width = self.width as i32;
         let height = self.height as i32;
 
-        self.context
-            .bind_framebuffer(GL::DRAW_FRAMEBUFFER, Some(&self.framebuffer));
+        unsafe {
+            self.context
+                .bind_framebuffer(glow::DRAW_FRAMEBUFFER, Some(self.framebuffer));
 
-        // Draw stuff
-        draw_call();
+            // Draw stuff
+            draw_call();
 
-        self.context.bind_framebuffer(GL::DRAW_FRAMEBUFFER, None);
+            self.context.bind_framebuffer(glow::DRAW_FRAMEBUFFER, None);
 
-        self.context.disable(GL::BLEND);
-        self.context
-            .bind_framebuffer(GL::READ_FRAMEBUFFER, Some(&self.framebuffer));
-        self.context.blit_framebuffer(
-            0,
-            0,
-            width,
-            height,
-            0,
-            0,
-            width,
-            height,
-            GL::COLOR_BUFFER_BIT,
-            GL::LINEAR,
-        );
-        self.context.bind_framebuffer(GL::READ_FRAMEBUFFER, None);
+            self.context.disable(glow::BLEND);
+            self.context
+                .bind_framebuffer(glow::READ_FRAMEBUFFER, Some(self.framebuffer));
+            self.context.blit_framebuffer(
+                0,
+                0,
+                width,
+                height,
+                0,
+                0,
+                width,
+                height,
+                glow::COLOR_BUFFER_BIT,
+                glow::LINEAR,
+            );
+            self.context.bind_framebuffer(glow::READ_FRAMEBUFFER, None);
+        }
     }
 }
 
@@ -768,28 +796,28 @@ struct TextureFormat {
 // https://www.khronos.org/registry/webgl/specs/latest/2.0/#TEXTURE_TYPES_FORMATS_FROM_DOM_ELEMENTS_TABLE
 fn detect_texture_format(internal_format: GlDataType) -> Result<TextureFormat> {
     match internal_format {
-        GL::R32F => Ok(TextureFormat {
+        glow::R32F => Ok(TextureFormat {
             internal_format,
-            format: GL::RED,
-            type_: GL::FLOAT,
+            format: glow::RED,
+            type_: glow::FLOAT,
             size: 1,
         }),
-        GL::RG32F => Ok(TextureFormat {
+        glow::RG32F => Ok(TextureFormat {
             internal_format,
-            format: GL::RG,
-            type_: GL::FLOAT,
+            format: glow::RG,
+            type_: glow::FLOAT,
             size: 2,
         }),
-        GL::RGB32F => Ok(TextureFormat {
+        glow::RGB32F => Ok(TextureFormat {
             internal_format,
-            format: GL::RGB,
-            type_: GL::FLOAT,
+            format: glow::RGB,
+            type_: glow::FLOAT,
             size: 3,
         }),
-        GL::RGBA32F => Ok(TextureFormat {
+        glow::RGBA32F => Ok(TextureFormat {
             internal_format,
-            format: GL::RGBA,
-            type_: GL::FLOAT,
+            format: glow::RGBA,
+            type_: glow::FLOAT,
             size: 4,
         }),
         _ => Err(Problem::UnsupportedTextureFormat),
@@ -798,12 +826,17 @@ fn detect_texture_format(internal_format: GlDataType) -> Result<TextureFormat> {
 
 pub struct VertexArrayObject {
     context: Context,
-    pub id: WebGlVertexArrayObject,
+    pub id: glow::VertexArray,
 }
 
 impl VertexArrayObject {
     pub fn empty(context: &Context) -> Result<Self> {
-        let id = context.create_vertex_array().ok_or(Problem::OutOfMemory)?;
+        let id = unsafe {
+            context
+                .create_vertex_array()
+                .map_err(|_| Problem::OutOfMemory)?
+        };
+
         Ok(Self {
             id,
             context: Rc::clone(context),
@@ -817,15 +850,18 @@ impl VertexArrayObject {
         indices: Option<&Buffer>,
     ) -> Result<Self> {
         let vao = Self::empty(context)?;
-        context.bind_vertex_array(Some(&vao.id));
 
-        for (vertex, attribute) in vertices.iter() {
-            bind_attributes(&context, &program, vertex, attribute)?;
+        unsafe {
+            context.bind_vertex_array(Some(vao.id));
+
+            for (vertex, attribute) in vertices.iter() {
+                bind_attributes(&context, &program, vertex, attribute)?;
+            }
+
+            context.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, indices.map(|buffer| buffer.id));
+
+            context.bind_vertex_array(None);
         }
-
-        context.bind_buffer(GL::ELEMENT_ARRAY_BUFFER, indices.map(|buffer| &buffer.id));
-
-        context.bind_vertex_array(None);
 
         Ok(vao)
     }
@@ -836,18 +872,20 @@ impl VertexArrayObject {
         vertices: &[(&Buffer, VertexBufferLayout)],
         indices: Option<&Buffer>,
     ) -> Result<()> {
-        self.context.bind_vertex_array(Some(&self.id));
+        unsafe {
+            self.context.bind_vertex_array(Some(self.id));
 
-        for (vertex, attribute) in vertices.iter() {
-            bind_attributes(&self.context, &program, vertex, attribute)?;
+            for (vertex, attribute) in vertices.iter() {
+                bind_attributes(&self.context, &program, vertex, attribute)?;
+            }
+
+            if indices.is_some() {
+                self.context
+                    .bind_buffer(glow::ELEMENT_ARRAY_BUFFER, indices.map(|buffer| buffer.id));
+            }
+
+            self.context.bind_vertex_array(None);
         }
-
-        if indices.is_some() {
-            self.context
-                .bind_buffer(GL::ELEMENT_ARRAY_BUFFER, indices.map(|buffer| &buffer.id));
-        }
-
-        self.context.bind_vertex_array(None);
 
         Ok(())
     }
@@ -859,32 +897,35 @@ pub fn bind_attributes(
     buffer: &Buffer,
     buffer_layout: &VertexBufferLayout,
 ) -> Result<()> {
-    context.bind_buffer(GL::ARRAY_BUFFER, Some(&buffer.id));
+    unsafe {
+        context.bind_buffer(glow::ARRAY_BUFFER, Some(buffer.id));
 
-    if let Some(location) = program.get_attrib_location(&buffer_layout.name) {
-        context.enable_vertex_attrib_array(location);
+        if let Some(location) = program.get_attrib_location(&buffer_layout.name) {
+            context.enable_vertex_attrib_array(location);
 
-        match buffer_layout.type_ {
-            GL::FLOAT => context.vertex_attrib_pointer_with_i32(
-                location,
-                buffer_layout.size as i32,
-                buffer_layout.type_,
-                false,
-                buffer_layout.stride as i32,
-                buffer_layout.offset as i32,
-            ),
-            GL::UNSIGNED_SHORT | GL::UNSIGNED_INT | GL::INT => context
-                .vertex_attrib_i_pointer_with_i32(
+            match buffer_layout.type_ {
+                glow::FLOAT => context.vertex_attrib_pointer_f32(
                     location,
                     buffer_layout.size as i32,
                     buffer_layout.type_,
+                    false,
                     buffer_layout.stride as i32,
                     buffer_layout.offset as i32,
                 ),
-            _ => return Err(Problem::CannotBindUnsupportedVertexType),
-        };
+                glow::UNSIGNED_SHORT | glow::UNSIGNED_INT | glow::INT => context
+                    .vertex_attrib_pointer_i32(
+                        location,
+                        buffer_layout.size as i32,
+                        buffer_layout.type_,
+                        buffer_layout.stride as i32,
+                        buffer_layout.offset as i32,
+                    ),
+                _ => return Err(Problem::CannotBindUnsupportedVertexType),
+            };
 
-        context.vertex_attrib_divisor(location, buffer_layout.divisor);
+            context.vertex_attrib_divisor(location, buffer_layout.divisor);
+        }
     }
+
     Ok(())
 }

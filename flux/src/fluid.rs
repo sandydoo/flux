@@ -6,10 +6,9 @@ use render::{
 use settings::Settings;
 
 use bytemuck::{Pod, Zeroable};
+use glow::HasContext;
 use std::cell::Ref;
 use std::rc::Rc;
-
-use web_sys::WebGl2RenderingContext as GL;
 
 static FLUID_VERT_SHADER: &'static str = include_str!("./shaders/fluid.vert");
 static ADVECTION_FRAG_SHADER: &'static str = include_str!("./shaders/advection.frag");
@@ -66,9 +65,9 @@ impl Fluid {
             grid_width,
             grid_height,
             TextureOptions {
-                mag_filter: GL::LINEAR,
-                min_filter: GL::LINEAR,
-                format: GL::RG32F,
+                mag_filter: glow::LINEAR,
+                min_filter: glow::LINEAR,
+                format: glow::RG32F,
                 ..Default::default()
             },
         )?
@@ -79,9 +78,9 @@ impl Fluid {
             grid_width,
             grid_height,
             TextureOptions {
-                mag_filter: GL::LINEAR,
-                min_filter: GL::LINEAR,
-                format: GL::RG32F,
+                mag_filter: glow::LINEAR,
+                min_filter: glow::LINEAR,
+                format: glow::RG32F,
                 ..Default::default()
             },
         )?
@@ -92,9 +91,9 @@ impl Fluid {
             grid_width,
             grid_height,
             TextureOptions {
-                mag_filter: GL::LINEAR,
-                min_filter: GL::LINEAR,
-                format: GL::RG32F,
+                mag_filter: glow::LINEAR,
+                min_filter: glow::LINEAR,
+                format: glow::RG32F,
                 ..Default::default()
             },
         )?
@@ -104,14 +103,14 @@ impl Fluid {
         let plane_vertices = Buffer::from_f32(
             &context,
             &data::PLANE_VERTICES,
-            GL::ARRAY_BUFFER,
-            GL::STATIC_DRAW,
+            glow::ARRAY_BUFFER,
+            glow::STATIC_DRAW,
         )?;
         let plane_indices = Buffer::from_u16(
             &context,
             &data::PLANE_INDICES,
-            GL::ELEMENT_ARRAY_BUFFER,
-            GL::STATIC_DRAW,
+            glow::ELEMENT_ARRAY_BUFFER,
+            glow::STATIC_DRAW,
         )?;
 
         let advection_program =
@@ -137,8 +136,8 @@ impl Fluid {
         let uniform_buffer = Buffer::from_f32(
             &context,
             &bytemuck::cast_slice(&[uniforms]),
-            GL::ARRAY_BUFFER,
-            GL::STATIC_DRAW,
+            glow::ARRAY_BUFFER,
+            glow::STATIC_DRAW,
         )?;
 
         advection_program.set_uniform_block("FluidUniforms", 0);
@@ -201,7 +200,7 @@ impl Fluid {
                 render::VertexBufferLayout {
                     name: "position",
                     size: 3,
-                    type_: GL::FLOAT,
+                    type_: glow::FLOAT,
                     ..Default::default()
                 },
             )],
@@ -243,48 +242,52 @@ impl Fluid {
             pad2: 0.0,
         };
 
-        self.context
-            .bind_buffer(GL::UNIFORM_BUFFER, Some(&self.uniform_buffer.id));
-        self.context.buffer_sub_data_with_i32_and_u8_array(
-            GL::UNIFORM_BUFFER,
-            0,
-            &bytemuck::bytes_of(&uniforms),
-        );
-        self.context.bind_buffer(GL::UNIFORM_BUFFER, None);
+        unsafe {
+            self.context
+                .bind_buffer(glow::UNIFORM_BUFFER, Some(self.uniform_buffer.id));
+            self.context.buffer_sub_data_u8_slice(
+                glow::UNIFORM_BUFFER,
+                0,
+                &bytemuck::bytes_of(&uniforms),
+            );
+            self.context.bind_buffer(glow::UNIFORM_BUFFER, None);
+        }
     }
 
     // Setup vertex and uniform buffers.
     pub fn prepare_pass(&self, timestep: f32) {
-        // Update the timestep
-        self.context
-            .bind_buffer(GL::UNIFORM_BUFFER, Some(&self.uniform_buffer.id));
-        self.context.buffer_sub_data_with_i32_and_u8_array(
-            GL::UNIFORM_BUFFER,
-            0,
-            &bytemuck::bytes_of(&timestep),
-        );
-        self.context.bind_buffer(GL::UNIFORM_BUFFER, None);
+        unsafe {
+            // Update the timestep
+            self.context
+                .bind_buffer(glow::UNIFORM_BUFFER, Some(self.uniform_buffer.id));
+            self.context.buffer_sub_data_u8_slice(
+                glow::UNIFORM_BUFFER,
+                0,
+                &bytemuck::bytes_of(&timestep),
+            );
+            self.context.bind_buffer(glow::UNIFORM_BUFFER, None);
 
-        self.context.bind_vertex_array(Some(&self.vertex_buffer.id));
+            self.context.bind_vertex_array(Some(self.vertex_buffer.id));
 
-        self.context
-            .bind_buffer_base(GL::UNIFORM_BUFFER, 0, Some(&self.uniform_buffer.id));
+            self.context
+                .bind_buffer_base(glow::UNIFORM_BUFFER, 0, Some(self.uniform_buffer.id));
+        }
     }
 
     pub fn advect(&self) -> () {
         self.velocity_textures
-            .draw_to(&self.context, |velocity_texture| {
+            .draw_to(&self.context, |velocity_texture| unsafe {
                 self.advection_pass.use_program();
 
-                self.context.active_texture(GL::TEXTURE0);
+                self.context.active_texture(glow::TEXTURE0);
                 self.context
-                    .bind_texture(GL::TEXTURE_2D, Some(&velocity_texture.texture));
-                self.context.active_texture(GL::TEXTURE1);
+                    .bind_texture(glow::TEXTURE_2D, Some(velocity_texture.texture));
+                self.context.active_texture(glow::TEXTURE1);
                 self.context
-                    .bind_texture(GL::TEXTURE_2D, Some(&velocity_texture.texture));
+                    .bind_texture(glow::TEXTURE_2D, Some(velocity_texture.texture));
 
                 self.context
-                    .draw_elements_with_i32(GL::TRIANGLES, 6, GL::UNSIGNED_SHORT, 0);
+                    .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
             });
     }
 
@@ -305,32 +308,32 @@ impl Fluid {
 
         for _ in 0..self.settings.diffusion_iterations {
             self.velocity_textures
-                .draw_to(&self.context, |velocity_texture| {
-                    self.context.active_texture(GL::TEXTURE0);
+                .draw_to(&self.context, |velocity_texture| unsafe {
+                    self.context.active_texture(glow::TEXTURE0);
                     self.context
-                        .bind_texture(GL::TEXTURE_2D, Some(&velocity_texture.texture));
-                    self.context.active_texture(GL::TEXTURE1);
+                        .bind_texture(glow::TEXTURE_2D, Some(velocity_texture.texture));
+                    self.context.active_texture(glow::TEXTURE1);
                     self.context
-                        .bind_texture(GL::TEXTURE_2D, Some(&velocity_texture.texture));
+                        .bind_texture(glow::TEXTURE_2D, Some(velocity_texture.texture));
 
                     self.context
-                        .draw_elements_with_i32(GL::TRIANGLES, 6, GL::UNSIGNED_SHORT, 0);
+                        .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
                 });
         }
     }
 
     pub fn calculate_divergence(&self) -> () {
-        self.divergence_texture.draw_to(&self.context, || {
+        self.divergence_texture.draw_to(&self.context, || unsafe {
             self.divergence_pass.use_program();
 
-            self.context.active_texture(GL::TEXTURE0);
+            self.context.active_texture(glow::TEXTURE0);
             self.context.bind_texture(
-                GL::TEXTURE_2D,
-                Some(&self.velocity_textures.current().texture),
+                glow::TEXTURE_2D,
+                Some(self.velocity_textures.current().texture),
             );
 
             self.context
-                .draw_elements_with_i32(GL::TRIANGLES, 6, GL::UNSIGNED_SHORT, 0);
+                .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
         });
     }
 
@@ -351,19 +354,21 @@ impl Fluid {
             },
         ]);
 
-        self.context.active_texture(GL::TEXTURE0);
-        self.context
-            .bind_texture(GL::TEXTURE_2D, Some(&self.divergence_texture.texture));
+        unsafe {
+            self.context.active_texture(glow::TEXTURE0);
+            self.context
+                .bind_texture(glow::TEXTURE_2D, Some(self.divergence_texture.texture));
+        }
 
         for _ in 0..self.settings.pressure_iterations {
             self.pressure_textures
-                .draw_to(&self.context, |pressure_texture| {
-                    self.context.active_texture(GL::TEXTURE1);
+                .draw_to(&self.context, |pressure_texture| unsafe {
+                    self.context.active_texture(glow::TEXTURE1);
                     self.context
-                        .bind_texture(GL::TEXTURE_2D, Some(&pressure_texture.texture));
+                        .bind_texture(glow::TEXTURE_2D, Some(pressure_texture.texture));
 
                     self.context
-                        .draw_elements_with_i32(GL::TRIANGLES, 6, GL::UNSIGNED_SHORT, 0);
+                        .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
                 });
         }
     }
@@ -372,18 +377,18 @@ impl Fluid {
         self.subtract_gradient_pass.use_program();
 
         self.velocity_textures
-            .draw_to(&self.context, |velocity_texture| {
-                self.context.active_texture(GL::TEXTURE0);
+            .draw_to(&self.context, |velocity_texture| unsafe {
+                self.context.active_texture(glow::TEXTURE0);
                 self.context
-                    .bind_texture(GL::TEXTURE_2D, Some(&velocity_texture.texture));
-                self.context.active_texture(GL::TEXTURE1);
+                    .bind_texture(glow::TEXTURE_2D, Some(velocity_texture.texture));
+                self.context.active_texture(glow::TEXTURE1);
                 self.context.bind_texture(
-                    GL::TEXTURE_2D,
-                    Some(&self.pressure_textures.current().texture),
+                    glow::TEXTURE_2D,
+                    Some(self.pressure_textures.current().texture),
                 );
 
                 self.context
-                    .draw_elements_with_i32(GL::TRIANGLES, 6, GL::UNSIGNED_SHORT, 0);
+                    .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
             });
     }
 

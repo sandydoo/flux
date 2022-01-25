@@ -1,9 +1,14 @@
 use serde::Serialize;
-use wasm_bindgen::{JsCast, JsValue};
-use web_sys::WebGl2RenderingContext as GL;
+use wasm_bindgen::JsValue;
 use web_sys::Window;
 
-pub fn get_rendering_context(element_id: &str) -> Result<(Canvas, GL, u32, u32, f64), JsValue> {
+#[cfg(target_arch = "wasm32")]
+pub fn get_rendering_context(
+    element_id: &str,
+) -> Result<(Canvas, glow::Context, u32, u32, f64), JsValue> {
+    use wasm_bindgen::JsCast;
+    use web_sys::WebGl2RenderingContext as GL;
+
     set_panic_hook();
 
     let window = window();
@@ -52,7 +57,7 @@ pub fn get_rendering_context(element_id: &str) -> Result<(Canvas, GL, u32, u32, 
         gl.disable(GL::BLEND);
         gl.disable(GL::DEPTH_TEST);
 
-        gl
+        glow::Context::from_webgl2_context(gl)
     } else {
         return Err(JsValue::from_str(
             &"Can’t create the WebGl2 rendering context",

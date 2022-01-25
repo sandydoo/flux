@@ -8,6 +8,7 @@ mod web;
 
 use drawer::Drawer;
 use fluid::Fluid;
+use glow::HasContext;
 use noise::NoiseInjector;
 use settings::Settings;
 
@@ -77,7 +78,9 @@ impl Flux {
 
         noise_injector.generate_by_channel_number(0, 0.0);
         noise_injector.blend_noise_into(&fluid.get_velocity_textures(), 2000.0);
-        context.flush();
+        unsafe {
+            context.flush();
+        }
 
         Ok(Flux {
             fluid,
@@ -143,7 +146,7 @@ impl Flux {
         self.drawer
             .place_lines(timestep, &self.fluid.get_velocity());
 
-        self.drawer.with_antialiasing(|| {
+        self.drawer.with_antialiasing(|| unsafe {
             self.context.clear_color(0.0, 0.0, 0.0, 1.0);
             self.context.clear(GL::COLOR_BUFFER_BIT);
 

@@ -6,8 +6,8 @@ use render::{
 use settings::Noise;
 
 use bytemuck::{Pod, Zeroable};
+use glow::HasContext;
 use std::rc::Rc;
-use web_sys::WebGl2RenderingContext as GL;
 
 static NOISE_VERT_SHADER: &'static str = include_str!("./shaders/noise.vert");
 static SIMPLEX_NOISE_FRAG_SHADER: &'static str = include_str!("./shaders/simplex_noise.frag");
@@ -43,13 +43,15 @@ impl NoiseChannel {
         self.offset1 += self.noise.offset_increment;
         self.offset2 += self.noise.offset_increment;
 
-        context.bind_buffer(GL::UNIFORM_BUFFER, Some(&self.uniforms.id));
-        context.buffer_sub_data_with_i32_and_u8_array(
-            GL::UNIFORM_BUFFER,
-            1 * 4,
-            &bytemuck::bytes_of(&[self.offset1, self.offset2]),
-        );
-        context.bind_buffer(GL::UNIFORM_BUFFER, None);
+        unsafe {
+            context.bind_buffer(glow::UNIFORM_BUFFER, Some(self.uniforms.id));
+            context.buffer_sub_data_u8_slice(
+                glow::UNIFORM_BUFFER,
+                1 * 4,
+                &bytemuck::bytes_of(&[self.offset1, self.offset2]),
+            );
+            context.bind_buffer(glow::UNIFORM_BUFFER, None);
+        }
     }
 }
 
@@ -80,14 +82,16 @@ impl NoiseInjector {
                 pad2: 0.0,
             };
 
-            self.context
-                .bind_buffer(GL::UNIFORM_BUFFER, Some(&channel.uniforms.id));
-            self.context.buffer_sub_data_with_i32_and_u8_array(
-                GL::UNIFORM_BUFFER,
-                0,
-                &bytemuck::bytes_of(&uniforms),
-            );
-            self.context.bind_buffer(GL::UNIFORM_BUFFER, None);
+            unsafe {
+                self.context
+                    .bind_buffer(glow::UNIFORM_BUFFER, Some(channel.uniforms.id));
+                self.context.buffer_sub_data_u8_slice(
+                    glow::UNIFORM_BUFFER,
+                    0,
+                    &bytemuck::bytes_of(&uniforms),
+                );
+                self.context.bind_buffer(glow::UNIFORM_BUFFER, None);
+            }
         }
     }
 
@@ -96,14 +100,14 @@ impl NoiseInjector {
         let plane_vertices = Buffer::from_f32(
             &context,
             &data::PLANE_VERTICES,
-            GL::ARRAY_BUFFER,
-            GL::STATIC_DRAW,
+            glow::ARRAY_BUFFER,
+            glow::STATIC_DRAW,
         )?;
         let plane_indices = Buffer::from_u16(
             &context,
             &data::PLANE_INDICES,
-            GL::ELEMENT_ARRAY_BUFFER,
-            GL::STATIC_DRAW,
+            glow::ELEMENT_ARRAY_BUFFER,
+            glow::STATIC_DRAW,
         )?;
 
         let simplex_noise_program =
@@ -120,7 +124,7 @@ impl NoiseInjector {
                 VertexBufferLayout {
                     name: "position",
                     size: 3,
-                    type_: GL::FLOAT,
+                    type_: glow::FLOAT,
                     ..Default::default()
                 },
             )],
@@ -176,9 +180,9 @@ impl NoiseInjector {
             self.width,
             self.height,
             TextureOptions {
-                mag_filter: GL::LINEAR,
-                min_filter: GL::LINEAR,
-                format: GL::RG32F,
+                mag_filter: glow::LINEAR,
+                min_filter: glow::LINEAR,
+                format: glow::RG32F,
                 ..Default::default()
             },
         )?
@@ -197,8 +201,8 @@ impl NoiseInjector {
         let uniforms = Buffer::from_f32(
             &self.context,
             &bytemuck::cast_slice(&[uniforms]),
-            GL::ARRAY_BUFFER,
-            GL::STATIC_DRAW,
+            glow::ARRAY_BUFFER,
+            glow::STATIC_DRAW,
         )?;
 
         self.channels.push(NoiseChannel {
@@ -220,15 +224,21 @@ impl NoiseInjector {
 
             if time_since_last_update >= channel.noise.delay {
                 self.generate_noise_pass.use_program();
-                self.context.bind_vertex_array(Some(&self.noise_buffer.id));
 
-                self.context
-                    .bind_buffer_base(GL::UNIFORM_BUFFER, 3, Some(&channel.uniforms.id));
+                unsafe {
+                    self.context.bind_vertex_array(Some(self.noise_buffer.id));
 
-                channel.texture.draw_to(&self.context, || {
-                    self.context
-                        .draw_elements_with_i32(GL::TRIANGLES, 6, GL::UNSIGNED_SHORT, 0);
-                });
+                    self.context.bind_buffer_base(
+                        glow::UNIFORM_BUFFER,
+                        3,
+                        Some(channel.uniforms.id),
+                    );
+
+                    channel.texture.draw_to(&self.context, || {
+                        self.context
+                            .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
+                    });
+                }
 
                 channel.tick(&self.context, elapsed_time);
             }
@@ -237,15 +247,18 @@ impl NoiseInjector {
     pub fn generate_by_channel_number(&mut self, channel_number: usize, elapsed_time: f32) {
         if let Some(channel) = self.channels.get_mut(channel_number) {
             self.generate_noise_pass.use_program();
-            self.context.bind_vertex_array(Some(&self.noise_buffer.id));
 
-            self.context
-                .bind_buffer_base(GL::UNIFORM_BUFFER, 3, Some(&channel.uniforms.id));
+            unsafe {
+                self.context.bind_vertex_array(Some(self.noise_buffer.id));
 
-            channel.texture.draw_to(&self.context, || {
                 self.context
-                    .draw_elements_with_i32(GL::TRIANGLES, 6, GL::UNSIGNED_SHORT, 0);
-            });
+                    .bind_buffer_base(glow::UNIFORM_BUFFER, 3, Some(channel.uniforms.id));
+
+                channel.texture.draw_to(&self.context, || {
+                    self.context
+                        .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
+                });
+            }
 
             channel.tick(&self.context, elapsed_time);
         }
@@ -273,26 +286,32 @@ impl NoiseInjector {
 
             target_textures.draw_to(&self.context, |target_texture| {
                 blend_pass.use_program();
-                self.context.bind_vertex_array(Some(&self.noise_buffer.id));
 
-                self.context
-                    .bind_buffer_base(GL::UNIFORM_BUFFER, 3, Some(&channel.uniforms.id));
+                unsafe {
+                    self.context.bind_vertex_array(Some(self.noise_buffer.id));
 
-                blend_pass.set_uniform(&Uniform {
-                    name: "uBlendProgress",
-                    value: UniformValue::Float(delta_blend_progress),
-                });
+                    self.context.bind_buffer_base(
+                        glow::UNIFORM_BUFFER,
+                        3,
+                        Some(channel.uniforms.id),
+                    );
 
-                self.context.active_texture(GL::TEXTURE0);
-                self.context
-                    .bind_texture(GL::TEXTURE_2D, Some(&target_texture.texture));
+                    blend_pass.set_uniform(&Uniform {
+                        name: "uBlendProgress",
+                        value: UniformValue::Float(delta_blend_progress),
+                    });
 
-                self.context.active_texture(GL::TEXTURE1);
-                self.context
-                    .bind_texture(GL::TEXTURE_2D, Some(&channel.texture.texture));
+                    self.context.active_texture(glow::TEXTURE0);
+                    self.context
+                        .bind_texture(glow::TEXTURE_2D, Some(target_texture.texture));
 
-                self.context
-                    .draw_elements_with_i32(GL::TRIANGLES, 6, GL::UNSIGNED_SHORT, 0);
+                    self.context.active_texture(glow::TEXTURE1);
+                    self.context
+                        .bind_texture(glow::TEXTURE_2D, Some(channel.texture.texture));
+
+                    self.context
+                        .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
+                }
             });
 
             channel.last_blend_progress = blend_progress;

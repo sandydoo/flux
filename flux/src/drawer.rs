@@ -4,9 +4,9 @@ use render::{
 };
 use settings::Settings;
 
-use web_sys::{WebGl2RenderingContext as GL, WebGlTransformFeedback};
 extern crate nalgebra_glm as glm;
 use bytemuck::{Pod, Zeroable};
+use glow::HasContext;
 use std::f32::consts::PI;
 use std::rc::Rc;
 
@@ -79,7 +79,7 @@ pub struct Drawer {
 
     basepoint_buffer: Buffer,
     line_state_buffer: Buffer,
-    transform_feedback_buffer: WebGlTransformFeedback,
+    transform_feedback_buffer: glow::TransformFeedback,
     // A dedicated buffer to write out the data from the transform feedback pass
     line_state_feedback_buffer: Buffer,
 
@@ -113,42 +113,44 @@ impl Drawer {
         let line_state_buffer = Buffer::from_f32(
             &context,
             &bytemuck::cast_slice(&line_state),
-            GL::ARRAY_BUFFER,
-            GL::DYNAMIC_COPY,
+            glow::ARRAY_BUFFER,
+            glow::DYNAMIC_COPY,
         )?;
-        let transform_feedback_buffer = context
-            .create_transform_feedback()
-            .ok_or(render::Problem::OutOfMemory)?;
+        let transform_feedback_buffer = unsafe {
+            context
+                .create_transform_feedback()
+                .map_err(|_| render::Problem::OutOfMemory)?
+        };
 
         let line_vertices = Buffer::from_f32(
             &context,
             &bytemuck::cast_slice(&LINE_VERTICES),
-            GL::ARRAY_BUFFER,
-            GL::STATIC_DRAW,
+            glow::ARRAY_BUFFER,
+            glow::STATIC_DRAW,
         )?;
         let basepoint_buffer = Buffer::from_f32(
             &context,
             &new_basepoints(grid_width, grid_height, settings.grid_spacing),
-            GL::ARRAY_BUFFER,
-            GL::STATIC_DRAW,
+            glow::ARRAY_BUFFER,
+            glow::STATIC_DRAW,
         )?;
         let endpoint_vertices = Buffer::from_f32(
             &context,
             &new_endpoint(16),
-            GL::ARRAY_BUFFER,
-            GL::STATIC_DRAW,
+            glow::ARRAY_BUFFER,
+            glow::STATIC_DRAW,
         )?;
         let plane_vertices = Buffer::from_f32(
             &context,
             &data::PLANE_VERTICES,
-            GL::ARRAY_BUFFER,
-            GL::STATIC_DRAW,
+            glow::ARRAY_BUFFER,
+            glow::STATIC_DRAW,
         )?;
         let plane_indices = Buffer::from_u16(
             &context,
             &data::PLANE_INDICES,
-            GL::ELEMENT_ARRAY_BUFFER,
-            GL::STATIC_DRAW,
+            glow::ELEMENT_ARRAY_BUFFER,
+            glow::STATIC_DRAW,
         )?;
 
         // Programs
@@ -165,7 +167,7 @@ impl Drawer {
                     "vLineWidth",
                     "vOpacity",
                 ],
-                mode: GL::INTERLEAVED_ATTRIBS,
+                mode: glow::INTERLEAVED_ATTRIBS,
             },
         )?;
         let draw_lines_program =
@@ -186,7 +188,7 @@ impl Drawer {
                 VertexBufferLayout {
                     name: "lineVertex",
                     size: 2,
-                    type_: GL::FLOAT,
+                    type_: glow::FLOAT,
                     ..Default::default()
                 },
             )],
@@ -200,7 +202,7 @@ impl Drawer {
                 VertexBufferLayout {
                     name: "vertex",
                     size: 2,
-                    type_: GL::FLOAT,
+                    type_: glow::FLOAT,
                     ..Default::default()
                 },
             )],
@@ -223,16 +225,16 @@ impl Drawer {
         let view_buffer = Buffer::from_f32(
             &context,
             &bytemuck::cast_slice(&[projection]),
-            GL::ARRAY_BUFFER,
-            GL::STATIC_DRAW,
+            glow::ARRAY_BUFFER,
+            glow::STATIC_DRAW,
         )?;
 
         let uniforms = LineUniforms::new(&settings, 0.0);
         let line_uniforms = Buffer::from_f32(
             &context,
             &bytemuck::cast_slice(&[uniforms]),
-            GL::ARRAY_BUFFER,
-            GL::STATIC_DRAW,
+            glow::ARRAY_BUFFER,
+            glow::STATIC_DRAW,
         )?;
 
         // Workaround for iOS
@@ -298,7 +300,7 @@ impl Drawer {
                 VertexBufferLayout {
                     name: "position",
                     size: 3,
-                    type_: GL::FLOAT,
+                    type_: glow::FLOAT,
                     ..Default::default()
                 },
             )],
@@ -306,7 +308,7 @@ impl Drawer {
         )?;
         draw_texture_program.set_uniform_block("Projection", 0);
 
-        let antialiasing_samples = 2;
+        let antialiasing_samples = 0;
         let antialiasing_pass =
             render::MsaaPass::new(context, screen_width, screen_height, antialiasing_samples)?;
 
@@ -325,8 +327,8 @@ impl Drawer {
             line_state_feedback_buffer: Buffer::from_f32(
                 &context,
                 &bytemuck::cast_slice(&line_state),
-                GL::ARRAY_BUFFER,
-                GL::DYNAMIC_READ,
+                glow::ARRAY_BUFFER,
+                glow::DYNAMIC_READ,
             )?,
             transform_feedback_buffer,
 
@@ -351,17 +353,19 @@ impl Drawer {
     }
 
     pub fn update(&mut self, settings: &Rc<Settings>) -> () {
-        self.context
-            .bind_buffer(GL::UNIFORM_BUFFER, Some(&self.line_uniforms.id));
+        unsafe {
+            self.context
+                .bind_buffer(glow::UNIFORM_BUFFER, Some(self.line_uniforms.id));
 
-        let uniforms = LineUniforms::new(settings, 0.0);
-        self.context.buffer_sub_data_with_i32_and_u8_array(
-            GL::UNIFORM_BUFFER,
-            0,
-            &bytemuck::bytes_of(&uniforms),
-        );
+            let uniforms = LineUniforms::new(settings, 0.0);
+            self.context.buffer_sub_data_u8_slice(
+                glow::UNIFORM_BUFFER,
+                0,
+                &bytemuck::bytes_of(&uniforms),
+            );
 
-        self.context.bind_buffer(GL::UNIFORM_BUFFER, None);
+            self.context.bind_buffer(glow::UNIFORM_BUFFER, None);
+        }
 
         // Workaround for iOS
         let color_wheel = settings::color_wheel_from_scheme(&settings.color_scheme);
@@ -418,23 +422,23 @@ impl Drawer {
         self.basepoint_buffer = Buffer::from_f32(
             &self.context,
             &basepoints,
-            GL::ARRAY_BUFFER,
-            GL::STATIC_DRAW,
+            glow::ARRAY_BUFFER,
+            glow::STATIC_DRAW,
         )?;
 
         let line_state = new_line_state(grid_width, grid_height, grid_spacing);
         self.line_state_buffer = Buffer::from_f32(
             &self.context,
             &bytemuck::cast_slice(&line_state),
-            GL::ARRAY_BUFFER,
-            GL::STATIC_DRAW,
+            glow::ARRAY_BUFFER,
+            glow::STATIC_DRAW,
         )?;
 
         self.line_state_feedback_buffer = Buffer::from_f32(
             &self.context,
             &bytemuck::cast_slice(&line_state),
-            GL::ARRAY_BUFFER,
-            GL::DYNAMIC_READ,
+            glow::ARRAY_BUFFER,
+            glow::DYNAMIC_READ,
         )?;
 
         self.update_line_buffers()?;
@@ -451,7 +455,7 @@ impl Drawer {
                     VertexBufferLayout {
                         name: "basepoint",
                         size: 2,
-                        type_: GL::FLOAT,
+                        type_: glow::FLOAT,
                         ..Default::default()
                     },
                 ),
@@ -460,7 +464,7 @@ impl Drawer {
                     VertexBufferLayout {
                         name: "iEndpointVector",
                         size: 2,
-                        type_: GL::FLOAT,
+                        type_: glow::FLOAT,
                         stride: 10 * 4,
                         offset: 0 * 4,
                         divisor: 0,
@@ -471,7 +475,7 @@ impl Drawer {
                     VertexBufferLayout {
                         name: "iVelocityVector",
                         size: 2,
-                        type_: GL::FLOAT,
+                        type_: glow::FLOAT,
                         stride: 10 * 4,
                         offset: 2 * 4,
                         divisor: 0,
@@ -482,7 +486,7 @@ impl Drawer {
                     VertexBufferLayout {
                         name: "iColor",
                         size: 4,
-                        type_: GL::FLOAT,
+                        type_: glow::FLOAT,
                         stride: 10 * 4,
                         offset: 4 * 4,
                         divisor: 0,
@@ -493,7 +497,7 @@ impl Drawer {
                     VertexBufferLayout {
                         name: "iLineWidth",
                         size: 1,
-                        type_: GL::FLOAT,
+                        type_: glow::FLOAT,
                         stride: 10 * 4,
                         offset: 8 * 4,
                         divisor: 0,
@@ -504,7 +508,7 @@ impl Drawer {
                     VertexBufferLayout {
                         name: "iOpacity",
                         size: 1,
-                        type_: GL::FLOAT,
+                        type_: glow::FLOAT,
                         stride: 10 * 4,
                         offset: 9 * 4,
                         divisor: 0,
@@ -520,7 +524,7 @@ impl Drawer {
                 VertexBufferLayout {
                     name: "basepoint",
                     size: 2,
-                    type_: GL::FLOAT,
+                    type_: glow::FLOAT,
                     divisor: 1,
                     ..Default::default()
                 },
@@ -530,7 +534,7 @@ impl Drawer {
                 VertexBufferLayout {
                     name: "iEndpointVector",
                     size: 2,
-                    type_: GL::FLOAT,
+                    type_: glow::FLOAT,
                     stride: 10 * 4,
                     offset: 0 * 4,
                     divisor: 1,
@@ -541,7 +545,7 @@ impl Drawer {
                 VertexBufferLayout {
                     name: "iVelocityVector",
                     size: 2,
-                    type_: GL::FLOAT,
+                    type_: glow::FLOAT,
                     stride: 10 * 4,
                     offset: 2 * 4,
                     divisor: 1,
@@ -552,7 +556,7 @@ impl Drawer {
                 VertexBufferLayout {
                     name: "iColor",
                     size: 4,
-                    type_: GL::FLOAT,
+                    type_: glow::FLOAT,
                     stride: 10 * 4,
                     offset: 4 * 4,
                     divisor: 1,
@@ -563,7 +567,7 @@ impl Drawer {
                 VertexBufferLayout {
                     name: "iLineWidth",
                     size: 1,
-                    type_: GL::FLOAT,
+                    type_: glow::FLOAT,
                     stride: 10 * 4,
                     offset: 8 * 4,
                     divisor: 1,
@@ -574,7 +578,7 @@ impl Drawer {
                 VertexBufferLayout {
                     name: "iOpacity",
                     size: 1,
-                    type_: GL::FLOAT,
+                    type_: glow::FLOAT,
                     stride: 10 * 4,
                     offset: 9 * 4,
                     divisor: 1,
@@ -591,17 +595,17 @@ impl Drawer {
 
     fn update_projection(&self, projection: &glm::TMat4<f32>) {
         let projection: [f32; 16] = projection.as_slice().try_into().unwrap();
-        self.context
-            .bind_buffer(GL::UNIFORM_BUFFER, Some(&self.view_buffer.id));
-        self.context
-            .buffer_sub_data_with_i32_and_u8_array_and_src_offset_and_length(
-                GL::UNIFORM_BUFFER,
-                0 * 4,
-                &bytemuck::cast_slice(&projection),
+
+        unsafe {
+            self.context
+                .bind_buffer(glow::UNIFORM_BUFFER, Some(self.view_buffer.id));
+            self.context.buffer_sub_data_u8_slice(
+                glow::UNIFORM_BUFFER,
                 0,
-                16 * 4,
+                &bytemuck::cast_slice(&projection),
             );
-        self.context.bind_buffer(GL::UNIFORM_BUFFER, None);
+            self.context.bind_buffer(glow::UNIFORM_BUFFER, None);
+        }
 
         // Workaround for iOS
         self.place_lines_pass.set_uniform(&Uniform {
@@ -611,128 +615,136 @@ impl Drawer {
     }
 
     pub fn place_lines(&self, timestep: f32, texture: &Framebuffer) -> () {
-        self.context
-            .viewport(0, 0, self.screen_width as i32, self.screen_height as i32);
-        self.context.disable(GL::BLEND);
+        unsafe {
+            self.context
+                .viewport(0, 0, self.screen_width as i32, self.screen_height as i32);
+            self.context.disable(glow::BLEND);
 
-        self.place_lines_pass.use_program();
+            self.place_lines_pass.use_program();
 
-        self.context
-            .bind_vertex_array(Some(&self.place_lines_buffer.id));
+            self.context
+                .bind_vertex_array(Some(self.place_lines_buffer.id));
 
-        self.place_lines_pass.set_uniform(&Uniform {
-            name: "deltaT",
-            value: UniformValue::Float(timestep),
-        });
+            self.place_lines_pass.set_uniform(&Uniform {
+                name: "deltaT",
+                value: UniformValue::Float(timestep),
+            });
 
-        self.context.active_texture(GL::TEXTURE0);
-        self.context
-            .bind_texture(GL::TEXTURE_2D, Some(&texture.texture));
+            self.context.active_texture(glow::TEXTURE0);
+            self.context
+                .bind_texture(glow::TEXTURE_2D, Some(texture.texture));
 
-        self.context.bind_transform_feedback(
-            GL::TRANSFORM_FEEDBACK,
-            Some(&self.transform_feedback_buffer),
-        );
-        self.context.bind_buffer_base(
-            GL::TRANSFORM_FEEDBACK_BUFFER,
-            0,
-            Some(&self.line_state_feedback_buffer.id),
-        );
+            self.context.bind_transform_feedback(
+                glow::TRANSFORM_FEEDBACK,
+                Some(self.transform_feedback_buffer),
+            );
+            self.context.bind_buffer_base(
+                glow::TRANSFORM_FEEDBACK_BUFFER,
+                0,
+                Some(self.line_state_feedback_buffer.id),
+            );
 
-        self.context.enable(GL::RASTERIZER_DISCARD);
-        self.context.begin_transform_feedback(GL::POINTS);
+            self.context.enable(glow::RASTERIZER_DISCARD);
+            self.context.begin_transform_feedback(glow::POINTS);
 
-        self.context
-            .draw_arrays(GL::POINTS, 0, self.line_count as i32);
+            self.context
+                .draw_arrays(glow::POINTS, 0, self.line_count as i32);
 
-        self.context.end_transform_feedback();
-        self.context
-            .bind_buffer_base(GL::TRANSFORM_FEEDBACK_BUFFER, 0, None);
-        self.context
-            .bind_transform_feedback(GL::TRANSFORM_FEEDBACK, None);
-        self.context.disable(GL::RASTERIZER_DISCARD);
+            self.context.end_transform_feedback();
+            self.context
+                .bind_buffer_base(glow::TRANSFORM_FEEDBACK_BUFFER, 0, None);
+            self.context
+                .bind_transform_feedback(glow::TRANSFORM_FEEDBACK, None);
+            self.context.disable(glow::RASTERIZER_DISCARD);
 
-        self.context
-            .bind_buffer(GL::COPY_WRITE_BUFFER, Some(&self.line_state_buffer.id));
-        self.context.bind_buffer(
-            GL::COPY_READ_BUFFER,
-            Some(&self.line_state_feedback_buffer.id),
-        );
-        // Copy new line state
-        self.context.copy_buffer_sub_data_with_i32_and_i32_and_i32(
-            GL::COPY_READ_BUFFER,
-            GL::COPY_WRITE_BUFFER,
-            0,
-            0,
-            (std::mem::size_of::<LineState>() as i32) * (self.line_count as i32),
-        );
-        self.context.bind_buffer(GL::COPY_READ_BUFFER, None);
-        self.context.bind_buffer(GL::COPY_WRITE_BUFFER, None);
+            self.context
+                .bind_buffer(glow::COPY_WRITE_BUFFER, Some(self.line_state_buffer.id));
+            self.context.bind_buffer(
+                glow::COPY_READ_BUFFER,
+                Some(self.line_state_feedback_buffer.id),
+            );
+            // Copy new line state
+            self.context.copy_buffer_sub_data(
+                glow::COPY_READ_BUFFER,
+                glow::COPY_WRITE_BUFFER,
+                0,
+                0,
+                (std::mem::size_of::<LineState>() as i32) * (self.line_count as i32),
+            );
+            self.context.bind_buffer(glow::COPY_READ_BUFFER, None);
+            self.context.bind_buffer(glow::COPY_WRITE_BUFFER, None);
+        }
     }
 
     pub fn draw_lines(&self) -> () {
-        self.context
-            .viewport(0, 0, self.screen_width as i32, self.screen_height as i32);
+        unsafe {
+            self.context
+                .viewport(0, 0, self.screen_width as i32, self.screen_height as i32);
 
-        self.context.enable(GL::BLEND);
-        self.context.blend_func(GL::SRC_ALPHA, GL::ONE);
+            self.context.enable(glow::BLEND);
+            self.context.blend_func(glow::SRC_ALPHA, glow::ONE);
 
-        self.draw_lines_pass.use_program();
-        self.context
-            .bind_vertex_array(Some(&self.draw_lines_buffer.id));
+            self.draw_lines_pass.use_program();
+            self.context
+                .bind_vertex_array(Some(self.draw_lines_buffer.id));
 
-        self.context
-            .bind_buffer_base(GL::UNIFORM_BUFFER, 0, Some(&self.view_buffer.id));
-        self.context
-            .bind_buffer_base(GL::UNIFORM_BUFFER, 1, Some(&self.line_uniforms.id));
+            self.context
+                .bind_buffer_base(glow::UNIFORM_BUFFER, 0, Some(self.view_buffer.id));
+            self.context
+                .bind_buffer_base(glow::UNIFORM_BUFFER, 1, Some(self.line_uniforms.id));
 
-        self.context
-            .draw_arrays_instanced(GL::TRIANGLES, 0, 6, self.line_count as i32);
+            self.context
+                .draw_arrays_instanced(glow::TRIANGLES, 0, 6, self.line_count as i32);
 
-        self.context.disable(GL::BLEND);
+            self.context.disable(glow::BLEND);
+        }
     }
 
     pub fn draw_endpoints(&self) -> () {
-        self.context
-            .viewport(0, 0, self.screen_width as i32, self.screen_height as i32);
+        unsafe {
+            self.context
+                .viewport(0, 0, self.screen_width as i32, self.screen_height as i32);
 
-        self.context.enable(GL::BLEND);
-        self.context.blend_func(GL::SRC_ALPHA, GL::ONE);
+            self.context.enable(glow::BLEND);
+            self.context.blend_func(glow::SRC_ALPHA, glow::ONE);
 
-        self.draw_endpoints_pass.use_program();
-        self.context
-            .bind_vertex_array(Some(&self.draw_endpoints_buffer.id));
+            self.draw_endpoints_pass.use_program();
+            self.context
+                .bind_vertex_array(Some(self.draw_endpoints_buffer.id));
 
-        self.context
-            .bind_buffer_base(GL::UNIFORM_BUFFER, 0, Some(&self.view_buffer.id));
-        self.context
-            .bind_buffer_base(GL::UNIFORM_BUFFER, 1, Some(&self.line_uniforms.id));
+            self.context
+                .bind_buffer_base(glow::UNIFORM_BUFFER, 0, Some(self.view_buffer.id));
+            self.context
+                .bind_buffer_base(glow::UNIFORM_BUFFER, 1, Some(self.line_uniforms.id));
 
-        self.context
-            .draw_arrays_instanced(GL::TRIANGLE_FAN, 0, 18, self.line_count as i32);
+            self.context
+                .draw_arrays_instanced(glow::TRIANGLE_FAN, 0, 18, self.line_count as i32);
 
-        self.context.disable(GL::BLEND);
+            self.context.disable(glow::BLEND);
+        }
     }
 
     #[allow(dead_code)]
     pub fn draw_texture(&self, texture: &Framebuffer) -> () {
-        self.context
-            .viewport(0, 0, self.screen_width as i32, self.screen_height as i32);
+        unsafe {
+            self.context
+                .viewport(0, 0, self.screen_width as i32, self.screen_height as i32);
 
-        self.draw_texture_pass.use_program();
+            self.draw_texture_pass.use_program();
 
-        self.context
-            .bind_buffer_base(GL::UNIFORM_BUFFER, 0, Some(&self.view_buffer.id));
+            self.context
+                .bind_buffer_base(glow::UNIFORM_BUFFER, 0, Some(self.view_buffer.id));
 
-        self.context
-            .bind_vertex_array(Some(&self.draw_texture_buffer.id));
+            self.context
+                .bind_vertex_array(Some(self.draw_texture_buffer.id));
 
-        self.context.active_texture(GL::TEXTURE0);
-        self.context
-            .bind_texture(GL::TEXTURE_2D, Some(&texture.texture));
+            self.context.active_texture(glow::TEXTURE0);
+            self.context
+                .bind_texture(glow::TEXTURE_2D, Some(texture.texture));
 
-        self.context
-            .draw_elements_with_i32(GL::TRIANGLES, 6, GL::UNSIGNED_SHORT, 0);
+            self.context
+                .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
+        }
     }
 
     pub fn with_antialiasing<T>(&self, draw_call: T) -> ()
