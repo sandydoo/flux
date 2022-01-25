@@ -378,8 +378,8 @@ view model =
                     ]
                 , Html.li []
                     [ Html.a
-                        [ HA.href "https://github.com/sandydoo/flux/blob/main/LICENSE" ]
-                        [ Html.text "Licensed under MIT" ]
+                        [ HA.href "https://twitter.com/sandy_doo/" ]
+                        [ Html.text "Follow me on Twitter" ]
                     ]
                 ]
             ]
