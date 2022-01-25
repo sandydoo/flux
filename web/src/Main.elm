@@ -121,7 +121,7 @@ defaultSettings =
     , gridSpacing = 22
     , viewScale = 1.2
     , noiseChannel1 =
-        { scale = 1.3
+        { scale = 1.2
         , multiplier = 0.3
         , offset1 = 5.0
         , offset2 = 12.0
@@ -133,7 +133,7 @@ defaultSettings =
         }
     , noiseChannel2 =
         { scale = 15.0
-        , multiplier = 0.2
+        , multiplier = 0.15
         , offset1 = 1.0
         , offset2 = 1.0
         , offsetIncrement = 0.1
