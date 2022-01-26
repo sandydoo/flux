@@ -1,12 +1,9 @@
+use glow::HasContext;
 use rustc_hash::FxHashMap;
 use std::cell::{Ref, RefCell};
 use std::rc::Rc;
 use thiserror::Error;
 
-use js_sys::WebAssembly;
-use wasm_bindgen::{JsCast, JsValue};
-
-use glow::HasContext;
 pub type Context = Rc<glow::Context>;
 type GlDataType = u32;
 type Result<T> = std::result::Result<T, Problem>;

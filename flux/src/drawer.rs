@@ -10,14 +10,22 @@ use glow::HasContext;
 use std::f32::consts::PI;
 use std::rc::Rc;
 
-static LINE_VERT_SHADER: &'static str = include_str!("./shaders/line.vert");
-static LINE_FRAG_SHADER: &'static str = include_str!("./shaders/line.frag");
-static ENDPOINT_VERT_SHADER: &'static str = include_str!("./shaders/endpoint.vert");
-static ENDPOINT_FRAG_SHADER: &'static str = include_str!("./shaders/endpoint.frag");
-static TEXTURE_VERT_SHADER: &'static str = include_str!("./shaders/texture.vert");
-static TEXTURE_FRAG_SHADER: &'static str = include_str!("./shaders/texture.frag");
-static PLACE_LINES_VERT_SHADER: &'static str = include_str!("./shaders/place_lines.vert");
-static PLACE_LINES_FRAG_SHADER: &'static str = include_str!("./shaders/place_lines.frag");
+static LINE_VERT_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/line.vert"));
+static LINE_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/line.frag"));
+static ENDPOINT_VERT_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/endpoint.vert"));
+static ENDPOINT_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/endpoint.frag"));
+static TEXTURE_VERT_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/texture.vert"));
+static TEXTURE_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/texture.frag"));
+static PLACE_LINES_VERT_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/place_lines.vert"));
+static PLACE_LINES_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/place_lines.frag"));
 
 #[rustfmt::skip]
 const LINE_VERTICES: [f32; 12] = [

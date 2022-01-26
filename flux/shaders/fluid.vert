@@ -1,14 +1,13 @@
-#version 300 es
 precision highp float;
 
-layout(std140) uniform NoiseUniforms
+layout(std140) uniform FluidUniforms
 {
-  highp float uFrequency;
-  highp float uOffset1;
-  highp float uOffset2;
-  highp float uMultiplier;
+  highp float deltaT;
+  highp float epsilon;
+  highp float halfEpsilon;
+  highp float dissipation;
   highp vec2 uTexelSize;
-  highp float uBlendThreshold;
+  lowp float pad1;
   lowp float pad2;
 };
 

@@ -1,8 +1,68 @@
 use serde::Serialize;
+use std::rc::Rc;
+use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 use web_sys::Window;
 
-#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub struct Flux {
+    canvas: Canvas,
+    context: Rc<glow::Context>,
+    width: u32,
+    height: u32,
+    pixel_ratio: f64,
+    id: flux::Flux,
+}
+
+#[wasm_bindgen]
+impl Flux {
+    #[wasm_bindgen(setter)]
+    pub fn set_settings(&mut self, settings_object: &JsValue) {
+        let settings: flux::settings::Settings = settings_object.into_serde().unwrap();
+        self.id.update(&Rc::new(settings));
+    }
+
+    #[wasm_bindgen(constructor)]
+    pub fn new(settings_object: &JsValue) -> Result<Flux, JsValue> {
+        let (canvas, gl, width, height, pixel_ratio) = get_rendering_context("canvas")?;
+        let context = Rc::new(gl);
+
+        let settings: Rc<flux::settings::Settings> = match settings_object.into_serde() {
+            Ok(settings) => Rc::new(settings),
+            Err(msg) => return Err(JsValue::from_str(&msg.to_string())),
+        };
+
+        let flux = flux::Flux::new(&context, width, height, &settings)
+            .map_err(|_err| JsValue::from_str("failed"))?;
+
+        Ok(Self {
+            id: flux,
+            canvas,
+            width,
+            height,
+            pixel_ratio,
+            context,
+        })
+    }
+
+    pub fn animate(&mut self, timestamp: f32) {
+        self.id.animate(timestamp);
+    }
+
+    pub fn resize(&mut self, width: u32, height: u32) {
+        let new_width = (self.pixel_ratio * f64::from(width)) as u32;
+        let new_height = (self.pixel_ratio * f64::from(height)) as u32;
+
+        if (self.width != new_width) || (self.height != new_height) {
+            self.canvas.set_width(new_width);
+            self.canvas.set_height(new_height);
+            self.id.resize(new_width, new_height);
+            self.width = new_width;
+            self.height = new_height;
+        }
+    }
+}
+
 pub fn get_rendering_context(
     element_id: &str,
 ) -> Result<(Canvas, glow::Context, u32, u32, f64), JsValue> {
@@ -22,7 +82,7 @@ pub fn get_rendering_context(
     let html_canvas: web_sys::HtmlCanvasElement =
         html_canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
 
-    let pixel_ratio: f64 = window.device_pixel_ratio().min(1.5);
+    let pixel_ratio: f64 = window.device_pixel_ratio(); //.min(1.5);
     let client_width = html_canvas.client_width();
     let client_height = html_canvas.client_height();
     let width = (pixel_ratio * f64::from(client_width)) as u32;

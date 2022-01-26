@@ -9,10 +9,14 @@ use bytemuck::{Pod, Zeroable};
 use glow::HasContext;
 use std::rc::Rc;
 
-static NOISE_VERT_SHADER: &'static str = include_str!("./shaders/noise.vert");
-static SIMPLEX_NOISE_FRAG_SHADER: &'static str = include_str!("./shaders/simplex_noise.frag");
-static BLEND_WITH_CURL: &'static str = include_str!("./shaders/blend_with_curl.frag");
-static BLEND_WITH_WIGGLE: &'static str = include_str!("./shaders/blend_with_wiggle.frag");
+static NOISE_VERT_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/noise.vert"));
+static SIMPLEX_NOISE_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/simplex_noise.frag"));
+static BLEND_WITH_CURL: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/blend_with_curl.frag"));
+static BLEND_WITH_WIGGLE: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/blend_with_wiggle.frag"));
 
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]

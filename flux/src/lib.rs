@@ -3,8 +3,7 @@ mod drawer;
 mod fluid;
 mod noise;
 mod render;
-mod settings;
-mod web;
+pub mod settings;
 
 use drawer::Drawer;
 use fluid::Fluid;
@@ -13,10 +12,7 @@ use noise::NoiseInjector;
 use settings::Settings;
 
 use std::rc::Rc;
-use wasm_bindgen::prelude::*;
-use web_sys::WebGl2RenderingContext as GL;
 
-#[wasm_bindgen]
 pub struct Flux {
     fluid: Fluid,
     drawer: Drawer,
@@ -24,10 +20,6 @@ pub struct Flux {
     settings: Rc<Settings>,
 
     context: render::Context,
-    canvas: web::Canvas,
-    width: u32,
-    height: u32,
-    pixel_ratio: f64,
     elapsed_time: f32,
     last_timestamp: f32,
     frame_time: f32,
@@ -35,12 +27,9 @@ pub struct Flux {
     max_frame_time: f32,
 }
 
-#[wasm_bindgen]
 impl Flux {
-    #[wasm_bindgen(setter)]
-    pub fn set_settings(&mut self, settings_object: &JsValue) -> () {
-        let new_settings: Settings = settings_object.into_serde().unwrap();
-        self.settings = Rc::new(new_settings);
+    pub fn update(&mut self, settings: &Rc<Settings>) -> () {
+        self.settings = Rc::clone(settings);
 
         self.fluid.update(&self.settings);
         self.drawer.update(&self.settings);
@@ -50,31 +39,30 @@ impl Flux {
             .update_channel(1, &self.settings.noise_channel_2);
     }
 
-    #[wasm_bindgen(constructor)]
-    pub fn new(settings_object: &JsValue) -> Result<Flux, JsValue> {
-        let (canvas, context, width, height, pixel_ratio) = web::get_rendering_context("canvas")?;
-        let context = Rc::new(context);
-
-        let settings: Rc<Settings> = match settings_object.into_serde() {
-            Ok(settings) => Rc::new(settings),
-            Err(msg) => return Err(JsValue::from_str(&msg.to_string())),
-        };
+    pub fn new(
+        context: &render::Context,
+        width: u32,
+        height: u32,
+        settings: &Rc<Settings>,
+    ) -> Result<Flux, Problem> {
+        // let (canvas, context, width, height, pixel_ratio) = web::get_rendering_context("canvas")?;
 
         let fluid_frame_time = 1.0 / settings.fluid_simulation_frame_rate;
-        let fluid = Fluid::new(&context, &settings).map_err(report_to_js)?;
+        let fluid = Fluid::new(&context, &settings).map_err(Problem::CannotRender)?;
 
-        let drawer = Drawer::new(&context, width, height, &settings).map_err(report_to_js)?;
+        let drawer =
+            Drawer::new(&context, width, height, &settings).map_err(Problem::CannotRender)?;
 
         let mut noise_injector =
             NoiseInjector::new(&context, settings.fluid_width, settings.fluid_height)
-                .map_err(report_to_js)?;
+                .map_err(Problem::CannotRender)?;
 
         noise_injector
             .add_noise(settings.noise_channel_1.clone())
-            .map_err(report_to_js)?;
+            .map_err(Problem::CannotRender)?;
         noise_injector
             .add_noise(settings.noise_channel_2.clone())
-            .map_err(report_to_js)?;
+            .map_err(Problem::CannotRender)?;
 
         noise_injector.generate_by_channel_number(0, 0.0);
         noise_injector.blend_noise_into(&fluid.get_velocity_textures(), 2000.0);
@@ -86,13 +74,9 @@ impl Flux {
             fluid,
             drawer,
             noise_injector,
-            settings,
+            settings: Rc::clone(settings),
 
-            context,
-            canvas,
-            width,
-            height,
-            pixel_ratio,
+            context: Rc::clone(context),
             elapsed_time: 0.0,
             last_timestamp: 0.0,
             frame_time: 0.0,
@@ -101,21 +85,8 @@ impl Flux {
         })
     }
 
-    pub fn resize(&mut self, width: u32, height: u32) -> Result<(), JsValue> {
-        let new_width = (self.pixel_ratio * f64::from(width)) as u32;
-        let new_height = (self.pixel_ratio * f64::from(height)) as u32;
-
-        if (self.width != new_width) || (self.height != new_height) {
-            self.canvas.set_width(new_width);
-            self.canvas.set_height(new_height);
-            self.drawer
-                .resize(new_width, new_height)
-                .map_err(|err| err.to_string())?;
-            self.width = new_width;
-            self.height = new_height;
-        }
-
-        Ok(())
+    pub fn resize(&mut self, width: u32, height: u32) {
+        self.drawer.resize(width, height).unwrap(); // fix
     }
 
     pub fn animate(&mut self, timestamp: f32) {
@@ -148,7 +119,7 @@ impl Flux {
 
         self.drawer.with_antialiasing(|| unsafe {
             self.context.clear_color(0.0, 0.0, 0.0, 1.0);
-            self.context.clear(GL::COLOR_BUFFER_BIT);
+            self.context.clear(glow::COLOR_BUFFER_BIT);
 
             // Debugging
             // self.drawer.draw_texture(self.noise_injector.get_noise_channel(0).unwrap());
@@ -162,6 +133,8 @@ impl Flux {
     }
 }
 
-fn report_to_js(problem: render::Problem) -> String {
-    problem.to_string()
+#[derive(Debug)]
+pub enum Problem {
+    CannotReadSettings(String),
+    CannotRender(render::Problem),
 }

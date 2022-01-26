@@ -1,4 +1,3 @@
-#version 300 es
 precision mediump float;
 
 layout(std140) uniform NoiseUniforms {

@@ -1,5 +1,3 @@
-#version 300 es
-
 in vec3 position;
 out vec2 textureCoord;
 

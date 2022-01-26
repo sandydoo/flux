@@ -10,12 +10,16 @@ use glow::HasContext;
 use std::cell::Ref;
 use std::rc::Rc;
 
-static FLUID_VERT_SHADER: &'static str = include_str!("./shaders/fluid.vert");
-static ADVECTION_FRAG_SHADER: &'static str = include_str!("./shaders/advection.frag");
-static DIVERGENCE_FRAG_SHADER: &'static str = include_str!("./shaders/divergence.frag");
-static SOLVE_PRESSURE_FRAG_SHADER: &'static str = include_str!("./shaders/solve_pressure.frag");
+static FLUID_VERT_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/fluid.vert"));
+static ADVECTION_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/advection.frag"));
+static DIVERGENCE_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/divergence.frag"));
+static SOLVE_PRESSURE_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/solve_pressure.frag"));
 static SUBTRACT_GRADIENT_FRAG_SHADER: &'static str =
-    include_str!("./shaders/subtract_gradient.frag");
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/subtract_gradient.frag"));
 
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]

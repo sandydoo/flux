@@ -6,7 +6,8 @@
 /elm-stuff
 
 # Rust
-/flux-wasm
+/flux-wasm/dist
+/flux-wasm/target
 
 # Release
 /dist
