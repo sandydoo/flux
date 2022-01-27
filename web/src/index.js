@@ -1,4 +1,4 @@
-import  { Flux } from '../flux-wasm/dist';
+import  { Flux } from '../flux';
 import { Elm } from './Main.elm';
 
 
