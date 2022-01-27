@@ -64,10 +64,10 @@ struct LineUniforms {
 }
 
 impl LineUniforms {
-    fn new(settings: &Rc<Settings>, timestep: f32) -> Self {
+    fn new(settings: &Rc<Settings>, pixel_ratio: f64) -> Self {
         Self {
-            line_width: settings.line_width,
-            line_length: settings.line_length,
+            line_width: (f64::from(settings.line_width) * pixel_ratio) as f32,
+            line_length: (f64::from(settings.line_length) * pixel_ratio) as f32,
             line_begin_offset: settings.line_begin_offset,
             line_fade_out_length: settings.line_fade_out_length,
         }
@@ -77,8 +77,9 @@ impl LineUniforms {
 pub struct Drawer {
     context: Context,
 
-    screen_width: u32,
-    screen_height: u32,
+    physical_width: u32,
+    physical_height: u32,
+    pixel_ratio: f64,
 
     pub grid_width: u32,
     pub grid_height: u32,
@@ -109,15 +110,23 @@ pub struct Drawer {
 impl Drawer {
     pub fn new(
         context: &Context,
-        screen_width: u32,
-        screen_height: u32,
+        logical_width: u32,
+        logical_height: u32,
+        pixel_ratio: f64,
         settings: &Rc<Settings>,
     ) -> Result<Self, render::Problem> {
-        let (grid_width, grid_height) = (screen_width, screen_height);
+        let physical_width = (f64::from(logical_width) * pixel_ratio) as u32;
+        let physical_height = (f64::from(logical_height) * pixel_ratio) as u32;
 
-        let line_count =
-            (grid_width / settings.grid_spacing) * (grid_height / settings.grid_spacing);
-        let line_state = new_line_state(grid_width, grid_height, settings.grid_spacing);
+        let (grid_width, grid_height) = (logical_width, logical_height);
+
+        let mut grid_spacing = settings.grid_spacing;
+        if u32::min(logical_width, logical_height) < 800 {
+            grid_spacing /= 2;
+        }
+
+        let line_count = (grid_width / grid_spacing) * (grid_height / grid_spacing);
+        let line_state = new_line_state(grid_width, grid_height, grid_spacing);
         let line_state_buffer = Buffer::from_f32(
             &context,
             &bytemuck::cast_slice(&line_state),
@@ -138,7 +147,7 @@ impl Drawer {
         )?;
         let basepoint_buffer = Buffer::from_f32(
             &context,
-            &new_basepoints(grid_width, grid_height, settings.grid_spacing),
+            &new_basepoints(grid_width, grid_height, grid_spacing, pixel_ratio),
             glow::ARRAY_BUFFER,
             glow::STATIC_DRAW,
         )?;
@@ -219,7 +228,7 @@ impl Drawer {
 
         // Uniforms
 
-        let projection_matrix = new_projection_matrix(screen_width, screen_height);
+        let projection_matrix = new_projection_matrix(physical_width, physical_height);
 
         let view_matrix = glm::scale(
             &glm::identity(),
@@ -237,7 +246,7 @@ impl Drawer {
             glow::STATIC_DRAW,
         )?;
 
-        let uniforms = LineUniforms::new(&settings, 0.0);
+        let uniforms = LineUniforms::new(&settings, pixel_ratio);
         let line_uniforms = Buffer::from_f32(
             &context,
             &bytemuck::cast_slice(&[uniforms]),
@@ -317,17 +326,23 @@ impl Drawer {
         draw_texture_program.set_uniform_block("Projection", 0);
 
         let antialiasing_samples = 0;
-        let antialiasing_pass =
-            render::MsaaPass::new(context, screen_width, screen_height, antialiasing_samples)?;
+        let antialiasing_pass = render::MsaaPass::new(
+            context,
+            physical_width,
+            physical_height,
+            antialiasing_samples,
+        )?;
 
         let drawer = Self {
             context: Rc::clone(context),
 
-            screen_width,
-            screen_height,
+            physical_width,
+            physical_height,
+            pixel_ratio,
+
             grid_width,
             grid_height,
-            grid_spacing: settings.grid_spacing,
+            grid_spacing,
             line_count,
 
             basepoint_buffer,
@@ -365,7 +380,7 @@ impl Drawer {
             self.context
                 .bind_buffer(glow::UNIFORM_BUFFER, Some(self.line_uniforms.id));
 
-            let uniforms = LineUniforms::new(settings, 0.0);
+            let uniforms = LineUniforms::new(settings, self.pixel_ratio);
             self.context.buffer_sub_data_u8_slice(
                 glow::UNIFORM_BUFFER,
                 0,
@@ -413,20 +428,28 @@ impl Drawer {
         ]);
     }
 
-    pub fn resize(&mut self, screen_width: u32, screen_height: u32) -> Result<(), render::Problem> {
-        let (grid_width, grid_height) = (screen_width, screen_height);
+    pub fn resize(
+        &mut self,
+        logical_width: u32,
+        logical_height: u32,
+    ) -> Result<(), render::Problem> {
+        let (grid_width, grid_height) = (logical_width, logical_height);
         let grid_spacing = self.grid_spacing;
 
-        self.screen_width = screen_width;
-        self.screen_height = screen_height;
-        self.grid_width = screen_width;
-        self.grid_height = screen_height;
+        let physical_width = (f64::from(logical_width) * self.pixel_ratio) as u32;
+        let physical_height = (f64::from(logical_height) * self.pixel_ratio) as u32;
 
-        self.update_projection(&new_projection_matrix(screen_width, screen_height));
-        self.antialiasing_pass.resize(screen_width, screen_height);
+        self.physical_width = physical_width;
+        self.physical_height = physical_height;
+        self.grid_width = physical_width;
+        self.grid_height = physical_height;
+
+        self.update_projection(&new_projection_matrix(physical_width, physical_height));
+        self.antialiasing_pass
+            .resize(physical_width, physical_height);
 
         self.line_count = (grid_width / grid_spacing) * (grid_height / grid_spacing);
-        let basepoints = new_basepoints(grid_width, grid_height, grid_spacing);
+        let basepoints = new_basepoints(grid_width, grid_height, grid_spacing, self.pixel_ratio);
         self.basepoint_buffer = Buffer::from_f32(
             &self.context,
             &basepoints,
@@ -624,8 +647,12 @@ impl Drawer {
 
     pub fn place_lines(&self, timestep: f32, texture: &Framebuffer) -> () {
         unsafe {
-            self.context
-                .viewport(0, 0, self.screen_width as i32, self.screen_height as i32);
+            self.context.viewport(
+                0,
+                0,
+                self.physical_width as i32,
+                self.physical_height as i32,
+            );
             self.context.disable(glow::BLEND);
 
             self.place_lines_pass.use_program();
@@ -686,8 +713,12 @@ impl Drawer {
 
     pub fn draw_lines(&self) -> () {
         unsafe {
-            self.context
-                .viewport(0, 0, self.screen_width as i32, self.screen_height as i32);
+            self.context.viewport(
+                0,
+                0,
+                self.physical_width as i32,
+                self.physical_height as i32,
+            );
 
             self.context.enable(glow::BLEND);
             self.context.blend_func(glow::SRC_ALPHA, glow::ONE);
@@ -710,8 +741,12 @@ impl Drawer {
 
     pub fn draw_endpoints(&self) -> () {
         unsafe {
-            self.context
-                .viewport(0, 0, self.screen_width as i32, self.screen_height as i32);
+            self.context.viewport(
+                0,
+                0,
+                self.physical_width as i32,
+                self.physical_height as i32,
+            );
 
             self.context.enable(glow::BLEND);
             self.context.blend_func(glow::SRC_ALPHA, glow::ONE);
@@ -735,8 +770,12 @@ impl Drawer {
     #[allow(dead_code)]
     pub fn draw_texture(&self, texture: &Framebuffer) -> () {
         unsafe {
-            self.context
-                .viewport(0, 0, self.screen_width as i32, self.screen_height as i32);
+            self.context.viewport(
+                0,
+                0,
+                self.physical_width as i32,
+                self.physical_height as i32,
+            );
 
             self.draw_texture_pass.use_program();
 
@@ -778,9 +817,9 @@ fn new_projection_matrix(width: u32, height: u32) -> glm::TMat4<f32> {
 }
 
 // World space coordinates: zero-centered, width x height
-fn new_basepoints(width: u32, height: u32, grid_spacing: u32) -> Vec<f32> {
-    let half_width = (width as f32) / 2.0;
-    let half_height = (height as f32) / 2.0;
+fn new_basepoints(width: u32, height: u32, grid_spacing: u32, pixel_ratio: f64) -> Vec<f32> {
+    let half_width = (f64::from(width) * pixel_ratio / 2.0) as f32;
+    let half_height = (f64::from(height) * pixel_ratio / 2.0) as f32;
 
     let rows = height / grid_spacing;
     let cols = width / grid_spacing;
@@ -788,8 +827,8 @@ fn new_basepoints(width: u32, height: u32, grid_spacing: u32) -> Vec<f32> {
 
     for v in 0..rows {
         for u in 0..cols {
-            let x: f32 = (u * grid_spacing) as f32;
-            let y: f32 = (v * grid_spacing) as f32;
+            let x: f32 = (f64::from(u * grid_spacing) * pixel_ratio) as f32;
+            let y: f32 = (f64::from(v * grid_spacing) * pixel_ratio) as f32;
 
             data.push(x - half_width);
             data.push(y - half_height);

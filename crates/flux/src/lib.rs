@@ -41,17 +41,22 @@ impl Flux {
 
     pub fn new(
         context: &render::Context,
-        width: u32,
-        height: u32,
+        logical_width: u32,
+        logical_height: u32,
+        pixel_ratio: f64,
         settings: &Rc<Settings>,
     ) -> Result<Flux, Problem> {
-        // let (canvas, context, width, height, pixel_ratio) = web::get_rendering_context("canvas")?;
-
         let fluid_frame_time = 1.0 / settings.fluid_simulation_frame_rate;
         let fluid = Fluid::new(&context, &settings).map_err(Problem::CannotRender)?;
 
-        let drawer =
-            Drawer::new(&context, width, height, &settings).map_err(Problem::CannotRender)?;
+        let drawer = Drawer::new(
+            &context,
+            logical_width,
+            logical_height,
+            pixel_ratio,
+            &settings,
+        )
+        .map_err(Problem::CannotRender)?;
 
         let mut noise_injector =
             NoiseInjector::new(&context, settings.fluid_width, settings.fluid_height)
@@ -85,8 +90,8 @@ impl Flux {
         })
     }
 
-    pub fn resize(&mut self, width: u32, height: u32) {
-        self.drawer.resize(width, height).unwrap(); // fix
+    pub fn resize(&mut self, logical_width: u32, logical_height: u32) {
+        self.drawer.resize(logical_width, logical_height).unwrap(); // fix
     }
 
     pub fn animate(&mut self, timestamp: f32) {

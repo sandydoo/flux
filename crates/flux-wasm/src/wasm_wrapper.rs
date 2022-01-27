@@ -4,12 +4,19 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 use web_sys::Window;
 
+#[macro_export]
+macro_rules! log {
+    ( $( $t:tt )* ) => {
+        web_sys::console::log_1(&format!( $( $t )* ).into());
+    }
+}
+
 #[wasm_bindgen]
 pub struct Flux {
     canvas: Canvas,
     context: Rc<glow::Context>,
-    width: u32,
-    height: u32,
+    logical_width: u32,
+    logical_height: u32,
     pixel_ratio: f64,
     id: flux::Flux,
 }
@@ -24,22 +31,28 @@ impl Flux {
 
     #[wasm_bindgen(constructor)]
     pub fn new(settings_object: &JsValue) -> Result<Flux, JsValue> {
-        let (canvas, gl, width, height, pixel_ratio) = get_rendering_context("canvas")?;
+        let (canvas, gl, logical_width, logical_height, pixel_ratio) =
+            get_rendering_context("canvas")?;
         let context = Rc::new(gl);
-
         let settings: Rc<flux::settings::Settings> = match settings_object.into_serde() {
             Ok(settings) => Rc::new(settings),
             Err(msg) => return Err(JsValue::from_str(&msg.to_string())),
         };
 
-        let flux = flux::Flux::new(&context, width, height, &settings)
-            .map_err(|_err| JsValue::from_str("failed"))?;
+        let flux = flux::Flux::new(
+            &context,
+            logical_width,
+            logical_height,
+            pixel_ratio,
+            &settings,
+        )
+        .map_err(|_err| JsValue::from_str("failed"))?;
 
         Ok(Self {
             id: flux,
             canvas,
-            width,
-            height,
+            logical_width,
+            logical_height,
             pixel_ratio,
             context,
         })
@@ -49,16 +62,18 @@ impl Flux {
         self.id.animate(timestamp);
     }
 
-    pub fn resize(&mut self, width: u32, height: u32) {
-        let new_width = (self.pixel_ratio * f64::from(width)) as u32;
-        let new_height = (self.pixel_ratio * f64::from(height)) as u32;
+    pub fn resize(&mut self, logical_width: u32, logical_height: u32) {
+        if (self.logical_width != logical_width) || (self.logical_height != logical_height) {
+            let physical_width = (self.pixel_ratio * f64::from(logical_width)) as u32;
+            let physical_height = (self.pixel_ratio * f64::from(logical_height)) as u32;
 
-        if (self.width != new_width) || (self.height != new_height) {
-            self.canvas.set_width(new_width);
-            self.canvas.set_height(new_height);
-            self.id.resize(new_width, new_height);
-            self.width = new_width;
-            self.height = new_height;
+            self.canvas.set_width(physical_width);
+            self.canvas.set_height(physical_height);
+
+            self.id.resize(logical_width, logical_height);
+
+            self.logical_width = logical_width;
+            self.logical_height = logical_height;
         }
     }
 }
@@ -82,13 +97,13 @@ pub fn get_rendering_context(
     let html_canvas: web_sys::HtmlCanvasElement =
         html_canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
 
-    let pixel_ratio: f64 = window.device_pixel_ratio(); //.min(1.5);
-    let client_width = html_canvas.client_width();
-    let client_height = html_canvas.client_height();
-    let width = (pixel_ratio * f64::from(client_width)) as u32;
-    let height = (pixel_ratio * f64::from(client_height)) as u32;
-    html_canvas.set_width(width);
-    html_canvas.set_height(height);
+    let pixel_ratio: f64 = window.device_pixel_ratio();
+    let logical_width = html_canvas.client_width() as u32;
+    let logical_height = html_canvas.client_height() as u32;
+    let physical_width = (pixel_ratio * f64::from(logical_width)) as u32;
+    let physical_height = (pixel_ratio * f64::from(logical_height)) as u32;
+    html_canvas.set_width(physical_width);
+    html_canvas.set_height(physical_height);
 
     let canvas = Canvas::new(html_canvas.clone());
 
@@ -124,7 +139,7 @@ pub fn get_rendering_context(
         ));
     };
 
-    Ok((canvas, gl, width, height, pixel_ratio))
+    Ok((canvas, gl, logical_width, logical_height, pixel_ratio))
 }
 
 #[derive(Serialize, Debug)]
@@ -202,11 +217,4 @@ pub fn window() -> Window {
 pub fn set_panic_hook() {
     #[cfg(feature = "console_error_panic_hook")]
     console_error_panic_hook::set_once();
-}
-
-#[macro_export]
-macro_rules! log {
-    ( $( $t:tt )* ) => {
-        web_sys::console::log_1(&format!( $( $t )* ).into());
-    }
 }
