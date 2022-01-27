@@ -16,10 +16,49 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-      in
-      rec {
-        packages.flux-wasm = import ./flux/default.nix {
-          inherit pkgs system fenix naersk;
+
+        toolchain = with fenix.packages.${system};
+          combine [
+            latest.rustc
+            latest.cargo
+            targets.wasm32-unknown-unknown.latest.rust-std
+          ];
+
+        naersk-lib = naersk.lib.${system}.override {
+          rustc = toolchain;
+          cargo = toolchain;
+        };
+      in rec {
+        packages.flux = naersk-lib.buildPackage {
+          src = ./.;
+          release = true;
+          cargoBuildOptions = args: args ++ [ "-p flux" ];
+        };
+
+        packages.flux-wasm = naersk-lib.buildPackage {
+          src = ./.;
+          copyBins = false;
+          copyLibs = true;
+          release = true;
+          cargoBuildOptions = args:
+            args ++ [ "-p flux-wasm" "--target wasm32-unknown-unknown" ];
+        };
+
+        packages.flux-desktop = naersk-lib.buildPackage {
+          src = ./.;
+          release = true;
+          cargoBuildOptions = args: args ++ [ "-p flux-desktop" ];
+          buildInputs = pkgs.lib.optionals pkgs.stdenv.isDarwin
+            (with pkgs.darwin.apple_sdk.frameworks; [
+              OpenGL
+              AppKit
+              ApplicationServices
+              CoreFoundation
+              CoreGraphics
+              CoreVideo
+              Foundation
+              QuartzCore
+            ]);
         };
 
         packages.flux-web = import ./web/default.nix {
@@ -27,15 +66,14 @@
           flux-wasm = packages.flux-wasm;
         };
 
-        defaultPackage = packages.flux-web;
+        defaultPackage = packages.flux-desktop;
 
         devShell = pkgs.mkShell {
-          packages = [
-            pkgs.wasm-pack
-          ];
+          packages = [ pkgs.wasm-pack ];
 
           inputsFrom = [
-            packages.flux-wasm
+            packages.flux
+            packages.flux-desktop
             packages.flux-web
           ];
         };

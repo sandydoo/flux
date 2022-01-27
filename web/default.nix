@@ -16,13 +16,13 @@ let
   packageJson = ''
     {
       "files": [
-        "flux_bg.wasm",
-        "flux.js",
-        "flux_bg.js",
-        "flux.d.ts"
+        "flux_wasm_bg.wasm",
+        "flux_wasm.js",
+        "flux_wasm_bg.js",
+        "flux_wasm.d.ts"
       ],
-      "module": "flux.js",
-      "types": "flux.d.ts",
+      "module": "flux_wasm.js",
+      "types": "flux_wasm.d.ts",
       "sideEffects": false
     }
   '';
@@ -60,9 +60,9 @@ pkgs.stdenv.mkDerivation rec {
   installPhase = ''
     mkdir -p $out
 
-    mkdir -p ./flux-wasm
-    wasm-bindgen --target bundler --out-dir ./flux-wasm ${flux-wasm}/lib/flux.wasm
-    echo '${packageJson}' > ./flux-wasm/package.json
+    mkdir -p ./flux
+    wasm-bindgen --target bundler --out-dir ./flux ${flux-wasm}/lib/flux_wasm.wasm
+    echo '${packageJson}' > ./flux/package.json
 
     webpack --mode production --output-path=$out --env skip-wasm-pack
   '';

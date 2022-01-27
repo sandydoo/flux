@@ -1,0 +1,17 @@
+[package]
+name = "flux"
+version = "0.1.0"
+description = "An ode to the macOS Drift screensaver"
+authors = ["Sander Melnikov <hey@sandydoo.me"]
+repository = "https://github.com/sandydoo/flux/"
+license = "MIT"
+publish = false
+edition = "2021"
+
+[dependencies]
+bytemuck = { version = "1.4", features = ["derive"] }
+glow = "0.11.2"
+nalgebra-glm = "0.15"
+rustc-hash = "1.1.0"
+serde = { version = "1", features = ["derive"] }
+thiserror = "1"

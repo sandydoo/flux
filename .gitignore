@@ -1,5 +1,7 @@
 /drafts
 
+# Rust
+/target
+
 # Release
 /result
-

@@ -1,0 +1,10 @@
+[workspace]
+
+members = [
+    "crates/flux",
+    "crates/flux-desktop",
+    "crates/flux-wasm"
+]
+
+[profile.release]
+lto = true

@@ -1,0 +1,45 @@
+[package]
+name = "flux-wasm"
+version = "0.1.0"
+description = "An ode to the macOS Drift screensaver that runs in the browser"
+authors = ["Sander Melnikov <hey@sandydoo.me"]
+repository = "https://github.com/sandydoo/flux/"
+license = "MIT"
+publish = false
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[features]
+default = ["console_error_panic_hook"]
+
+[dependencies]
+console_error_panic_hook = { version = "0.1.1", optional = true }
+flux = { path = "../flux", version = "0.1" }
+glow = "0.11.2"
+js-sys = "0.3.55"
+serde = { version = "1", features = ["derive"] }
+wasm-bindgen = { version = "=0.2.78", features = ["serde-serialize"] }
+
+[dependencies.web-sys]
+version = "0.3.4"
+features = [
+  "console",
+  "Document",
+  "Element",
+  "HtmlCanvasElement",
+  "OffscreenCanvas",
+  "WebGlActiveInfo",
+  "WebGlBuffer",
+  "WebGlFramebuffer",
+  "WebGlRenderbuffer",
+  "WebGlUniformLocation",
+  "WebGlVertexArrayObject",
+  "WebGl2RenderingContext",
+  "WebGlProgram",
+  "WebGlShader",
+  "WebGlTexture",
+  "WebGlTransformFeedback",
+  "Window",
+]
