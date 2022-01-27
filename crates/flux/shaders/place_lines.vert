@@ -120,5 +120,5 @@ void main() {
   // Opacity
   // This is only for the line. The endpoints have their own fade out curve.
   // TODO can we improve this?
-  vOpacity = easeInOutQuad(smoothstep(uLineFadeOutLength, 0.8, currentLength));
+  vOpacity = easeInOutQuad(smoothstep(uLineFadeOutLength, 0.7, currentLength));
 }
