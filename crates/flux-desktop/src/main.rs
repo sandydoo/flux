@@ -9,14 +9,14 @@ use std::rc::Rc;
 const settings: Settings = Settings {
     viscosity: 1.0,
     velocity_dissipation: 0.0,
-    fluid_width: 256,
-    fluid_height: 256,
+    fluid_width: 128,
+    fluid_height: 128,
     fluid_simulation_frame_rate: 20.0,
     diffusion_iterations: 30,
     pressure_iterations: 50,
-    color_scheme: ColorScheme::Peacock,
-    line_length: 2.0 * 150.0,
-    line_width: 2.0 * 6.0,
+    color_scheme: ColorScheme::Plasma,
+    line_length: 160.0,
+    line_width: 5.0,
     line_begin_offset: 0.4,
     line_fade_out_length: 0.05,
     spring_stiffness: 0.3,
@@ -24,12 +24,12 @@ const settings: Settings = Settings {
     spring_mass: 2.0,
     spring_rest_length: 0.0,
     advection_direction: 1.0,
-    adjust_advection: 20.0,
-    grid_spacing: 32,
+    adjust_advection: 16.0,
+    grid_spacing: 18,
     view_scale: 1.2,
     noise_channel_1: Noise {
-        scale: 1.3,
-        multiplier: 0.2,
+        scale: 1.1,
+        multiplier: 0.3,
         offset_1: 5.0,
         offset_2: 12.0,
         offset_increment: 0.1,
@@ -40,7 +40,7 @@ const settings: Settings = Settings {
     },
     noise_channel_2: Noise {
         scale: 15.0,
-        multiplier: 0.10,
+        multiplier: 0.15,
         offset_1: 1.0,
         offset_2: 1.0,
         offset_increment: 0.1,
@@ -57,7 +57,8 @@ fn main() {
     let (context, window, event_loop) = get_rendering_context(width, height);
 
     let context = Rc::new(context);
-    let mut flux = Flux::new(&context, width, height, &Rc::new(settings)).unwrap();
+    let pixel_ratio = window.window().scale_factor();
+    let mut flux = Flux::new(&context, width, height, pixel_ratio, &Rc::new(settings)).unwrap();
 
     let start = std::time::Instant::now();
 
@@ -80,7 +81,9 @@ fn main() {
             Event::WindowEvent { ref event, .. } => match event {
                 WindowEvent::Resized(physical_size) => {
                     window.resize(*physical_size);
-                    flux.resize(physical_size.width, physical_size.height);
+                    let glutin::dpi::LogicalSize { width, height } =
+                        physical_size.to_logical(pixel_ratio);
+                    flux.resize(width, height);
                 }
                 WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
                 _ => (),
