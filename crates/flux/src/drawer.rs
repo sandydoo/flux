@@ -76,6 +76,7 @@ impl LineUniforms {
 
 pub struct Drawer {
     context: Context,
+    settings: Rc<Settings>,
 
     physical_width: u32,
     physical_height: u32,
@@ -115,15 +116,13 @@ impl Drawer {
         pixel_ratio: f64,
         settings: &Rc<Settings>,
     ) -> Result<Self, render::Problem> {
-        let physical_width = (f64::from(logical_width) * pixel_ratio) as u32;
-        let physical_height = (f64::from(logical_height) * pixel_ratio) as u32;
-
-        let (grid_width, grid_height) = (logical_width, logical_height);
-
-        let mut grid_spacing = settings.grid_spacing;
-        if u32::min(logical_width, logical_height) < 800 {
-            grid_spacing /= 2;
-        }
+        let ((physical_width, physical_height), (grid_width, grid_height), grid_spacing) =
+            compute_grid_size(
+                logical_width,
+                logical_height,
+                pixel_ratio,
+                settings.grid_spacing,
+            );
 
         let line_count = (grid_width / grid_spacing) * (grid_height / grid_spacing);
         let line_state = new_line_state(grid_width, grid_height, grid_spacing);
@@ -335,6 +334,7 @@ impl Drawer {
 
         let drawer = Self {
             context: Rc::clone(context),
+            settings: Rc::clone(settings),
 
             physical_width,
             physical_height,
@@ -433,11 +433,13 @@ impl Drawer {
         logical_width: u32,
         logical_height: u32,
     ) -> Result<(), render::Problem> {
-        let (grid_width, grid_height) = (logical_width, logical_height);
-        let grid_spacing = self.grid_spacing;
-
-        let physical_width = (f64::from(logical_width) * self.pixel_ratio) as u32;
-        let physical_height = (f64::from(logical_height) * self.pixel_ratio) as u32;
+        let ((physical_width, physical_height), (grid_width, grid_height), grid_spacing) =
+            compute_grid_size(
+                logical_width,
+                logical_height,
+                self.pixel_ratio,
+                self.settings.grid_spacing,
+            );
 
         self.physical_width = physical_width;
         self.physical_height = physical_height;
@@ -800,6 +802,29 @@ impl Drawer {
     {
         self.antialiasing_pass.draw_to(draw_call);
     }
+}
+
+fn compute_grid_size(
+    logical_width: u32,
+    logical_height: u32,
+    pixel_ratio: f64,
+    wanted_grid_spacing: u32,
+) -> ((u32, u32), (u32, u32), u32) {
+    let physical_width = (f64::from(logical_width) * pixel_ratio) as u32;
+    let physical_height = (f64::from(logical_height) * pixel_ratio) as u32;
+
+    let (grid_width, grid_height) = (logical_width, logical_height);
+
+    let mut grid_spacing = wanted_grid_spacing;
+    if u32::min(logical_width, logical_height) < 500 {
+        grid_spacing /= 2;
+    }
+
+    (
+        (physical_width, physical_height),
+        (grid_width, grid_height),
+        grid_spacing,
+    )
 }
 
 fn new_projection_matrix(width: u32, height: u32) -> glm::TMat4<f32> {
