@@ -26,7 +26,7 @@
             latest.rustc
             latest.cargo
             targets.wasm32-unknown-unknown.latest.rust-std
-          ] ++ lib.optionals stdenv.buildPlatform.isWindows
+          ] ++ lib.optionals stdenv.isLinux
             [ targets.x86_64-pc-windows-gnu.latest.rust-std ]);
 
         naersk-lib = naersk.lib.${system}.override {
