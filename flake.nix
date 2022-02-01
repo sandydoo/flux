@@ -19,14 +19,15 @@
     in flake-utils.lib.eachSystem SYSTEMS (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
+        inherit (pkgs) lib stdenv;
 
         toolchain = with fenix.packages.${system};
-          combine [
+          combine ([
             latest.rustc
             latest.cargo
             targets.wasm32-unknown-unknown.latest.rust-std
-            targets.x86_64-pc-windows-gnu.latest.rust-std
-          ];
+          ] ++ lib.optionals stdenv.buildPlatform.isWindows
+            [ targets.x86_64-pc-windows-gnu.latest.rust-std ]);
 
         naersk-lib = naersk.lib.${system}.override {
           rustc = toolchain;
@@ -59,7 +60,7 @@
           singleStep = true;
         };
 
-      in pkgs.lib.recursiveUpdate rec {
+      in lib.recursiveUpdate rec {
         defaultPackage = packages.flux-web;
 
         devShell = pkgs.mkShell {
@@ -86,7 +87,7 @@
         };
 
         packages.flux-web = import ./web/default.nix {
-          inherit pkgs;
+          inherit (pkgs) pkgs lib stdenv;
           flux-wasm = packages.flux-wasm;
         };
 
@@ -96,19 +97,19 @@
           src = ./.;
           release = true;
           cargoBuildOptions = args: args ++ [ "-p flux-desktop" ];
-          nativeBuildInputs = pkgs.lib.optionals pkgs.stdenv.isDarwin
+          nativeBuildInputs = lib.optionals stdenv.isDarwin
             (with pkgs.darwin.apple_sdk.frameworks; [
-              OpenGL
               AppKit
               ApplicationServices
               CoreFoundation
               CoreGraphics
               CoreVideo
               Foundation
+              OpenGL
               QuartzCore
             ]);
         };
-      } (pkgs.lib.optionalAttrs pkgs.stdenv.isLinux {
+      } (lib.optionalAttrs stdenv.isLinux {
         # Cross-compile the Windows executable only on Linux hosts.
         packages.flux-desktop-x86_64-pc-windows-gnu =
           flux-desktop-x86_64-pc-windows-gnu;

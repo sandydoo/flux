@@ -1,4 +1,4 @@
-{ pkgs, flux-wasm }:
+{ pkgs, lib, stdenv, flux-wasm }:
 
 let
   packageJSON = builtins.fromJSON (builtins.readFile ./package.json);
@@ -6,7 +6,7 @@ let
 
   nodeDependencies = pkgs.mkYarnPackage {
     name = "flux-dependencies";
-    src = pkgs.lib.cleanSourceWith {
+    src = lib.cleanSourceWith {
       src = ./.;
       filter = name: type:
         builtins.any (x: baseNameOf name == x) [ "package.json" "yarn.lock" ];
@@ -29,7 +29,7 @@ let
   '';
 
   gitignoreSource = pkgs.nix-gitignore.gitignoreSource;
-in pkgs.stdenv.mkDerivation rec {
+in stdenv.mkDerivation rec {
   pname = "flux-web";
   inherit version;
   src = gitignoreSource [ ] ./.;
