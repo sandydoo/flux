@@ -96,15 +96,7 @@
           src = ./.;
           release = true;
           cargoBuildOptions = args: args ++ [ "-p flux-desktop" ];
-          buildInputs = pkgs.lib.optionals pkgs.stdenv.buildPlatform.isWindows
-            (with pkgs.pkgsCross.mingwW64.windows; [
-              mingw_w64_pthreads
-              pthreads
-            ]);
-          nativeBuildInputs =
-            pkgs.lib.optionals pkgs.stdenv.buildPlatform.isWindows
-            (with pkgs; [ pkgsCross.mingwW64.stdenv.cc ])
-            ++ pkgs.lib.optionals pkgs.stdenv.isDarwin
+          nativeBuildInputs = pkgs.lib.optionals pkgs.stdenv.isDarwin
             (with pkgs.darwin.apple_sdk.frameworks; [
               OpenGL
               AppKit
@@ -117,6 +109,7 @@
             ]);
         };
       } (pkgs.lib.optionalAttrs pkgs.stdenv.isLinux {
+        # Cross-compile the Windows executable only on Linux hosts.
         packages.flux-desktop-x86_64-pc-windows-gnu =
           flux-desktop-x86_64-pc-windows-gnu;
       }));
