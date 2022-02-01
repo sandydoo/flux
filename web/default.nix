@@ -39,6 +39,7 @@ in stdenv.mkDerivation rec {
     pkgs.yarn
     elmPackages.elm
     wasm-bindgen-cli
+    binaryen
     flux-wasm
   ];
 
@@ -63,6 +64,8 @@ in stdenv.mkDerivation rec {
 
     mkdir -p ./flux
     wasm-bindgen --target bundler --out-dir ./flux ${flux-wasm}/lib/flux_wasm.wasm
+    mv flux/flux_wasm_bg.wasm flux/flux_wasm_bg_unoptimized.wasm
+    wasm-opt -O3 -o flux/flux_wasm_bg.wasm flux/flux_wasm_bg_unoptimized.wasm
     echo '${packageJson}' > ./flux/package.json
 
     webpack --mode production --output-path=$out --env skip-wasm-pack
