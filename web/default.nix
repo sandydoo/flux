@@ -1,14 +1,15 @@
-{ pkgs, flux-wasm }:
+{ pkgs, lib, stdenv, flux-wasm }:
 
 let
+  packageJSON = builtins.fromJSON (builtins.readFile ./package.json);
+  version = packageJSON.version;
+
   nodeDependencies = pkgs.mkYarnPackage {
     name = "flux-dependencies";
-    src = pkgs.lib.cleanSourceWith {
+    src = lib.cleanSourceWith {
       src = ./.;
-      filter = name: type: builtins.any (x: baseNameOf name == x) [
-        "package.json"
-        "yarn.lock"
-      ];
+      filter = name: type:
+        builtins.any (x: baseNameOf name == x) [ "package.json" "yarn.lock" ];
     };
     publishBinsFor = [ "webpack" "gh-pages" ];
   };
@@ -28,9 +29,9 @@ let
   '';
 
   gitignoreSource = pkgs.nix-gitignore.gitignoreSource;
-in
-pkgs.stdenv.mkDerivation rec {
-  name = "flux-web";
+in stdenv.mkDerivation rec {
+  pname = "flux-web";
+  inherit version;
   src = gitignoreSource [ ] ./.;
 
   buildInputs = with pkgs; [
@@ -38,6 +39,7 @@ pkgs.stdenv.mkDerivation rec {
     pkgs.yarn
     elmPackages.elm
     wasm-bindgen-cli
+    binaryen
     flux-wasm
   ];
 
@@ -62,6 +64,8 @@ pkgs.stdenv.mkDerivation rec {
 
     mkdir -p ./flux
     wasm-bindgen --target bundler --out-dir ./flux ${flux-wasm}/lib/flux_wasm.wasm
+    mv flux/flux_wasm_bg.wasm flux/flux_wasm_bg_unoptimized.wasm
+    wasm-opt -O3 -o flux/flux_wasm_bg.wasm flux/flux_wasm_bg_unoptimized.wasm
     echo '${packageJson}' > ./flux/package.json
 
     webpack --mode production --output-path=$out --env skip-wasm-pack
