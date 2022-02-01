@@ -33,8 +33,17 @@
           cargo = toolchain;
         };
 
+        readVersionFrom = pathToCargoTOML:
+          let cargoTOML = builtins.fromTOML (builtins.readFile pathToCargoTOML);
+          in "${cargoTOML.package.version}_${
+            builtins.substring 0 8 self.lastModifiedDate
+          }_${self.shortRev or "dirty"}";
+
+        fluxDesktopVersion = readVersionFrom ./crates/flux-desktop/Cargo.toml;
+
         flux-desktop-x86_64-pc-windows-gnu = naersk-lib.buildPackage {
           name = "flux-desktop";
+          version = fluxDesktopVersion;
           src = ./.;
           preBuild = ''
             export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_RUSTFLAGS="-C link-args=$(echo $NIX_LDFLAGS | tr ' ' '\n' | grep -- '^-L' | tr '\n' ' ')"
@@ -54,18 +63,20 @@
         defaultPackage = packages.flux-web;
 
         devShell = pkgs.mkShell {
-          packages = [ pkgs.wasm-pack ];
-          inputsFrom = [ packages.flux-web ];
+          packages = with pkgs; [ nixfmt wasm-pack ];
+          inputsFrom = [ packages.flux-web packages.flux-desktop ];
         };
 
         packages.flux = naersk-lib.buildPackage {
           name = "flux";
+          version = readVersionFrom ./crates/flux/Cargo.toml;
           src = ./.;
           cargoBuildOptions = args: args ++ [ "-p flux" ];
         };
 
         packages.flux-wasm = naersk-lib.buildPackage {
           name = "flux-wasm";
+          version = readVersionFrom ./crates/flux-wasm/Cargo.toml;
           src = ./.;
           copyBins = false;
           copyLibs = true;
@@ -81,6 +92,7 @@
 
         packages.flux-desktop = naersk-lib.buildPackage {
           name = "flux-desktop";
+          version = fluxDesktopVersion;
           src = ./.;
           release = true;
           cargoBuildOptions = args: args ++ [ "-p flux-desktop" ];

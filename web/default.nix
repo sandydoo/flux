@@ -1,14 +1,15 @@
 { pkgs, flux-wasm }:
 
 let
+  packageJSON = builtins.fromJSON (builtins.readFile ./package.json);
+  version = packageJSON.version;
+
   nodeDependencies = pkgs.mkYarnPackage {
     name = "flux-dependencies";
     src = pkgs.lib.cleanSourceWith {
       src = ./.;
-      filter = name: type: builtins.any (x: baseNameOf name == x) [
-        "package.json"
-        "yarn.lock"
-      ];
+      filter = name: type:
+        builtins.any (x: baseNameOf name == x) [ "package.json" "yarn.lock" ];
     };
     publishBinsFor = [ "webpack" "gh-pages" ];
   };
@@ -28,9 +29,9 @@ let
   '';
 
   gitignoreSource = pkgs.nix-gitignore.gitignoreSource;
-in
-pkgs.stdenv.mkDerivation rec {
-  name = "flux-web";
+in pkgs.stdenv.mkDerivation rec {
+  pname = "flux-web";
+  inherit version;
   src = gitignoreSource [ ] ./.;
 
   buildInputs = with pkgs; [
