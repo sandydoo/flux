@@ -3,9 +3,16 @@
     <img width="100%" src="https://github.com/sandydoo/gif-storage/blob/main/flux/social-header-2022-02-03.gif" alt="Flux" />
   </a>
 
-  <p align="center"><i>An ode to the macOS Drift screensaver that runs in the browser.</i></p>
+  <p align="center"><b>An ode to the macOS Drift screensaver that runs in the browser.</b></p>
 
-  <p align="center"><a href="https://flux.sandydoo.me/">See it live in your browser →</a></p>
+  <p align="center">
+    <a href="https://flux.sandydoo.me/">Launch in browser</a>
+    &nbsp;·&nbsp;
+    <a href="https://twitter.com/sandy_doo/">Follow me on Twitter</a>
+    &nbsp;·&nbsp;
+    <a href="https://ko-fi.com/sandydoo/">Support my work</a>
+  </p>
+
 </p>
 
 <br>
