@@ -6,13 +6,14 @@
   <p align="center"><b>An ode to the macOS Drift screensaver that runs in the browser.</b></p>
 
   <p align="center">
-    <a href="https://flux.sandydoo.me/">Launch in browser</a>
+    <a href="https://flux.sandydoo.me/">Launch&nbsp;in&nbsp;browser</a>
     &nbsp;·&nbsp;
-    <a href="https://twitter.com/sandy_doo/">Follow me on Twitter</a>
+    <a href="https://www.youtube.com/watch?v=rH_Q7kbSntM">Watch&nbsp;recording</a>
     &nbsp;·&nbsp;
-    <a href="https://ko-fi.com/sandydoo/">Support my work</a>
+    <a href="https://twitter.com/sandy_doo/">Follow&nbsp;me&nbsp;on&nbsp;Twitter</a>
+    &nbsp;·&nbsp;
+    <a href="https://ko-fi.com/sandydoo/">Support&nbsp;my&nbsp;work</a>
   </p>
-
 </p>
 
 <br>
