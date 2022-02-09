@@ -345,7 +345,9 @@ impl Fluid {
         let alpha = -self.grid_size * self.grid_size;
         let r_beta = 0.25;
 
-        self.pressure_textures.zero_out().unwrap();
+        self.pressure_textures
+            .clear_color_with(&[self.settings.starting_pressure, 0.0, 0.0, 1.0])
+            .unwrap();
 
         self.pressure_pass.set_uniforms(&[
             &Uniform {

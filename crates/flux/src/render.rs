@@ -297,10 +297,10 @@ impl Framebuffer {
     }
 
     pub fn zero_out(&self) -> Result<()> {
-        self.clear_color_with([0.0, 0.0, 0.0, 0.0])
+        self.clear_color_with(&[0.0, 0.0, 0.0, 0.0])
     }
 
-    pub fn clear_color_with(&self, color: [f32; 4]) -> Result<()> {
+    pub fn clear_color_with(&self, color: &[f32; 4]) -> Result<()> {
         unsafe {
             self.context
                 .bind_framebuffer(glow::FRAMEBUFFER, Some(self.id));
@@ -373,11 +373,11 @@ impl DoubleFramebuffer {
         Ok(())
     }
 
-    // pub fn clear_color_with(&self, color: [f32; 4]) -> Result<()> {
-    //     self.current().clear_color_with(color)?;
-    //     self.next().clear_color_with(color)?;
-    //     Ok(())
-    // }
+    pub fn clear_color_with(&self, color: &[f32; 4]) -> Result<()> {
+        self.current().clear_color_with(color)?;
+        self.next().clear_color_with(color)?;
+        Ok(())
+    }
 
     pub fn current(&self) -> Ref<Framebuffer> {
         self.front.borrow()

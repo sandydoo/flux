@@ -45,6 +45,7 @@ type alias Model =
 type alias Settings =
     { viscosity : Float
     , velocityDissipation : Float
+    , startingPressure : Float
     , fluidWidth : Int
     , fluidHeight : Int
     , fluidSimulationFrameRate : Int
@@ -102,29 +103,30 @@ defaultSettings : Settings
 defaultSettings =
     { viscosity = 1.0
     , velocityDissipation = 0.0
+    , startingPressure = 0.8
     , fluidWidth = 128
     , fluidHeight = 128
-    , fluidSimulationFrameRate = 20
+    , fluidSimulationFrameRate = 30
     , diffusionIterations = 20
     , pressureIterations = 40
     , colorScheme = Peacock
-    , lineLength = 150.0
-    , lineWidth = 5.0
+    , lineLength = 180.0
+    , lineWidth = 6.0
     , lineBeginOffset = 0.4
     , lineFadeOutLength = 0.05
-    , springStiffness = 0.3
-    , springVariance = 0.25
-    , springMass = 2.0
+    , springStiffness = 0.2
+    , springVariance = 0.3
+    , springMass = 2.5
     , springRestLength = 0.0
     , advectionDirection = Forward
-    , adjustAdvection = 16.0
-    , gridSpacing = 18
+    , adjustAdvection = 30.0
+    , gridSpacing = 20
     , viewScale = 1.2
     , noiseChannel1 =
-        { scale = 1.1
-        , multiplier = 0.3
-        , offset1 = 5.0
-        , offset2 = 12.0
+        { scale = 1.0
+        , multiplier = 0.23
+        , offset1 = 2.0
+        , offset2 = 8.0
         , offsetIncrement = 0.1
         , delay = 4.0
         , blendDuration = 4.0
@@ -132,13 +134,13 @@ defaultSettings =
         , blendMethod = Curl
         }
     , noiseChannel2 =
-        { scale = 15.0
-        , multiplier = 0.15
+        { scale = 30.0
+        , multiplier = 0.0
         , offset1 = 1.0
         , offset2 = 1.0
         , offsetIncrement = 0.1
-        , delay = 0.5
-        , blendDuration = 0.2
+        , delay = 0.8
+        , blendDuration = 0.5
         , blendThreshold = 0.0
         , blendMethod = Wiggle
         }
@@ -186,6 +188,7 @@ update msg model =
 type SettingMsg
     = SetViscosity Float
     | SetVelocityDissipation Float
+    | SetStartingPressure Float
     | SetDiffusionIterations Int
     | SetPressureIterations Int
     | SetColorScheme ColorScheme
@@ -222,6 +225,9 @@ updateSettings msg settings =
 
         SetVelocityDissipation newVelocityDissipation ->
             { settings | velocityDissipation = newVelocityDissipation }
+
+        SetStartingPressure newPressure ->
+            { settings | startingPressure = newPressure }
 
         SetDiffusionIterations newDiffusionIterations ->
             { settings | diffusionIterations = newDiffusionIterations }
@@ -664,6 +670,26 @@ viewSettings settings =
                 )
         , viewControl <|
             Control
+                "Starting pressure"
+                """
+                The amount of fluid pressure we assume before actually calculating pressure.
+                """
+                (Slider
+                    { min = 0.0
+                    , max = 1.0
+                    , step = 0.1
+                    , value = settings.startingPressure
+                    , onInput =
+                        \value ->
+                            String.toFloat value
+                                |> Maybe.withDefault 0.0
+                                |> SetStartingPressure
+                                |> SaveSetting
+                    , toString = formatFloat 1
+                    }
+                )
+        , viewControl <|
+            Control
                 "Diffusion iterations"
                 """
                 Viscous fluids dissipate velocity through a process called “diffusion”.
@@ -988,6 +1014,7 @@ encodeSettings settings =
     Encode.object
         [ ( "viscosity", Encode.float settings.viscosity )
         , ( "velocityDissipation", Encode.float settings.velocityDissipation )
+        , ( "startingPressure", Encode.float settings.startingPressure )
         , ( "fluidWidth", Encode.int settings.fluidWidth )
         , ( "fluidHeight", Encode.int settings.fluidHeight )
         , ( "fluidSimulationFrameRate", Encode.int settings.fluidSimulationFrameRate )
