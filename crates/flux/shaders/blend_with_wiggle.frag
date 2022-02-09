@@ -31,7 +31,13 @@ void main() {
   float noise = texture(noiseTexture, textureCoord).x;
   vec2 inputValue = texture(inputTexture, textureCoord).xy;
 
-  vec2 direction = normalize(inputValue);
+  vec2 direction;
+  if (length(inputValue) == 0.0) {
+    direction = vec2(0.0);
+  } else {
+    direction = normalize(inputValue);
+  }
+
   vec2 clockwise = clockwisePerpendicular(direction);
   vec2 force = clockwise * noise;
 
