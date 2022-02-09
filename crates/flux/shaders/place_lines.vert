@@ -35,7 +35,8 @@ out float vOpacity;
 
 
 float clampTo(float value, float max) {
-  return min(value, max) / value;
+  float current = value + 0.0001;
+  return min(current, max) / current;
 }
 
 vec3 getColor(vec4 wheel[6], float angle) {
