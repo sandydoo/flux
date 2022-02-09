@@ -851,8 +851,12 @@ fn new_basepoints(width: u32, height: u32, grid_spacing: u32, pixel_ratio: f64) 
     let mut data = Vec::with_capacity((rows * cols * 2) as usize);
 
     for v in 0..rows {
+        // Horizontal offset every other row
+        let offset_u = if v % 2 == 0 { 0.5 } else { 0.0 };
+
         for u in 0..cols {
-            let x: f32 = (f64::from(u * grid_spacing) * pixel_ratio) as f32;
+            let x: f32 = (offset_u * grid_spacing as f32)
+                + (f64::from(u * grid_spacing) * pixel_ratio) as f32;
             let y: f32 = (f64::from(v * grid_spacing) * pixel_ratio) as f32;
 
             data.push(x - half_width);
