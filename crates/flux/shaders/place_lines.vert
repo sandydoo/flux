@@ -70,10 +70,11 @@ void main() {
   vec2 basepointInClipSpace = (uProjection * vec4(basepoint, 0.0, 1.0)).xy;
   vec2 currentVelocityVector = texture(velocityTexture, basepointInClipSpace * 0.5 + 0.5).xy;
   vec2 deltaVelocity = currentVelocityVector - iVelocityVector;
-  vVelocityVector = iVelocityVector + (deltaVelocity / uSpringMass) * deltaT;
+
+  float mass = uSpringMass * (1.0 + uSpringVariance * random1f(basepoint));
+  vVelocityVector = iVelocityVector + (deltaVelocity / mass) * deltaT;
 
   // Spring forces
-  float variance = 1.0 + uSpringVariance * random1f(basepoint);
   float currentLength = length(iEndpointVector);
   vec2 direction;
   if (currentLength == 0.0) {
@@ -85,7 +86,7 @@ void main() {
   // Main spring
   vVelocityVector += uAdvectionDirection * springForce(
     uSpringStiffness,
-    uSpringMass * variance,
+    mass,
     currentLength - uSpringRestLength
   ) * direction * deltaT;
 
