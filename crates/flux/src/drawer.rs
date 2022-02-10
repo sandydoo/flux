@@ -29,12 +29,12 @@ static PLACE_LINES_FRAG_SHADER: &'static str =
 
 #[rustfmt::skip]
 const LINE_VERTICES: [f32; 12] = [
-    0.0, -0.5,
+    0.0, -0.3,
     1.0, -0.5,
     1.0, 0.5,
-    0.0, -0.5,
+    0.0, -0.3,
     1.0, 0.5,
-    0.0, 0.5,
+    0.0, 0.3,
 ];
 
 #[repr(C)]
