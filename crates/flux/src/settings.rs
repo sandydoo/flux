@@ -26,6 +26,7 @@ pub struct Settings {
 
     pub advection_direction: f32,
     pub adjust_advection: f32,
+    pub max_line_velocity: f32,
     pub grid_spacing: u32,
     pub view_scale: f32,
 

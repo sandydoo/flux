@@ -60,6 +60,7 @@ type alias Settings =
     , springVariance : Float
     , springMass : Float
     , springRestLength : Float
+    , maxLineVelocity : Float
     , advectionDirection : AdvectionDirection
     , adjustAdvection : Float
     , gridSpacing : Int
@@ -118,6 +119,7 @@ defaultSettings =
     , springVariance = 0.3
     , springMass = 2.5
     , springRestLength = 0.0
+    , maxLineVelocity = 0.02
     , advectionDirection = Forward
     , adjustAdvection = 30.0
     , gridSpacing = 20
@@ -1029,6 +1031,7 @@ encodeSettings settings =
         , ( "springVariance", Encode.float settings.springVariance )
         , ( "springMass", Encode.float settings.springMass )
         , ( "springRestLength", Encode.float settings.springRestLength )
+        , ( "maxLineVelocity", Encode.float settings.maxLineVelocity )
         , ( "advectionDirection", encodeAdvectionDirection settings.advectionDirection )
         , ( "adjustAdvection", Encode.float settings.adjustAdvection )
         , ( "gridSpacing", Encode.int settings.gridSpacing )

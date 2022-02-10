@@ -19,6 +19,7 @@ uniform float uSpringVariance;
 uniform float uSpringMass;
 uniform float uSpringRestLength;
 uniform float uLineFadeOutLength;
+uniform float uMaxLineVelocity;
 uniform float uAdjustAdvection;
 uniform float uAdvectionDirection;
 uniform mediump vec4 uColorWheel[6];
@@ -87,6 +88,9 @@ void main() {
     uSpringMass * variance,
     currentLength - uSpringRestLength
   ) * direction * deltaT;
+
+  // Cap line velocity
+  vVelocityVector *= clampTo(length(vVelocityVector), uMaxLineVelocity);
 
   // Advect forward
   vEndpointVector = iEndpointVector + uAdjustAdvection * uAdvectionDirection * vVelocityVector * deltaT;

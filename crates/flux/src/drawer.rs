@@ -284,6 +284,10 @@ impl Drawer {
                 value: UniformValue::Float(settings.spring_rest_length),
             },
             &Uniform {
+                name: "uMaxLineVelocity",
+                value: UniformValue::Float(settings.max_line_velocity),
+            },
+            &Uniform {
                 name: "uAdvectionDirection",
                 value: UniformValue::Float(settings.advection_direction),
             },
@@ -412,6 +416,10 @@ impl Drawer {
             &Uniform {
                 name: "uSpringRestLength",
                 value: UniformValue::Float(settings.spring_rest_length),
+            },
+            &Uniform {
+                name: "uMaxLineVelocity",
+                value: UniformValue::Float(settings.max_line_velocity),
             },
             &Uniform {
                 name: "uAdvectionDirection",
