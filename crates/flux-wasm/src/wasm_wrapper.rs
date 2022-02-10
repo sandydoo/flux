@@ -46,7 +46,7 @@ impl Flux {
             pixel_ratio,
             &settings,
         )
-        .map_err(|_err| JsValue::from_str("failed"))?;
+        .map_err(|err| JsValue::from_str(&err.to_string()))?;
 
         Ok(Self {
             id: flux,
