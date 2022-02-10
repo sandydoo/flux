@@ -65,7 +65,7 @@ void main() {
 
   gl_Position = uProjection * uView * translate(vec3(endpoint, 0.0)) * modelMatrix * vec4(vertex, 0.0, 1.0);
 
-  float endpointOpacity = smoothstep(uLineFadeOutLength, uLineFadeOutLength + 0.3, length(iEndpointVector));
+  float endpointOpacity = smoothstep(uLineFadeOutLength, uLineFadeOutLength + 0.4, length(iEndpointVector));
   vPosition = vertex;
   vColor = iColor.rgb;
   vPremultipliedLineColor = vColor * iOpacity;
