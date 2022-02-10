@@ -64,22 +64,6 @@ impl Flux {
             .add_noise(settings.noise_channel_2.clone())
             .map_err(Problem::CannotRender)?;
 
-        // Pre-cook the fluid
-        let mut elapsed_time = 0.0;
-        for _ in 0..30 {
-            noise_injector.generate_all(elapsed_time);
-            noise_injector.blend_noise_into(&fluid.get_velocity_textures(), elapsed_time);
-
-            fluid.prepare_pass(fluid_frame_time);
-            fluid.advect();
-            fluid.diffuse(fluid_frame_time);
-            fluid.calculate_divergence();
-            fluid.solve_pressure();
-            fluid.subtract_gradient();
-
-            elapsed_time += fluid_frame_time;
-        }
-
         Ok(Flux {
             fluid,
             drawer,
@@ -87,7 +71,7 @@ impl Flux {
             settings: Rc::clone(settings),
 
             context: Rc::clone(context),
-            elapsed_time,
+            elapsed_time: 0.0,
             last_timestamp: 0.0,
             frame_time: 0.0,
             fluid_frame_time,
