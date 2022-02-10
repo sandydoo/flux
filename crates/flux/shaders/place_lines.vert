@@ -60,9 +60,8 @@ float random1f(in vec2 st) {
   return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
 }
 
-float easeInOutQuad(float t) {
-  float p = 2.0 * t * t;
-  return t < 0.5 ? p : -p + (4.0 * t) - 1.0;
+float easeInCirc(float x) {
+  return 1.0 - sqrt(1.0 - pow(x, 2.0));
 }
 
 void main() {
@@ -117,9 +116,10 @@ void main() {
   vec2 lineDirection = normalize(vEndpointVector);
   float directionAlignment = clamp(dot(lineDirection, velocityDirection), -1.0, 1.0);
 
+  float clampedLength = clamp(currentLength, 0.0, 1.0);
   vLineWidth = clamp(
-    iLineWidth + uAdjustAdvection * directionAlignment * length(vVelocityVector) * deltaT,
-    0.15,
+    iLineWidth + (1.0 - easeInCirc(clampedLength)) * 1.35 *  uAdjustAdvection * directionAlignment * length(vVelocityVector) * deltaT,
+    0.0,
     1.0
   );
 
