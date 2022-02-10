@@ -31,8 +31,15 @@ impl Flux {
 
     #[wasm_bindgen(constructor)]
     pub fn new(settings_object: &JsValue) -> Result<Flux, JsValue> {
-        let (canvas, gl, logical_width, logical_height, pixel_ratio) =
-            get_rendering_context("canvas")?;
+        let (
+            canvas,
+            gl,
+            logical_width,
+            logical_height,
+            physical_width,
+            physical_height,
+            pixel_ratio,
+        ) = get_rendering_context("canvas")?;
         let context = Rc::new(gl);
         let settings: Rc<flux::settings::Settings> = match settings_object.into_serde() {
             Ok(settings) => Rc::new(settings),
@@ -43,7 +50,8 @@ impl Flux {
             &context,
             logical_width,
             logical_height,
-            pixel_ratio,
+            physical_width,
+            physical_height,
             &settings,
         )
         .map_err(|err| JsValue::from_str(&err.to_string()))?;
@@ -64,13 +72,18 @@ impl Flux {
 
     pub fn resize(&mut self, logical_width: u32, logical_height: u32) {
         if (self.logical_width != logical_width) || (self.logical_height != logical_height) {
-            let physical_width = (self.pixel_ratio * f64::from(logical_width)) as u32;
-            let physical_height = (self.pixel_ratio * f64::from(logical_height)) as u32;
+            let (physical_width, physical_height) =
+                physical_from_logical_size(logical_width, logical_height, self.pixel_ratio);
 
             self.canvas.set_width(physical_width);
             self.canvas.set_height(physical_height);
 
-            self.id.resize(logical_width, logical_height);
+            self.id.resize(
+                logical_width,
+                logical_height,
+                physical_width,
+                physical_height,
+            );
 
             self.logical_width = logical_width;
             self.logical_height = logical_height;
@@ -80,7 +93,7 @@ impl Flux {
 
 pub fn get_rendering_context(
     element_id: &str,
-) -> Result<(Canvas, glow::Context, u32, u32, f64), JsValue> {
+) -> Result<(Canvas, glow::Context, u32, u32, u32, u32, f64), JsValue> {
     use wasm_bindgen::JsCast;
     use web_sys::WebGl2RenderingContext as GL;
 
@@ -100,8 +113,8 @@ pub fn get_rendering_context(
     let pixel_ratio: f64 = window.device_pixel_ratio();
     let logical_width = html_canvas.client_width() as u32;
     let logical_height = html_canvas.client_height() as u32;
-    let physical_width = (pixel_ratio * f64::from(logical_width)) as u32;
-    let physical_height = (pixel_ratio * f64::from(logical_height)) as u32;
+    let (physical_width, physical_height) =
+        physical_from_logical_size(logical_width, logical_height, pixel_ratio);
     html_canvas.set_width(physical_width);
     html_canvas.set_height(physical_height);
 
@@ -139,7 +152,15 @@ pub fn get_rendering_context(
         ));
     };
 
-    Ok((canvas, gl, logical_width, logical_height, pixel_ratio))
+    Ok((
+        canvas,
+        gl,
+        logical_width,
+        logical_height,
+        physical_width,
+        physical_height,
+        pixel_ratio,
+    ))
 }
 
 #[derive(Serialize, Debug)]
@@ -217,4 +238,15 @@ pub fn window() -> Window {
 pub fn set_panic_hook() {
     #[cfg(feature = "console_error_panic_hook")]
     console_error_panic_hook::set_once();
+}
+
+fn physical_from_logical_size(
+    logical_width: u32,
+    logical_height: u32,
+    pixel_ratio: f64,
+) -> (u32, u32) {
+    (
+        (pixel_ratio * f64::from(logical_width)) as u32,
+        (pixel_ratio * f64::from(logical_height)) as u32,
+    )
 }

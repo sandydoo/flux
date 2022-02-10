@@ -52,13 +52,21 @@ const settings: Settings = Settings {
 };
 
 fn main() {
-    let width = 1200;
-    let height = 900;
-    let (context, window, event_loop) = get_rendering_context(width, height);
+    let logical_size = glutin::dpi::LogicalSize::new(1200, 900);
+    let (context, window, event_loop) =
+        get_rendering_context(logical_size.width, logical_size.height);
+    let physical_size = logical_size.to_physical(window.window().scale_factor());
 
     let context = Rc::new(context);
-    let pixel_ratio = window.window().scale_factor();
-    let mut flux = Flux::new(&context, width, height, pixel_ratio, &Rc::new(settings)).unwrap();
+    let mut flux = Flux::new(
+        &context,
+        logical_size.width,
+        logical_size.height,
+        physical_size.width,
+        physical_size.height,
+        &Rc::new(settings),
+    )
+    .unwrap();
 
     let start = std::time::Instant::now();
 
@@ -81,9 +89,13 @@ fn main() {
             Event::WindowEvent { ref event, .. } => match event {
                 WindowEvent::Resized(physical_size) => {
                     window.resize(*physical_size);
-                    let glutin::dpi::LogicalSize { width, height } =
-                        physical_size.to_logical(pixel_ratio);
-                    flux.resize(width, height);
+                    let logical_size = physical_size.to_logical(pixel_ratio);
+                    flux.resize(
+                        logical_size.width,
+                        logical_size.height,
+                        physical_size.width,
+                        physical_size.height,
+                    );
                 }
                 WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
                 _ => (),

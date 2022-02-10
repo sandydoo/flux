@@ -64,10 +64,10 @@ struct LineUniforms {
 }
 
 impl LineUniforms {
-    fn new(settings: &Rc<Settings>, pixel_ratio: f64) -> Self {
+    fn new(settings: &Rc<Settings>) -> Self {
         Self {
-            line_width: (f64::from(settings.line_width) * pixel_ratio) as f32,
-            line_length: (f64::from(settings.line_length) * pixel_ratio) as f32,
+            line_width: settings.line_width,
+            line_length: settings.line_length,
             line_begin_offset: settings.line_begin_offset,
             line_fade_out_length: settings.line_fade_out_length,
         }
@@ -80,11 +80,9 @@ pub struct Drawer {
 
     physical_width: u32,
     physical_height: u32,
-    pixel_ratio: f64,
 
     pub grid_width: u32,
     pub grid_height: u32,
-    pub grid_spacing: u32,
     pub line_count: u32,
 
     basepoint_buffer: Buffer,
@@ -113,19 +111,15 @@ impl Drawer {
         context: &Context,
         logical_width: u32,
         logical_height: u32,
-        pixel_ratio: f64,
+        physical_width: u32,
+        physical_height: u32,
         settings: &Rc<Settings>,
     ) -> Result<Self, render::Problem> {
-        let ((physical_width, physical_height), (grid_width, grid_height), grid_spacing) =
-            compute_grid_size(
-                logical_width,
-                logical_height,
-                pixel_ratio,
-                settings.grid_spacing,
-            );
+        let (grid_width, grid_height) = compute_grid_size(logical_width, logical_height);
 
-        let line_count = (grid_width / grid_spacing) * (grid_height / grid_spacing);
-        let line_state = new_line_state(grid_width, grid_height, grid_spacing);
+        let line_count =
+            (grid_width / settings.grid_spacing) * (grid_height / settings.grid_spacing);
+        let line_state = new_line_state(grid_width, grid_height, settings.grid_spacing);
         let line_state_buffer = Buffer::from_f32(
             &context,
             &bytemuck::cast_slice(&line_state),
@@ -146,7 +140,7 @@ impl Drawer {
         )?;
         let basepoint_buffer = Buffer::from_f32(
             &context,
-            &new_basepoints(grid_width, grid_height, grid_spacing, pixel_ratio),
+            &new_basepoints(grid_width, grid_height, settings.grid_spacing),
             glow::ARRAY_BUFFER,
             glow::STATIC_DRAW,
         )?;
@@ -227,7 +221,12 @@ impl Drawer {
 
         // Uniforms
 
-        let projection_matrix = new_projection_matrix(physical_width, physical_height);
+        let projection_matrix = new_projection_matrix(
+            grid_width as f32,
+            grid_height as f32,
+            physical_width as f32,
+            physical_height as f32,
+        );
 
         let view_matrix = glm::scale(
             &glm::identity(),
@@ -245,7 +244,7 @@ impl Drawer {
             glow::STATIC_DRAW,
         )?;
 
-        let uniforms = LineUniforms::new(&settings, pixel_ratio);
+        let uniforms = LineUniforms::new(&settings);
         let line_uniforms = Buffer::from_f32(
             &context,
             &bytemuck::cast_slice(&[uniforms]),
@@ -342,11 +341,9 @@ impl Drawer {
 
             physical_width,
             physical_height,
-            pixel_ratio,
 
             grid_width,
             grid_height,
-            grid_spacing,
             line_count,
 
             basepoint_buffer,
@@ -384,7 +381,7 @@ impl Drawer {
             self.context
                 .bind_buffer(glow::UNIFORM_BUFFER, Some(self.line_uniforms.id));
 
-            let uniforms = LineUniforms::new(settings, self.pixel_ratio);
+            let uniforms = LineUniforms::new(settings);
             self.context.buffer_sub_data_u8_slice(
                 glow::UNIFORM_BUFFER,
                 0,
@@ -440,26 +437,28 @@ impl Drawer {
         &mut self,
         logical_width: u32,
         logical_height: u32,
+        physical_width: u32,
+        physical_height: u32,
     ) -> Result<(), render::Problem> {
-        let ((physical_width, physical_height), (grid_width, grid_height), grid_spacing) =
-            compute_grid_size(
-                logical_width,
-                logical_height,
-                self.pixel_ratio,
-                self.settings.grid_spacing,
-            );
+        let (grid_width, grid_height) = compute_grid_size(logical_width, logical_height);
 
         self.physical_width = physical_width;
         self.physical_height = physical_height;
-        self.grid_width = physical_width;
-        self.grid_height = physical_height;
+        self.grid_width = grid_width;
+        self.grid_height = grid_height;
 
-        self.update_projection(&new_projection_matrix(physical_width, physical_height));
+        self.update_projection(&new_projection_matrix(
+            grid_width as f32,
+            grid_height as f32,
+            physical_width as f32,
+            physical_height as f32,
+        ));
         self.antialiasing_pass
             .resize(physical_width, physical_height);
 
-        self.line_count = (grid_width / grid_spacing) * (grid_height / grid_spacing);
-        let basepoints = new_basepoints(grid_width, grid_height, grid_spacing, self.pixel_ratio);
+        self.line_count =
+            (grid_width / self.settings.grid_spacing) * (grid_height / self.settings.grid_spacing);
+        let basepoints = new_basepoints(grid_width, grid_height, self.settings.grid_spacing);
         self.basepoint_buffer = Buffer::from_f32(
             &self.context,
             &basepoints,
@@ -467,7 +466,7 @@ impl Drawer {
             glow::STATIC_DRAW,
         )?;
 
-        let line_state = new_line_state(grid_width, grid_height, grid_spacing);
+        let line_state = new_line_state(grid_width, grid_height, self.settings.grid_spacing);
         self.line_state_buffer = Buffer::from_f32(
             &self.context,
             &bytemuck::cast_slice(&line_state),
@@ -812,32 +811,31 @@ impl Drawer {
     }
 }
 
-fn compute_grid_size(
-    logical_width: u32,
-    logical_height: u32,
-    pixel_ratio: f64,
-    wanted_grid_spacing: u32,
-) -> ((u32, u32), (u32, u32), u32) {
-    let physical_width = (f64::from(logical_width) * pixel_ratio) as u32;
-    let physical_height = (f64::from(logical_height) * pixel_ratio) as u32;
-
-    let (grid_width, grid_height) = (logical_width, logical_height);
-
-    let mut grid_spacing = wanted_grid_spacing;
-    if u32::min(logical_width, logical_height) < 500 {
-        grid_spacing /= 2;
+fn compute_grid_size(logical_width: u32, logical_height: u32) -> (u32, u32) {
+    if logical_width > logical_height {
+        (u32::max(1280, logical_width), u32::max(800, logical_height))
+    } else {
+        (u32::max(800, logical_width), u32::max(1280, logical_height))
     }
-
-    (
-        (physical_width, physical_height),
-        (grid_width, grid_height),
-        grid_spacing,
-    )
 }
 
-fn new_projection_matrix(width: u32, height: u32) -> glm::TMat4<f32> {
-    let half_width = (width as f32) / 2.0;
-    let half_height = (height as f32) / 2.0;
+fn new_projection_matrix(
+    grid_width: f32,
+    grid_height: f32,
+    physical_width: f32,
+    physical_height: f32,
+) -> glm::TMat4<f32> {
+    let grid_ratio = grid_width / grid_height;
+    let physical_ratio = physical_width / physical_height;
+
+    let (width, height) = if grid_ratio > physical_ratio {
+        (grid_height * physical_ratio, grid_height)
+    } else {
+        (grid_width, grid_width / physical_ratio)
+    };
+
+    let half_width = width / 2.0;
+    let half_height = height / 2.0;
 
     glm::ortho(
         -half_width,
@@ -850,9 +848,9 @@ fn new_projection_matrix(width: u32, height: u32) -> glm::TMat4<f32> {
 }
 
 // World space coordinates: zero-centered, width x height
-fn new_basepoints(width: u32, height: u32, grid_spacing: u32, pixel_ratio: f64) -> Vec<f32> {
-    let half_width = (f64::from(width) * pixel_ratio / 2.0) as f32;
-    let half_height = (f64::from(height) * pixel_ratio / 2.0) as f32;
+fn new_basepoints(width: u32, height: u32, grid_spacing: u32) -> Vec<f32> {
+    let half_width = (width as f32) / 2.0;
+    let half_height = (height as f32) / 2.0;
 
     let rows = height / grid_spacing;
     let cols = width / grid_spacing;
@@ -863,9 +861,8 @@ fn new_basepoints(width: u32, height: u32, grid_spacing: u32, pixel_ratio: f64) 
         let offset_u = if v % 2 == 0 { 0.5 } else { 0.0 };
 
         for u in 0..cols {
-            let x: f32 = (offset_u * grid_spacing as f32)
-                + (f64::from(u * grid_spacing) * pixel_ratio) as f32;
-            let y: f32 = (f64::from(v * grid_spacing) * pixel_ratio) as f32;
+            let x: f32 = (offset_u * grid_spacing as f32) + (u * grid_spacing) as f32;
+            let y: f32 = (v * grid_spacing) as f32;
 
             data.push(x - half_width);
             data.push(y - half_height);

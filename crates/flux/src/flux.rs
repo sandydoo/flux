@@ -38,7 +38,8 @@ impl Flux {
         context: &render::Context,
         logical_width: u32,
         logical_height: u32,
-        pixel_ratio: f64,
+        physical_width: u32,
+        physical_height: u32,
         settings: &Rc<Settings>,
     ) -> Result<Flux, Problem> {
         let fluid_frame_time = 1.0 / settings.fluid_simulation_frame_rate;
@@ -48,7 +49,8 @@ impl Flux {
             &context,
             logical_width,
             logical_height,
-            pixel_ratio,
+            physical_width,
+            physical_height,
             &settings,
         )
         .map_err(Problem::CannotRender)?;
@@ -82,8 +84,21 @@ impl Flux {
         })
     }
 
-    pub fn resize(&mut self, logical_width: u32, logical_height: u32) {
-        self.drawer.resize(logical_width, logical_height).unwrap(); // fix
+    pub fn resize(
+        &mut self,
+        logical_width: u32,
+        logical_height: u32,
+        physical_width: u32,
+        physical_height: u32,
+    ) {
+        self.drawer
+            .resize(
+                logical_width,
+                logical_height,
+                physical_width,
+                physical_height,
+            )
+            .unwrap(); // fix
     }
 
     pub fn animate(&mut self, timestamp: f32) {
