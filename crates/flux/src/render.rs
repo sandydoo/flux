@@ -820,6 +820,78 @@ impl MsaaPass {
     }
 }
 
+pub struct FxaaPass {
+    context: Context,
+    width: u32,
+    height: u32,
+    program: Program,
+    vao: VertexArrayObject,
+    framebuffer: Framebuffer,
+}
+
+impl FxaaPass {
+    pub fn new(
+        context: &Context,
+        width: u32,
+        height: u32,
+        program: Program,
+        vao: VertexArrayObject,
+    ) -> Result<Self> {
+        let framebuffer = Framebuffer::new(
+            context,
+            width,
+            height,
+            TextureOptions {
+                mag_filter: glow::NEAREST,
+                min_filter: glow::NEAREST,
+                wrap_s: glow::CLAMP_TO_EDGE,
+                wrap_t: glow::CLAMP_TO_EDGE,
+                format: glow::RGB,
+            },
+        )?
+        .with_data(None::<&[u8]>)?;
+
+        Ok(FxaaPass {
+            context: Rc::clone(context),
+            width,
+            height,
+            program,
+            vao,
+            framebuffer,
+        })
+    }
+
+    pub fn draw_to<T>(&self, draw_call: T) -> ()
+    where
+        T: Fn() -> (),
+    {
+        let width = self.width as i32;
+        let height = self.height as i32;
+
+        unsafe {
+            self.context
+                .bind_framebuffer(glow::DRAW_FRAMEBUFFER, Some(self.framebuffer.id));
+
+            // Draw stuff
+            draw_call();
+
+            self.context.bind_framebuffer(glow::DRAW_FRAMEBUFFER, None);
+
+            self.context.disable(glow::BLEND);
+
+            self.context.active_texture(glow::TEXTURE0);
+            self.context
+                .bind_texture(glow::TEXTURE_2D, Some(self.framebuffer.texture));
+
+            self.program.use_program();
+            self.context.bind_vertex_array(Some(self.vao.id));
+
+            self.context
+                .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
+        }
+    }
+}
+
 struct TextureFormat {
     internal_format: GlDataType,
     format: GlDataType,
@@ -830,6 +902,13 @@ struct TextureFormat {
 // https://www.khronos.org/registry/webgl/specs/latest/2.0/#TEXTURE_TYPES_FORMATS_FROM_DOM_ELEMENTS_TABLE
 fn detect_texture_format(internal_format: GlDataType) -> Result<TextureFormat> {
     match internal_format {
+        glow::RGB => Ok(TextureFormat {
+            internal_format,
+            format: glow::RGB,
+            type_: glow::UNSIGNED_BYTE,
+            size: 1,
+        }),
+
         glow::R32F => Ok(TextureFormat {
             internal_format,
             format: glow::RED,
@@ -858,6 +937,7 @@ fn detect_texture_format(internal_format: GlDataType) -> Result<TextureFormat> {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct VertexArrayObject {
     context: Context,
     pub id: glow::VertexArray,

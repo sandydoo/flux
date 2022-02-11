@@ -6,7 +6,7 @@ use settings::Settings;
 
 extern crate nalgebra_glm as glm;
 use bytemuck::{Pod, Zeroable};
-use glow::HasContext;
+use glow::{HasContext, Version};
 use std::f32::consts::PI;
 use std::rc::Rc;
 
@@ -26,6 +26,10 @@ static PLACE_LINES_VERT_SHADER: &'static str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/place_lines.vert"));
 static PLACE_LINES_FRAG_SHADER: &'static str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/place_lines.frag"));
+static FXAA_VERT_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/fxaa.vert"));
+static FXAA_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/fxaa.frag"));
 
 #[rustfmt::skip]
 const LINE_VERTICES: [f32; 12] = [
@@ -103,7 +107,7 @@ pub struct Drawer {
     draw_lines_pass: render::Program,
     draw_endpoints_pass: render::Program,
     draw_texture_pass: render::Program,
-    antialiasing_pass: render::MsaaPass,
+    antialiasing_pass: render::FxaaPass,
 }
 
 impl Drawer {
@@ -186,6 +190,8 @@ impl Drawer {
             render::Program::new(&context, (ENDPOINT_VERT_SHADER, ENDPOINT_FRAG_SHADER))?;
         let draw_texture_program =
             render::Program::new(&context, (TEXTURE_VERT_SHADER, TEXTURE_FRAG_SHADER))?;
+        let run_fxaa_program =
+            render::Program::new(&context, (FXAA_VERT_SHADER, FXAA_FRAG_SHADER))?;
 
         // Vertex buffers
 
@@ -327,13 +333,32 @@ impl Drawer {
         )?;
         draw_texture_program.set_uniform_block("Projection", 0);
 
-        let antialiasing_samples = 0;
-        let antialiasing_pass = render::MsaaPass::new(
+        run_fxaa_program.set_uniforms(&[
+            &Uniform {
+                name: "resolution",
+                value: UniformValue::Vec2(&[physical_width as f32, physical_height as f32]),
+            },
+            &Uniform {
+                name: "tex",
+                value: UniformValue::Texture2D(0),
+            },
+        ]);
+
+        let antialiasing_pass = render::FxaaPass::new(
             context,
             physical_width,
             physical_height,
-            antialiasing_samples,
+            run_fxaa_program,
+            draw_texture_buffer.clone(),
         )?;
+
+        // let antialiasing_samples = 0;
+        // let antialiasing_pass = render::MsaaPass::new(
+        //     context,
+        //     physical_width,
+        //     physical_height,
+        //     antialiasing_samples,
+        // )?;
 
         let drawer = Self {
             context: Rc::clone(context),
@@ -453,8 +478,8 @@ impl Drawer {
             physical_width as f32,
             physical_height as f32,
         ));
-        self.antialiasing_pass
-            .resize(physical_width, physical_height);
+        // self.antialiasing_pass
+        //     .resize(physical_width, physical_height);
 
         self.line_count =
             (grid_width / self.settings.grid_spacing) * (grid_height / self.settings.grid_spacing);
@@ -803,6 +828,12 @@ impl Drawer {
         }
     }
 
+    // pub fn with_antialiasing<T>(&self, draw_call: T) -> ()
+    // where
+    //     T: Fn() -> (),
+    // {
+    //     self.antialiasing_pass.draw_to(draw_call);
+    // }
     pub fn with_antialiasing<T>(&self, draw_call: T) -> ()
     where
         T: Fn() -> (),
