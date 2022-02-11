@@ -56,7 +56,7 @@ impl Flux {
         )
         .map_err(Problem::CannotRender)?;
 
-        let mut noise_injector = NoiseInjector::new(&context, fluid.width / 2, fluid.height / 2)
+        let mut noise_injector = NoiseInjector::new(&context, fluid.width / 4, fluid.height / 4)
             .map_err(Problem::CannotRender)?;
 
         noise_injector
