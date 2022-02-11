@@ -885,7 +885,7 @@ fn new_line_state(width: u32, height: u32, grid_spacing: u32) -> Vec<LineState> 
                 endpoint: [0.0, 0.0],
                 velocity: [0.0, 0.0],
                 color: [0.0, 0.0, 0.0, 0.0],
-                width: 0.1,
+                width: 0.0,
                 opacity: 0.0,
             });
         }

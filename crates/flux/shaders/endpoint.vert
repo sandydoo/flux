@@ -57,7 +57,7 @@ float easeOutCirc(float x) {
 
 float endpointCurve(float lineLength, float lineOpacity, float fadeInPoint) {
   return mix(
-    easeOutCirc(lineLength),
+    easeOutCirc(smoothstep(uLineFadeOutLength - 0.01, 1.0, lineLength)),
     lineOpacity,
     smoothstep(fadeInPoint - 0.2, fadeInPoint, lineLength)
   );

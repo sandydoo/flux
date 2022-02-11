@@ -98,7 +98,7 @@ void main() {
 
   // Color
   float angle = mod(
-    PI / 6.0 * currentLength + (PI + atan(iEndpointVector.y, iEndpointVector.x)),
+    PI / 4.0 * currentLength + (PI + atan(iEndpointVector.y, iEndpointVector.x)),
     2.0 * PI
   );
   vec4 newColor = vec4(getColor(uColorWheel, angle), 0.0);
@@ -118,7 +118,7 @@ void main() {
 
   float clampedLength = clamp(currentLength, 0.0, 1.0);
   vLineWidth = clamp(
-    iLineWidth + (1.0 - easeInCirc(clampedLength)) * 1.35 *  uAdjustAdvection * directionAlignment * length(vVelocityVector) * deltaT,
+    iLineWidth + (1.0 - easeInCirc(clampedLength)) * 1.6 * uAdjustAdvection * directionAlignment * length(vVelocityVector) * deltaT,
     0.0,
     1.0
   );
