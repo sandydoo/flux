@@ -43,7 +43,8 @@ impl Flux {
         settings: &Rc<Settings>,
     ) -> Result<Flux, Problem> {
         let fluid_frame_time = 1.0 / settings.fluid_simulation_frame_rate;
-        let fluid = Fluid::new(&context, &settings).map_err(Problem::CannotRender)?;
+        let ratio = logical_width as f32 / logical_height as f32;
+        let fluid = Fluid::new(&context, ratio, &settings).map_err(Problem::CannotRender)?;
 
         let drawer = Drawer::new(
             &context,
@@ -55,12 +56,8 @@ impl Flux {
         )
         .map_err(Problem::CannotRender)?;
 
-        let mut noise_injector = NoiseInjector::new(
-            &context,
-            settings.fluid_width / 2,
-            settings.fluid_height / 2,
-        )
-        .map_err(Problem::CannotRender)?;
+        let mut noise_injector = NoiseInjector::new(&context, fluid.width / 2, fluid.height / 2)
+            .map_err(Problem::CannotRender)?;
 
         noise_injector
             .add_noise(settings.noise_channel_1.clone())
@@ -91,6 +88,9 @@ impl Flux {
         physical_width: u32,
         physical_height: u32,
     ) {
+        let ratio = logical_width as f32 / logical_height as f32;
+        self.fluid.resize(ratio).unwrap(); // fix
+
         self.drawer
             .resize(
                 logical_width,

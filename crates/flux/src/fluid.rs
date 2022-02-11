@@ -37,6 +37,8 @@ pub struct Fluid {
     context: Context,
     settings: Rc<Settings>,
 
+    pub width: u32,
+    pub height: u32,
     texel_size: [f32; 2],
     grid_size: f32,
 
@@ -55,19 +57,21 @@ pub struct Fluid {
 }
 
 impl Fluid {
-    pub fn new(context: &Context, settings: &Rc<Settings>) -> Result<Self, render::Problem> {
+    pub fn new(
+        context: &Context,
+        ratio: f32,
+        settings: &Rc<Settings>,
+    ) -> Result<Self, render::Problem> {
         let grid_size: f32 = 1.0;
-        let grid_width = settings.fluid_width;
-        let grid_height = settings.fluid_height;
-        let texel_size = [1.0 / grid_width as f32, 1.0 / grid_height as f32];
+        let (width, height, texel_size) = compute_fluid_size(settings.fluid_size as f32, ratio);
 
         // Framebuffers
-        let initial_velocity_data = vec![0.0; (2 * grid_width * grid_height) as usize];
+        let initial_velocity_data = vec![0.0; (2 * width * height) as usize];
 
         let velocity_textures = render::DoubleFramebuffer::new(
             &context,
-            grid_width,
-            grid_height,
+            width,
+            height,
             TextureOptions {
                 mag_filter: glow::LINEAR,
                 min_filter: glow::LINEAR,
@@ -79,8 +83,8 @@ impl Fluid {
 
         let divergence_texture = render::Framebuffer::new(
             &context,
-            grid_width,
-            grid_height,
+            width,
+            height,
             TextureOptions {
                 mag_filter: glow::LINEAR,
                 min_filter: glow::LINEAR,
@@ -88,12 +92,12 @@ impl Fluid {
                 ..Default::default()
             },
         )?
-        .with_f32_data(&vec![0.0; (2 * grid_width * grid_height) as usize])?;
+        .with_f32_data(&vec![0.0; (2 * width * height) as usize])?;
 
         let pressure_textures = render::DoubleFramebuffer::new(
             &context,
-            grid_width,
-            grid_height,
+            width,
+            height,
             TextureOptions {
                 mag_filter: glow::LINEAR,
                 min_filter: glow::LINEAR,
@@ -101,7 +105,7 @@ impl Fluid {
                 ..Default::default()
             },
         )?
-        .with_f32_data(&vec![0.0; (2 * grid_width * grid_height) as usize])?;
+        .with_f32_data(&vec![0.0; (2 * width * height) as usize])?;
 
         // Geometry
         let plane_vertices = Buffer::from_f32(
@@ -215,6 +219,8 @@ impl Fluid {
             context: Rc::clone(context),
             settings: Rc::clone(settings),
 
+            width,
+            height,
             texel_size,
             grid_size,
 
@@ -256,6 +262,62 @@ impl Fluid {
             );
             self.context.bind_buffer(glow::UNIFORM_BUFFER, None);
         }
+    }
+
+    pub fn resize(&mut self, ratio: f32) -> Result<(), render::Problem> {
+        let (width, height, texel_size) =
+            compute_fluid_size(self.settings.fluid_size as f32, ratio);
+        self.width = width;
+        self.height = height;
+        self.texel_size = texel_size;
+
+        // Update texel size
+        unsafe {
+            self.context
+                .bind_buffer(glow::UNIFORM_BUFFER, Some(self.uniform_buffer.id));
+            self.context.buffer_sub_data_u8_slice(
+                glow::UNIFORM_BUFFER,
+                4 * 4,
+                &bytemuck::bytes_of(&texel_size),
+            );
+            self.context.bind_buffer(glow::UNIFORM_BUFFER, None);
+        }
+
+        // Create new textures and copy the old contents over
+        let velocity_textures = render::DoubleFramebuffer::new(
+            &self.context,
+            width,
+            height,
+            self.velocity_textures.current().options,
+        )?
+        .with_data(None::<&[f32]>)?;
+        self.velocity_textures
+            .blit_to(&self.context, &velocity_textures);
+        self.velocity_textures = velocity_textures;
+
+        let divergence_texture = render::Framebuffer::new(
+            &self.context,
+            width,
+            height,
+            self.divergence_texture.options,
+        )?
+        .with_data(None::<&[f32]>)?;
+        self.divergence_texture
+            .blit_to(&self.context, &divergence_texture);
+        self.divergence_texture = divergence_texture;
+
+        let pressure_textures = render::DoubleFramebuffer::new(
+            &self.context,
+            width,
+            height,
+            self.pressure_textures.current().options,
+        )?
+        .with_data(None::<&[f32]>)?;
+        self.pressure_textures
+            .blit_to(&self.context, &pressure_textures);
+        self.pressure_textures = pressure_textures;
+
+        Ok(())
     }
 
     // Setup vertex and uniform buffers.
@@ -417,4 +479,12 @@ impl Fluid {
     pub fn get_velocity_textures(&self) -> &DoubleFramebuffer {
         &self.velocity_textures
     }
+}
+
+fn compute_fluid_size(fluid_size: f32, ratio: f32) -> (u32, u32, [f32; 2]) {
+    let width = (fluid_size * ratio).round();
+    let height = fluid_size;
+    let texel_size = [1.0 / width, 1.0 / height];
+
+    (width as u32, height as u32, texel_size)
 }

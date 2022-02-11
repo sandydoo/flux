@@ -246,6 +246,10 @@ impl Framebuffer {
     }
 
     pub fn with_f32_data(self, data: &[f32]) -> Result<Self> {
+        self.with_data(Some(&data))
+    }
+
+    pub fn with_data<T: bytemuck::Pod>(self, data: Option<&[T]>) -> Result<Self> {
         let TextureFormat {
             internal_format,
             format,
@@ -254,11 +258,13 @@ impl Framebuffer {
         } = detect_texture_format(self.options.format)?;
 
         let expected_size = size * ((self.width * self.height) as usize);
-        if data.len() != expected_size {
-            return Err(Problem::WrongDataSize {
-                expected: expected_size,
-                actual: data.len(),
-            });
+        if let Some(buffer) = data {
+            if buffer.len() != expected_size {
+                return Err(Problem::WrongDataSize {
+                    expected: expected_size,
+                    actual: buffer.len(),
+                });
+            }
         }
 
         unsafe {
@@ -275,7 +281,7 @@ impl Framebuffer {
                 0,
                 format,
                 type_,
-                Some(&bytemuck::cast_slice(&data)),
+                data.map(|buffer| bytemuck::cast_slice(buffer)),
             );
             // .map_err(|Err(Problem::CannotWriteToTexture))?;
 
@@ -328,6 +334,28 @@ impl Framebuffer {
             context.bind_framebuffer(glow::DRAW_FRAMEBUFFER, None);
         }
     }
+
+    pub fn blit_to(&self, context: &Context, target_framebuffer: &Framebuffer) {
+        unsafe {
+            context.disable(glow::BLEND);
+            context.bind_framebuffer(glow::DRAW_FRAMEBUFFER, Some(target_framebuffer.id));
+            context.bind_framebuffer(glow::READ_FRAMEBUFFER, Some(self.id));
+            context.blit_framebuffer(
+                0,
+                0,
+                self.width as i32,
+                self.height as i32,
+                0,
+                0,
+                target_framebuffer.width as i32,
+                target_framebuffer.height as i32,
+                glow::COLOR_BUFFER_BIT,
+                glow::LINEAR,
+            );
+            context.bind_framebuffer(glow::READ_FRAMEBUFFER, None);
+            context.bind_framebuffer(glow::DRAW_FRAMEBUFFER, None);
+        }
+    }
 }
 
 pub struct DoubleFramebuffer {
@@ -354,17 +382,21 @@ impl DoubleFramebuffer {
         })
     }
 
-    pub fn with_f32_data(self, data: &[f32]) -> Result<Self> {
+    pub fn with_data<T: bytemuck::Pod>(self, data: Option<&[T]>) -> Result<Self> {
         // TODO: are these clones okay? The problem is that the builder pattern
         // doesn’t work well with RefCell in the DoubleBuffer. Another option is
         // to build with references and call a `finalize` method at the end.
         self.front
-            .replace_with(|buffer| buffer.clone().with_f32_data(&data).unwrap());
+            .replace_with(|buffer| buffer.clone().with_data(data).unwrap());
         // TODO: should we copy the data to the second buffer/texture, or just init with the right size?
         self.back
-            .replace_with(|buffer| buffer.clone().with_f32_data(&data).unwrap());
+            .replace_with(|buffer| buffer.clone().with_data(data).unwrap());
 
         Ok(self)
+    }
+
+    pub fn with_f32_data(self, data: &[f32]) -> Result<Self> {
+        self.with_data(Some(&data))
     }
 
     pub fn zero_out(&self) -> Result<()> {
@@ -406,6 +438,11 @@ impl DoubleFramebuffer {
 
         drop(framebuffer);
         self.swap();
+    }
+
+    pub fn blit_to(&self, context: &Context, target_framebuffer: &DoubleFramebuffer) {
+        self.current()
+            .blit_to(context, &target_framebuffer.current());
     }
 }
 

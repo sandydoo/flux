@@ -46,8 +46,7 @@ type alias Settings =
     { viscosity : Float
     , velocityDissipation : Float
     , startingPressure : Float
-    , fluidWidth : Int
-    , fluidHeight : Int
+    , fluidSize : Int
     , fluidSimulationFrameRate : Int
     , diffusionIterations : Int
     , pressureIterations : Int
@@ -105,8 +104,7 @@ defaultSettings =
     { viscosity = 1.0
     , velocityDissipation = 0.0
     , startingPressure = 0.8
-    , fluidWidth = 128
-    , fluidHeight = 128
+    , fluidSize = 128
     , fluidSimulationFrameRate = 30
     , diffusionIterations = 10
     , pressureIterations = 40
@@ -1017,8 +1015,7 @@ encodeSettings settings =
         [ ( "viscosity", Encode.float settings.viscosity )
         , ( "velocityDissipation", Encode.float settings.velocityDissipation )
         , ( "startingPressure", Encode.float settings.startingPressure )
-        , ( "fluidWidth", Encode.int settings.fluidWidth )
-        , ( "fluidHeight", Encode.int settings.fluidHeight )
+        , ( "fluidSize", Encode.int settings.fluidSize )
         , ( "fluidSimulationFrameRate", Encode.int settings.fluidSimulationFrameRate )
         , ( "diffusionIterations", Encode.int settings.diffusionIterations )
         , ( "pressureIterations", Encode.int settings.pressureIterations )
