@@ -1,7 +1,8 @@
 name: "Deploy to GitHub Pages"
 on:
   push:
-    branches: [ main ]
+    tags:
+      - 'v*'
 
 jobs:
   deploy:
