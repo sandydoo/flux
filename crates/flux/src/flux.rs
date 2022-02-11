@@ -129,7 +129,7 @@ impl Flux {
         self.drawer
             .place_lines(timestep, &self.fluid.get_velocity());
 
-        self.drawer.with_antialiasing(|| unsafe {
+        unsafe {
             self.context.clear_color(0.0, 0.0, 0.0, 1.0);
             self.context.clear(glow::COLOR_BUFFER_BIT);
 
@@ -141,7 +141,7 @@ impl Flux {
 
             self.drawer.draw_lines();
             self.drawer.draw_endpoints();
-        });
+        }
     }
 }
 
