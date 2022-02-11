@@ -27,7 +27,7 @@ in float iOpacity;
 out vec2 vPosition;
 out vec3 vColor;
 out vec3 vPremultipliedLineColor;
-out float vOpacity;
+out float vEndpointOpacity;
 out vec2 vPerpendicularVector;
 
 mat4 translate(vec3 v) {
@@ -51,6 +51,18 @@ mat4 rotateZ(float angle) {
   );
 }
 
+float easeOutCirc(float x) {
+  return sqrt(1.0 - pow(x - 1.0, 2.0));
+}
+
+float endpointCurve(float lineLength, float lineOpacity, float fadeInPoint) {
+  return mix(
+    easeOutCirc(lineLength),
+    lineOpacity,
+    smoothstep(fadeInPoint - 0.2, fadeInPoint, lineLength)
+  );
+}
+
 // TODO: A lot of this shared with lines. Can we do something about that?
 void main() {
   vec2 endpoint = basepoint + iEndpointVector * uLineLength;
@@ -65,10 +77,9 @@ void main() {
 
   gl_Position = uProjection * uView * translate(vec3(endpoint, 0.0)) * modelMatrix * vec4(vertex, 0.0, 1.0);
 
-  float endpointOpacity = smoothstep(uLineFadeOutLength, uLineFadeOutLength + 0.4, length(iEndpointVector));
   vPosition = vertex;
   vColor = iColor.rgb;
   vPremultipliedLineColor = vColor * iOpacity;
-  vOpacity = endpointOpacity;
+  vEndpointOpacity = endpointCurve(length(iEndpointVector), iOpacity, 0.8);
   vPerpendicularVector = (rotateZ(PI / 2.0) * vec4(iEndpointVector, 0.0, 1.0)).xy;
 }
