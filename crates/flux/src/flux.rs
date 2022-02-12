@@ -109,6 +109,10 @@ impl Flux {
         self.elapsed_time += timestep;
         self.frame_time += timestep;
 
+        if self.elapsed_time > 4.0 {
+            return;
+        }
+
         while self.frame_time >= self.fluid_frame_time {
             self.noise_injector.generate_all(self.elapsed_time);
             self.noise_injector

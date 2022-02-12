@@ -6,7 +6,7 @@ use settings::Settings;
 
 extern crate nalgebra_glm as glm;
 use bytemuck::{Pod, Zeroable};
-use glow::{HasContext, Version};
+use glow::HasContext;
 use std::f32::consts::PI;
 use std::rc::Rc;
 
@@ -29,7 +29,7 @@ static PLACE_LINES_FRAG_SHADER: &'static str =
 static FXAA_VERT_SHADER: &'static str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/fxaa.vert"));
 static FXAA_FRAG_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/fxaa.frag"));
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/fxaa2.frag"));
 
 #[rustfmt::skip]
 const LINE_VERTICES: [f32; 12] = [
@@ -335,12 +335,42 @@ impl Drawer {
 
         run_fxaa_program.set_uniforms(&[
             &Uniform {
-                name: "resolution",
-                value: UniformValue::Vec2(&[physical_width as f32, physical_height as f32]),
+                name: "InvTexSize",
+                value: UniformValue::Vec2(&[
+                    1.0 / physical_width as f32,
+                    1.0 / physical_height as f32,
+                ]),
             },
             &Uniform {
-                name: "tex",
+                name: "Input",
                 value: UniformValue::Texture2D(0),
+            },
+            // Minimum change in luminosity (relative to maxLum) to use FXAA:
+            &Uniform {
+                name: "RelativeContrastThreshold",
+                value: UniformValue::Float(1.0 / 8.0),
+            },
+            // Absolute minimum lum change required for FXAA (overrides
+            // RelativeContrastThreshold value, not scaled):
+            &Uniform {
+                name: "HardContrastThreshold",
+                value: UniformValue::Float(1.0 / 16.0),
+            },
+            // Maximum amount of lowpass blending for subpixel anti-aliasing:
+            &Uniform {
+                name: "SubpixelBlendLimit",
+                value: UniformValue::Float(3.0 / 4.0),
+            },
+            // Ignore subpixel anti-aliasing that contributes less than this amount to the
+            // total contrast:
+            &Uniform {
+                name: "SubpixelContrastThreshold",
+                value: UniformValue::Float(1.0 / 4.0),
+            },
+            // Maximum number of steps to take when searching for line edges:
+            &Uniform {
+                name: "EndpointSearchIterations",
+                value: UniformValue::SignedInt(12),
             },
         ]);
 
@@ -839,6 +869,7 @@ impl Drawer {
         T: Fn() -> (),
     {
         self.antialiasing_pass.draw_to(draw_call);
+        // draw_call()
     }
 }
 

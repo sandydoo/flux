@@ -3,7 +3,7 @@ precision mediump float;
 in vec3 position;
 uniform vec2 resolution;
 
-out vec2 vUv;
+out vec2 texCoord;
 out vec2 v_rgbNW;
 out vec2 v_rgbNE;
 out vec2 v_rgbSW;
@@ -13,9 +13,9 @@ out vec2 v_rgbM;
 void main() {
   gl_Position = vec4(position, 1.0);
 
-  vUv = (position.xy + 1.0) * 0.5;
-  vUv.y = 1.0 - vUv.y;
-  vec2 fragCoord = vUv * resolution;
+  texCoord = (position.xy + 1.0) * 0.5;
+  texCoord.y = 1.0 - texCoord.y;
+  vec2 fragCoord = texCoord * resolution;
 
   vec2 inverseVP = 1.0 / resolution.xy;
   v_rgbNW = (fragCoord + vec2(-1.0, -1.0)) * inverseVP;
