@@ -807,7 +807,11 @@ impl Drawer {
     where
         T: Fn() -> (),
     {
-        self.antialiasing_pass.draw_to(draw_call);
+        if self.antialiasing_pass.samples > 0 {
+            self.antialiasing_pass.draw_to(draw_call)
+        } else {
+            draw_call()
+        }
     }
 }
 

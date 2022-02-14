@@ -717,7 +717,7 @@ pub struct MsaaPass {
     context: Context,
     width: u32,
     height: u32,
-    samples: u32,
+    pub samples: u32,
     framebuffer: glow::Framebuffer,
     renderbuffer: glow::Renderbuffer,
 }
