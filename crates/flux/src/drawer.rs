@@ -44,7 +44,8 @@ struct LineState {
     velocity: [f32; 2],
     color: [f32; 4],
     width: f32,
-    opacity: f32,
+    line_opacity: f32,
+    endpoint_opacity: f32,
 }
 
 #[repr(C)]
@@ -146,7 +147,7 @@ impl Drawer {
         )?;
         let endpoint_vertices = Buffer::from_f32(
             &context,
-            &new_endpoint(16),
+            &new_endpoint(6),
             glow::ARRAY_BUFFER,
             glow::STATIC_DRAW,
         )?;
@@ -175,7 +176,8 @@ impl Drawer {
                     "vVelocityVector",
                     "vColor",
                     "vLineWidth",
-                    "vOpacity",
+                    "vLineOpacity",
+                    "vEndpointOpacity",
                 ],
                 mode: glow::INTERLEAVED_ATTRIBS,
             },
@@ -217,6 +219,20 @@ impl Drawer {
                 },
             )],
             None,
+        )?;
+        let draw_texture_buffer = VertexArrayObject::new(
+            &context,
+            &draw_texture_program,
+            &[(
+                &plane_vertices,
+                VertexBufferLayout {
+                    name: "position",
+                    size: 3,
+                    type_: glow::FLOAT,
+                    ..Default::default()
+                },
+            )],
+            Some(&plane_indices),
         )?;
 
         // Uniforms
@@ -308,23 +324,6 @@ impl Drawer {
         draw_lines_program.set_uniform_block("LineUniforms", 1);
         draw_endpoints_program.set_uniform_block("Projection", 0);
         draw_endpoints_program.set_uniform_block("LineUniforms", 1);
-
-        // Vertex buffers
-
-        let draw_texture_buffer = VertexArrayObject::new(
-            &context,
-            &draw_texture_program,
-            &[(
-                &plane_vertices,
-                VertexBufferLayout {
-                    name: "position",
-                    size: 3,
-                    type_: glow::FLOAT,
-                    ..Default::default()
-                },
-            )],
-            Some(&plane_indices),
-        )?;
         draw_texture_program.set_uniform_block("Projection", 0);
 
         let antialiasing_samples = 0;
@@ -505,7 +504,7 @@ impl Drawer {
                         name: "iEndpointVector",
                         size: 2,
                         type_: glow::FLOAT,
-                        stride: 10 * 4,
+                        stride: 11 * 4,
                         offset: 0 * 4,
                         divisor: 0,
                     },
@@ -516,7 +515,7 @@ impl Drawer {
                         name: "iVelocityVector",
                         size: 2,
                         type_: glow::FLOAT,
-                        stride: 10 * 4,
+                        stride: 11 * 4,
                         offset: 2 * 4,
                         divisor: 0,
                     },
@@ -527,7 +526,7 @@ impl Drawer {
                         name: "iColor",
                         size: 4,
                         type_: glow::FLOAT,
-                        stride: 10 * 4,
+                        stride: 11 * 4,
                         offset: 4 * 4,
                         divisor: 0,
                     },
@@ -538,7 +537,7 @@ impl Drawer {
                         name: "iLineWidth",
                         size: 1,
                         type_: glow::FLOAT,
-                        stride: 10 * 4,
+                        stride: 11 * 4,
                         offset: 8 * 4,
                         divisor: 0,
                     },
@@ -546,11 +545,22 @@ impl Drawer {
                 (
                     &self.line_state_buffer,
                     VertexBufferLayout {
-                        name: "iOpacity",
+                        name: "iLineOpacity",
                         size: 1,
                         type_: glow::FLOAT,
-                        stride: 10 * 4,
+                        stride: 11 * 4,
                         offset: 9 * 4,
+                        divisor: 0,
+                    },
+                ),
+                (
+                    &self.line_state_buffer,
+                    VertexBufferLayout {
+                        name: "iEndpointOpacity",
+                        size: 1,
+                        type_: glow::FLOAT,
+                        stride: 11 * 4,
+                        offset: 10 * 4,
                         divisor: 0,
                     },
                 ),
@@ -575,7 +585,7 @@ impl Drawer {
                     name: "iEndpointVector",
                     size: 2,
                     type_: glow::FLOAT,
-                    stride: 10 * 4,
+                    stride: 11 * 4,
                     offset: 0 * 4,
                     divisor: 1,
                 },
@@ -586,7 +596,7 @@ impl Drawer {
                     name: "iVelocityVector",
                     size: 2,
                     type_: glow::FLOAT,
-                    stride: 10 * 4,
+                    stride: 11 * 4,
                     offset: 2 * 4,
                     divisor: 1,
                 },
@@ -597,7 +607,7 @@ impl Drawer {
                     name: "iColor",
                     size: 4,
                     type_: glow::FLOAT,
-                    stride: 10 * 4,
+                    stride: 11 * 4,
                     offset: 4 * 4,
                     divisor: 1,
                 },
@@ -608,7 +618,7 @@ impl Drawer {
                     name: "iLineWidth",
                     size: 1,
                     type_: glow::FLOAT,
-                    stride: 10 * 4,
+                    stride: 11 * 4,
                     offset: 8 * 4,
                     divisor: 1,
                 },
@@ -616,11 +626,22 @@ impl Drawer {
             (
                 &self.line_state_buffer,
                 VertexBufferLayout {
-                    name: "iOpacity",
+                    name: "iLineOpacity",
                     size: 1,
                     type_: glow::FLOAT,
-                    stride: 10 * 4,
+                    stride: 11 * 4,
                     offset: 9 * 4,
+                    divisor: 1,
+                },
+            ),
+            (
+                &self.line_state_buffer,
+                VertexBufferLayout {
+                    name: "iEndpointOpacity",
+                    size: 1,
+                    type_: glow::FLOAT,
+                    stride: 11 * 4,
+                    offset: 10 * 4,
                     divisor: 1,
                 },
             ),
@@ -769,8 +790,21 @@ impl Drawer {
             self.context
                 .bind_buffer_base(glow::UNIFORM_BUFFER, 1, Some(self.line_uniforms.id));
 
+            self.draw_endpoints_pass.set_uniform(&Uniform {
+                name: "uOrientation",
+                value: UniformValue::Float(1.0),
+            });
+
             self.context
-                .draw_arrays_instanced(glow::TRIANGLE_FAN, 0, 18, self.line_count as i32);
+                .draw_arrays_instanced(glow::TRIANGLE_FAN, 0, 8, self.line_count as i32);
+
+            self.draw_endpoints_pass.set_uniform(&Uniform {
+                name: "uOrientation",
+                value: UniformValue::Float(-1.0),
+            });
+
+            self.context
+                .draw_arrays_instanced(glow::TRIANGLE_FAN, 0, 8, self.line_count as i32);
 
             self.context.disable(glow::BLEND);
         }
@@ -890,7 +924,8 @@ fn new_line_state(width: u32, height: u32, grid_spacing: u32) -> Vec<LineState> 
                 velocity: [0.0, 0.0],
                 color: [0.0, 0.0, 0.0, 0.0],
                 width: 0.0,
-                opacity: 0.0,
+                line_opacity: 1.0,
+                endpoint_opacity: 0.0,
             });
         }
     }
@@ -899,13 +934,13 @@ fn new_line_state(width: u32, height: u32, grid_spacing: u32) -> Vec<LineState> 
 }
 
 fn new_endpoint(resolution: u32) -> Vec<f32> {
-    let mut segments = Vec::with_capacity((resolution * 2 + 1) as usize);
+    let mut segments = Vec::with_capacity(((resolution + 1) * 2) as usize);
 
     segments.push(0.0);
     segments.push(0.0);
 
     for section in 0..=resolution {
-        let angle = 2.0 * PI * (section as f32) / (resolution as f32);
+        let angle = PI * (section as f32) / (resolution as f32);
         segments.push(angle.cos());
         segments.push(angle.sin());
     }

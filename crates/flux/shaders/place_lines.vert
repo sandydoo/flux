@@ -11,7 +11,8 @@ in vec2 iEndpointVector;
 in vec2 iVelocityVector;
 in vec4 iColor;
 in float iLineWidth;
-in float iOpacity;
+in float iLineOpacity;
+in float iEndpointOpacity;
 
 uniform float deltaT;
 uniform float uSpringStiffness;
@@ -32,7 +33,8 @@ out vec2 vEndpointVector;
 out vec2 vVelocityVector;
 out vec4 vColor;
 out float vLineWidth;
-out float vOpacity;
+out float vLineOpacity;
+out float vEndpointOpacity;
 
 
 float clampTo(float value, float max) {
@@ -62,6 +64,18 @@ float random1f(in vec2 st) {
 
 float easeInCirc(float x) {
   return 1.0 - sqrt(1.0 - pow(x, 2.0));
+}
+
+float easeOutCirc(float x) {
+  return sqrt(1.0 - pow(x - 1.0, 2.0));
+}
+
+float endpointCurve(float lineLength, float lineOpacity, float fadeInPoint) {
+  return mix(
+    easeOutCirc(smoothstep(uLineFadeOutLength - 0.01, 1.0, lineLength)),
+    lineOpacity,
+    smoothstep(fadeInPoint - 0.2, fadeInPoint, lineLength)
+  );
 }
 
 void main() {
@@ -105,8 +119,8 @@ void main() {
   vec4 colorDiff = newColor - iColor;
   vColor = clamp(
     iColor + colorDiff * deltaT,
-    vec4(0.0),
-    vec4(1.0)
+    0.0,
+    1.0
   );
   // Debug spring extension
   // vColor = mix(vColor, vec4(1.0), smoothstep(0.95, 1.05, currentLength));
@@ -126,5 +140,6 @@ void main() {
   // Opacity
   // This is only for the line. The endpoints have their own fade out curve.
   // TODO can we improve this?
-  vOpacity = smoothstep(uLineFadeOutLength, 1.0, currentLength);
+  vLineOpacity = smoothstep(uLineFadeOutLength, 1.0, currentLength);
+  vEndpointOpacity = endpointCurve(length(iEndpointVector), iLineOpacity, 0.7);
 }

@@ -6,9 +6,10 @@ in vec2 basepoint;
 
 in vec2 iEndpointVector;
 in vec2 iVelocityVector;
-in float iLineWidth;
 in vec4 iColor;
-in float iOpacity;
+in float iLineWidth;
+in float iLineOpacity;
+in float iEndpointOpacity;
 
 layout(std140) uniform Projection
 {
@@ -39,5 +40,5 @@ void main() {
 
   vVertex = lineVertex;
   vColor = iColor.rgb;
-  vOpacity = iOpacity;
+  vOpacity = iLineOpacity;
 }

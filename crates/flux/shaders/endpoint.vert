@@ -15,71 +15,67 @@ layout(std140) uniform LineUniforms
   highp float uLineFadeOutLength;
 };
 
+uniform float uOrientation;
+
 in vec2 vertex;
 in vec2 basepoint;
 
 in vec2 iEndpointVector;
 in vec2 iVelocityVector;
-in float iLineWidth;
 in vec4 iColor;
-in float iOpacity;
+in float iLineWidth;
+in float iLineOpacity;
+in float iEndpointOpacity;
 
-out vec2 vPosition;
-out vec3 vColor;
-out vec3 vPremultipliedLineColor;
-out float vEndpointOpacity;
-out vec2 vPerpendicularVector;
+out vec4 vColor;
 
-mat4 translate(vec3 v) {
+mat4 translate(vec2 offset) {
   return mat4(
-    vec4(1.0, 0.0, 0.0, 0.0),
-    vec4(0.0, 1.0, 0.0, 0.0),
-    vec4(0.0, 0.0, 1.0, 0.0),
-    vec4(v.x, v.y, v.z, 1.0)
-  );
-}
-
-mat4 rotateZ(float angle) {
-  float s = sin(angle);
-  float c = cos(angle);
-
-  return mat4(
-    c,   -s,  0.0, 0.0,
-    s,  c,    0.0, 0.0,
+    1.0, 0.0, 0.0, 0.0,
+    0.0, 1.0, 0.0, 0.0,
     0.0, 0.0, 1.0, 0.0,
-    0.0, 0.0, 0.0, 1.0
+    offset.x, offset.y, 0.0, 1.0
   );
 }
 
-float easeOutCirc(float x) {
-  return sqrt(1.0 - pow(x - 1.0, 2.0));
-}
-
-float endpointCurve(float lineLength, float lineOpacity, float fadeInPoint) {
-  return mix(
-    easeOutCirc(smoothstep(uLineFadeOutLength - 0.01, 1.0, lineLength)),
-    lineOpacity,
-    smoothstep(fadeInPoint - 0.2, fadeInPoint, lineLength)
-  );
-}
-
-// TODO: A lot of this shared with lines. Can we do something about that?
 void main() {
   vec2 endpoint = basepoint + iEndpointVector * uLineLength;
 
-  float pointSize = uLineWidth * iLineWidth;
-  mat4 modelMatrix = mat4(
-    0.5 * pointSize, 0.0, 0.0, 0.0,
-    0.0, 0.5 * pointSize, 0.0, 0.0,
+  float angle = -atan(iEndpointVector.y, iEndpointVector.x) + PI / 2.0;
+  float c = cos(angle);
+  float s = sin(angle);
+  mat4 rotationMatrix = mat4(
+    c,   -s,  0.0, 0.0,
+    s,   c,   0.0, 0.0,
     0.0, 0.0, 1.0, 0.0,
     0.0, 0.0, 0.0, 1.0
   );
 
-  gl_Position = uProjection * uView * translate(vec3(endpoint, 0.0)) * modelMatrix * vec4(vertex, 0.0, 1.0);
+  float pointSize = uLineWidth * iLineWidth;
+  mat4 modelMatrix = mat4(
+    0.5 * pointSize, 0.0,                            0.0, 0.0,
+    0.0,             uOrientation * 0.5 * pointSize, 0.0, 0.0,
+    0.0,             0.0,                            1.0, 0.0,
+    0.0,             0.0,                            0.0, 1.0
+  );
 
-  vPosition = vertex;
-  vColor = iColor.rgb;
-  vPremultipliedLineColor = vColor * iOpacity;
-  vEndpointOpacity = endpointCurve(length(iEndpointVector), iOpacity, 0.8);
-  vPerpendicularVector = (rotateZ(PI / 2.0) * vec4(iEndpointVector, 0.0, 1.0)).xy;
+  gl_Position = uProjection * uView * translate(endpoint) * rotationMatrix * modelMatrix * vec4(vertex, 0.0, 1.0);
+
+  if (uOrientation > 0.0) {
+    vColor = vec4(iColor.rgb, iEndpointOpacity);
+  } else {
+    // The color of the lower half of the endpoint is less obvious. We’re
+    // drawing over part of the line, so to match the color of the upper
+    // endpoint, we have to do some math. Luckily, we know the premultiplied
+    // color of the line underneath, so we can reverse the blend equation to get
+    // the right color.
+    //
+    // GL_BLEND(SRC_ALPHA, ONE) = srcColor * srcAlpha + dstColor * srcAlpha
+    // = vColor * vEndpointOpacity + vColor * vLineOpacity
+    //
+    // Remember, we’ve already premultiplied our colors! The opacity should be
+    // 1.0 to disable more opacity blending!
+    vec3 premultipliedLineColor = iColor.rgb * iLineOpacity;
+    vColor = vec4(iColor.rgb * iEndpointOpacity - premultipliedLineColor, 1.0);
+  }
 }
