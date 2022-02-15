@@ -1,5 +1,5 @@
 precision mediump float;
-precision mediump sampler2D;
+precision highp sampler2D;
 
 layout(std140) uniform FluidUniforms
 {

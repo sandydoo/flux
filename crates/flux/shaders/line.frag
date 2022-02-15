@@ -6,10 +6,10 @@ in float vOpacity;
 
 layout(std140) uniform LineUniforms
 {
-  highp float uLineWidth;
-  highp float uLineLength;
-  highp float uLineBeginOffset;
-  highp float uLineFadeOutLength;
+  mediump float uLineWidth;
+  mediump float uLineLength;
+  mediump float uLineBeginOffset;
+  mediump float uLineFadeOutLength;
 };
 
 out vec4 fragColor;

@@ -6,10 +6,10 @@ in vec2 basepoint;
 
 in vec2 iEndpointVector;
 in vec2 iVelocityVector;
-in vec4 iColor;
-in float iLineWidth;
-in float iLineOpacity;
-in float iEndpointOpacity;
+in mediump vec4 iColor;
+in mediump float iLineWidth;
+in mediump float iLineOpacity;
+in mediump float iEndpointOpacity;
 
 layout(std140) uniform Projection
 {
@@ -19,10 +19,10 @@ layout(std140) uniform Projection
 
 layout(std140) uniform LineUniforms
 {
-  highp float uLineWidth;
-  highp float uLineLength;
-  highp float uLineBeginOffset;
-  highp float uLineFadeOutLength;
+  mediump float uLineWidth;
+  mediump float uLineLength;
+  mediump float uLineBeginOffset;
+  mediump float uLineFadeOutLength;
 };
 
 out vec2 vVertex;
