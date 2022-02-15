@@ -58,6 +58,7 @@ type alias Settings =
     , springStiffness : Float
     , springVariance : Float
     , springMass : Float
+    , springDamping : Float
     , springRestLength : Float
     , maxLineVelocity : Float
     , advectionDirection : AdvectionDirection
@@ -116,6 +117,7 @@ defaultSettings =
     , springStiffness = 0.2
     , springVariance = 0.25
     , springMass = 2.0
+    , springDamping = 5.0
     , springRestLength = 0.0
     , maxLineVelocity = 0.02
     , advectionDirection = Forward
@@ -199,6 +201,7 @@ type SettingMsg
     | SetSpringStiffness Float
     | SetSpringVariance Float
     | SetSpringMass Float
+    | SetSpringDamping Float
     | SetSpringRestLength Float
     | SetAdvectionDirection AdvectionDirection
     | SetAdjustAdvection Float
@@ -258,6 +261,9 @@ updateSettings msg settings =
 
         SetSpringMass newSpringMass ->
             { settings | springMass = newSpringMass }
+
+        SetSpringDamping newSpringDamping ->
+            { settings | springDamping = newSpringDamping }
 
         SetSpringRestLength newSpringRestLength ->
             { settings | springRestLength = newSpringRestLength }
@@ -562,6 +568,26 @@ viewSettings settings =
                             String.toFloat value
                                 |> Maybe.withDefault 0.0
                                 |> SetSpringMass
+                                |> SaveSetting
+                    , toString = formatFloat 1
+                    }
+                )
+        , viewControl <|
+            Control
+                "Damping"
+                """
+                Dampen line oscillations.
+                """
+                (Slider
+                    { min = 0.0
+                    , max = 20.0
+                    , step = 0.1
+                    , value = settings.springDamping
+                    , onInput =
+                        \value ->
+                            String.toFloat value
+                                |> Maybe.withDefault 0.0
+                                |> SetSpringDamping
                                 |> SaveSetting
                     , toString = formatFloat 1
                     }
@@ -1027,6 +1053,7 @@ encodeSettings settings =
         , ( "springStiffness", Encode.float settings.springStiffness )
         , ( "springVariance", Encode.float settings.springVariance )
         , ( "springMass", Encode.float settings.springMass )
+        , ( "springDamping", Encode.float settings.springDamping )
         , ( "springRestLength", Encode.float settings.springRestLength )
         , ( "maxLineVelocity", Encode.float settings.maxLineVelocity )
         , ( "advectionDirection", encodeAdvectionDirection settings.advectionDirection )

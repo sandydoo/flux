@@ -22,6 +22,7 @@ const settings: Settings = Settings {
     spring_stiffness: 0.2,
     spring_variance: 0.25,
     spring_mass: 2.0,
+    spring_damping: 2.0,
     spring_rest_length: 0.0,
     advection_direction: 1.0,
     adjust_advection: 22.0,

@@ -21,6 +21,7 @@ pub struct Settings {
     pub spring_stiffness: f32,
     pub spring_variance: f32,
     pub spring_mass: f32,
+    pub spring_damping: f32,
     pub spring_rest_length: f32,
 
     pub advection_direction: f32,

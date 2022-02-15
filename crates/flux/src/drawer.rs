@@ -295,6 +295,10 @@ impl Drawer {
                 value: UniformValue::Float(settings.spring_mass),
             },
             &Uniform {
+                name: "uSpringDamping",
+                value: UniformValue::Float(settings.spring_damping),
+            },
+            &Uniform {
                 name: "uSpringRestLength",
                 value: UniformValue::Float(settings.spring_rest_length),
             },
@@ -408,6 +412,10 @@ impl Drawer {
             &Uniform {
                 name: "uSpringMass",
                 value: UniformValue::Float(settings.spring_mass),
+            },
+            &Uniform {
+                name: "uSpringDamping",
+                value: UniformValue::Float(settings.spring_damping),
             },
             &Uniform {
                 name: "uSpringRestLength",

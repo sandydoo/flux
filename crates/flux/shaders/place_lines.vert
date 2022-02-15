@@ -18,6 +18,7 @@ uniform float deltaT;
 uniform float uSpringStiffness;
 uniform float uSpringVariance;
 uniform float uSpringMass;
+uniform float uSpringDamping;
 uniform float uSpringRestLength;
 uniform float uLineFadeOutLength;
 uniform float uMaxLineVelocity;
@@ -37,6 +38,13 @@ out float vLineOpacity;
 out float vEndpointOpacity;
 
 
+vec2 safeNormalize(vec2 v) {
+  if (length(v) == 0.0) {
+    return vec2(0.0);
+  }
+  return normalize(v);
+}
+
 float clampTo(float value, float max) {
   float current = value + 0.0001;
   return min(current, max) / current;
@@ -54,8 +62,8 @@ vec3 getColor(vec4 wheel[6], float angle) {
   return mix(currentColor, nextColor, interpolate);
 }
 
-float springForce(float stiffness, float mass, float displacement) {
-  return (-stiffness * displacement) / mass;
+float springForce(float stiffness, float displacement,  float damping, float velocity, float mass) {
+  return ((-stiffness * displacement) + (-damping * velocity)) / mass;
 }
 
 float random1f(in vec2 st) {
@@ -79,6 +87,9 @@ float endpointCurve(float lineLength, float lineOpacity, float fadeInPoint) {
 }
 
 void main() {
+  vec2 endpointDirection = safeNormalize(iEndpointVector);
+  float currentLength = length(iEndpointVector);
+
   // Velocity
   vec2 basepointInClipSpace = (uProjection * vec4(basepoint, 0.0, 1.0)).xy;
   vec2 currentVelocityVector = texture(velocityTexture, basepointInClipSpace * 0.5 + 0.5).xy;
@@ -87,21 +98,19 @@ void main() {
   float mass = uSpringMass * (1.0 + uSpringVariance * random1f(basepoint));
   vVelocityVector = iVelocityVector + (deltaVelocity / mass) * deltaT;
 
-  // Spring forces
-  float currentLength = length(iEndpointVector);
-  vec2 direction;
-  if (currentLength == 0.0) {
-    direction = vec2(0.0);
-  } else {
-    direction = normalize(iEndpointVector);
-  }
+  vec2 velocityDirection = normalize(uAdvectionDirection * iVelocityVector);
+  vec2 lineDirection = normalize(iEndpointVector);
+  float directionAlignment = clamp(dot(lineDirection, velocityDirection), -1.0, 1.0);
 
-  // Main spring
-  vVelocityVector += uAdvectionDirection * springForce(
+  // Spring forces
+  float springbackForce = springForce(
     uSpringStiffness,
-    mass,
-    currentLength - uSpringRestLength
-  ) * direction * deltaT;
+    currentLength - uSpringRestLength,
+    uSpringDamping,
+    directionAlignment * length(vVelocityVector),
+    mass
+  );
+  vVelocityVector += uAdvectionDirection * endpointDirection * springbackForce * deltaT;
 
   // Cap line velocity
   vVelocityVector *= clampTo(length(vVelocityVector), uMaxLineVelocity);
@@ -126,10 +135,6 @@ void main() {
   // vColor = mix(vColor, vec4(1.0), smoothstep(0.95, 1.05, currentLength));
 
   // Width
-  vec2 velocityDirection = normalize(uAdvectionDirection * vVelocityVector);
-  vec2 lineDirection = normalize(vEndpointVector);
-  float directionAlignment = clamp(dot(lineDirection, velocityDirection), -1.0, 1.0);
-
   float clampedLength = clamp(currentLength, 0.0, 1.0);
   vLineWidth = clamp(
     iLineWidth + (1.0 - easeInCirc(clampedLength)) * 1.6 * uAdjustAdvection * directionAlignment * length(vVelocityVector) * deltaT,
