@@ -78,9 +78,13 @@ float easeOutCirc(float x) {
   return sqrt(1.0 - pow(x - 1.0, 2.0));
 }
 
+float inverseEaseInCirc(float x) {
+  return 1.0 - easeInCirc(x);
+}
+
 float endpointCurve(float lineLength, float lineOpacity, float fadeInPoint) {
   return mix(
-    easeOutCirc(smoothstep(uLineFadeOutLength - 0.01, 1.0, lineLength)),
+    0.75 * easeOutCirc(smoothstep(uLineFadeOutLength - 0.01, 1.0, lineLength)),
     lineOpacity,
     smoothstep(fadeInPoint - 0.2, fadeInPoint, lineLength)
   );
@@ -96,7 +100,7 @@ void main() {
   vec2 deltaVelocity = currentVelocityVector - iVelocityVector;
 
   float mass = uSpringMass * (1.0 + uSpringVariance * random1f(basepoint));
-  vVelocityVector = iVelocityVector + (deltaVelocity / mass) * deltaT;
+  vVelocityVector = iVelocityVector + deltaT * (0.25 * currentVelocityVector + 0.75 * deltaVelocity);
 
   vec2 velocityDirection = normalize(uAdvectionDirection * iVelocityVector);
   vec2 lineDirection = normalize(iEndpointVector);
@@ -136,15 +140,14 @@ void main() {
 
   // Width
   float clampedLength = clamp(currentLength, 0.0, 1.0);
+  float lineWidthBoost = 1.6;
   vLineWidth = clamp(
-    iLineWidth + (1.0 - easeInCirc(clampedLength)) * 1.6 * uAdjustAdvection * directionAlignment * length(vVelocityVector) * deltaT,
-    0.0,
+    iLineWidth + inverseEaseInCirc(clampedLength) * lineWidthBoost * uAdjustAdvection * directionAlignment * length(vVelocityVector) * deltaT,
+    0.05,
     1.0
   );
 
   // Opacity
-  // This is only for the line. The endpoints have their own fade out curve.
-  // TODO can we improve this?
   vLineOpacity = smoothstep(uLineFadeOutLength, 1.0, currentLength);
-  vEndpointOpacity = endpointCurve(length(iEndpointVector), iLineOpacity, 0.7);
+  vEndpointOpacity = endpointCurve(currentLength, iLineOpacity, 0.8);
 }
