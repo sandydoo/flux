@@ -64,6 +64,7 @@ pub struct NoiseInjector {
     pub channels: Vec<NoiseChannel>,
     width: u32,
     height: u32,
+
     generate_noise_pass: Program,
     blend_with_curl_pass: Program,
     blend_with_wiggle_pass: Program,
@@ -170,6 +171,7 @@ impl NoiseInjector {
             channels: Vec::new(),
             width,
             height,
+
             generate_noise_pass: simplex_noise_program,
             blend_with_curl_pass: blend_with_curl_program,
             blend_with_wiggle_pass: blend_with_wiggle_program,
@@ -179,19 +181,6 @@ impl NoiseInjector {
     }
 
     pub fn add_noise(&mut self, noise: Noise) -> Result<(), render::Problem> {
-        let texture = Framebuffer::new(
-            &self.context,
-            self.width,
-            self.height,
-            TextureOptions {
-                mag_filter: glow::LINEAR,
-                min_filter: glow::LINEAR,
-                format: glow::RG32F,
-                ..Default::default()
-            },
-        )?
-        .with_f32_data(&vec![0.0; (self.width * self.height * 2) as usize])?;
-
         let uniforms = NoiseUniforms {
             frequency: noise.scale,
             offset_1: noise.offset_1,
@@ -208,6 +197,19 @@ impl NoiseInjector {
             glow::ARRAY_BUFFER,
             glow::STATIC_DRAW,
         )?;
+
+        let texture = Framebuffer::new(
+            &self.context,
+            self.width,
+            self.height,
+            TextureOptions {
+                mag_filter: glow::LINEAR,
+                min_filter: glow::LINEAR,
+                format: glow::RG32F,
+                ..Default::default()
+            },
+        )?
+        .with_f32_data(&vec![0.0; (self.width * self.height * 2) as usize])?;
 
         self.channels.push(NoiseChannel {
             noise: noise.clone(),
@@ -230,6 +232,8 @@ impl NoiseInjector {
                 self.generate_noise_pass.use_program();
 
                 unsafe {
+                    // self.context.enable(glow::BLEND);
+                    // self.context.blend_func(glow::ONE, glow::ONE);
                     self.context.bind_vertex_array(Some(self.noise_buffer.id));
 
                     self.context.bind_buffer_base(
@@ -239,15 +243,20 @@ impl NoiseInjector {
                     );
 
                     channel.texture.draw_to(&self.context, || {
+                        self.context.clear_color(0.0, 0.0, 0.0, 0.0);
+                        self.context.clear(glow::COLOR_BUFFER_BIT);
                         self.context
                             .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
                     });
+
+                    // self.context.disable(glow::BLEND);
                 }
 
                 channel.tick(&self.context, elapsed_time);
             }
         }
     }
+
     pub fn generate_by_channel_number(&mut self, channel_number: usize, elapsed_time: f32) {
         if let Some(channel) = self.channels.get_mut(channel_number) {
             self.generate_noise_pass.use_program();
@@ -322,10 +331,26 @@ impl NoiseInjector {
         }
     }
 
+    pub fn get_delta_blend_progress(&mut self, elapsed_time: f32) -> f32 {
+        let channel = &mut self.channels[0];
+
+        if channel.last_blend_progress >= 1.0 {
+            return 0.0;
+        }
+
+        let blend_progress: f32 =
+            (elapsed_time - channel.blend_begin_time) / channel.noise.blend_duration;
+
+        let delta_blend_progress = (blend_progress - channel.last_blend_progress).clamp(0.0, 1.0);
+
+        channel.last_blend_progress = blend_progress;
+
+        delta_blend_progress
+    }
+
     #[allow(dead_code)]
-    pub fn get_noise_channel(&self, channel_number: usize) -> Option<&Framebuffer> {
-        self.channels
-            .get(channel_number)
-            .map(|channel| &channel.texture)
+    pub fn get_noise(&self) -> &Framebuffer {
+        let channel = &self.channels[0];
+        &channel.texture
     }
 }

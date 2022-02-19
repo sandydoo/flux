@@ -15,6 +15,8 @@ in float iLineOpacity;
 in float iEndpointOpacity;
 
 uniform float deltaT;
+// uniform float elapsedTime;
+uniform float uBlendProgress;
 uniform float uSpringStiffness;
 uniform float uSpringVariance;
 uniform float uSpringMass;
@@ -28,6 +30,7 @@ uniform mediump vec4 uColorWheel[6];
 uniform mat4 uProjection;
 
 uniform sampler2D velocityTexture;
+uniform sampler2D noiseTexture;
 
 // transform feedback output
 out vec2 vEndpointVector;
@@ -36,7 +39,6 @@ out vec4 vColor;
 out float vLineWidth;
 out float vLineOpacity;
 out float vEndpointOpacity;
-
 
 vec2 safeNormalize(vec2 v) {
   if (length(v) == 0.0) {
@@ -95,32 +97,55 @@ void main() {
   float currentLength = length(iEndpointVector);
 
   // Velocity
-  vec2 basepointInClipSpace = (uProjection * vec4(basepoint, 0.0, 1.0)).xy;
-  vec2 currentVelocityVector = texture(velocityTexture, basepointInClipSpace * 0.5 + 0.5).xy;
+  vec2 basepointInClipSpace = 0.5 + 0.5 * (uProjection * vec4(basepoint, 0.0, 1.0)).xy;
+  vec2 currentVelocityVector = texture(velocityTexture, basepointInClipSpace).xy;
   vec2 deltaVelocity = currentVelocityVector - iVelocityVector;
-
-  float mass = uSpringMass * (1.0 + uSpringVariance * random1f(basepoint));
-  vVelocityVector = iVelocityVector + deltaT * (0.25 * currentVelocityVector + 0.75 * deltaVelocity);
 
   vec2 velocityDirection = normalize(uAdvectionDirection * iVelocityVector);
   vec2 lineDirection = normalize(iEndpointVector);
   float directionAlignment = clamp(dot(lineDirection, velocityDirection), -1.0, 1.0);
 
-  // Spring forces
-  float springbackForce = springForce(
-    uSpringStiffness,
-    currentLength - uSpringRestLength,
-    uSpringDamping,
-    directionAlignment * length(vVelocityVector),
-    mass
-  );
-  vVelocityVector += uAdvectionDirection * endpointDirection * springbackForce * deltaT;
+  float mass = uSpringMass * (1.0 + uSpringVariance * random1f(basepoint));
+
+  float advectionDirection = 1.0;
+  vec2 noise = texture(noiseTexture, basepointInClipSpace).xy;
+  if (noise.x <= 0.0) {
+    // advectionDirection = -1.0;
+  }
+    vVelocityVector = iVelocityVector + deltaT * (0.0 * currentVelocityVector + 1.0 * deltaVelocity);
+
+    // Spring forces
+    float springbackForce = springForce(
+      uSpringStiffness,
+      currentLength - uSpringRestLength,
+      uSpringDamping,
+      directionAlignment * length(vVelocityVector),
+      mass
+    );
+    vVelocityVector += uAdvectionDirection * endpointDirection * springbackForce * deltaT;
+  // } else {
+    // advectionDirection = -1.0;
+    // vVelocityVector = iVelocityVector;
+  // }
+
+  // Jiggle stuff
+  // vec2 noise = texture(noiseTexture, basepointInClipSpace).xy;
+  // float frequency = 10.0;
+  // float sx = 0.006 * snoise(vec3(basepointInClipSpace * frequency, elapsedTime));
+  // float sy = 0.006 * snoise(vec3(basepointInClipSpace * frequency, 2.0 + elapsedTime));
+  // length(force) > uBlendThreshold &&
+  // if (uBlendProgress < 1.0 && length(noise) > 0.2) {
+    // vVelocityVector += 0.002 * uBlendProgress * noise;
+    // vVelocityVector *= 1.0 - 0.1 * noise.x;
+  // }
+  // vec2 adjustAdvection = uAdjustAdvection * (1.0 + 1.0 * noise.xy);
+  // float adjustAdvection = uAdjustAdvection * length(noise.xy);
 
   // Cap line velocity
   vVelocityVector *= clampTo(length(vVelocityVector), uMaxLineVelocity);
 
   // Advect forward
-  vEndpointVector = iEndpointVector + uAdjustAdvection * uAdvectionDirection * vVelocityVector * deltaT;
+  vEndpointVector = iEndpointVector + uAdjustAdvection * advectionDirection * vVelocityVector * deltaT;
   currentLength = length(vEndpointVector);
 
   // Color

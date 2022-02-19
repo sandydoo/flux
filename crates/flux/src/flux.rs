@@ -11,7 +11,8 @@ use std::rc::Rc;
 pub struct Flux {
     fluid: Fluid,
     drawer: Drawer,
-    noise_injector: NoiseInjector,
+    fluid_noise_injector: NoiseInjector,
+    line_noise_injector: NoiseInjector,
     settings: Rc<Settings>,
 
     pub context: render::Context,
@@ -28,9 +29,9 @@ impl Flux {
 
         self.fluid.update(&self.settings);
         self.drawer.update(&self.settings);
-        self.noise_injector
+        self.fluid_noise_injector
             .update_channel(0, &self.settings.noise_channel_1);
-        self.noise_injector
+        self.fluid_noise_injector
             .update_channel(1, &self.settings.noise_channel_2);
     }
 
@@ -56,20 +57,41 @@ impl Flux {
         )
         .map_err(Problem::CannotRender)?;
 
-        let mut noise_injector = NoiseInjector::new(&context, fluid.width / 4, fluid.height / 4)
-            .map_err(Problem::CannotRender)?;
+        let mut fluid_noise_injector =
+            NoiseInjector::new(&context, fluid.width / 4, fluid.height / 4)
+                .map_err(Problem::CannotRender)?;
 
-        noise_injector
+        fluid_noise_injector
             .add_noise(settings.noise_channel_1.clone())
             .map_err(Problem::CannotRender)?;
-        noise_injector
+
+        // fluid_noise_injector.generate_by_channel_number(0, 0.0);
+        fluid_noise_injector
             .add_noise(settings.noise_channel_2.clone())
+            .map_err(Problem::CannotRender)?;
+
+        let mut line_noise_injector =
+            NoiseInjector::new(&context, drawer.grid_width, drawer.grid_height)
+                .map_err(Problem::CannotRender)?;
+        line_noise_injector
+            .add_noise(settings::Noise {
+                scale: 3.0,
+                multiplier: 2.0,
+                offset_1: 2.0,
+                offset_2: 3.0,
+                offset_increment: 1.0,
+                delay: 2.0,
+                blend_duration: 1.0,
+                blend_threshold: 0.0,
+                blend_method: settings::BlendMethod::Curl,
+            })
             .map_err(Problem::CannotRender)?;
 
         Ok(Flux {
             fluid,
             drawer,
-            noise_injector,
+            fluid_noise_injector,
+            line_noise_injector,
             settings: Rc::clone(settings),
 
             context: Rc::clone(context),
@@ -109,9 +131,10 @@ impl Flux {
         self.elapsed_time += timestep;
         self.frame_time += timestep;
 
+        // TODO: move frame times to fluid
         while self.frame_time >= self.fluid_frame_time {
-            self.noise_injector.generate_all(self.elapsed_time);
-            self.noise_injector
+            self.fluid_noise_injector.generate_all(self.elapsed_time);
+            self.fluid_noise_injector
                 .blend_noise_into(&self.fluid.get_velocity_textures(), self.elapsed_time);
 
             self.fluid.prepare_pass(self.fluid_frame_time);
@@ -124,18 +147,27 @@ impl Flux {
             self.frame_time -= self.fluid_frame_time;
         }
 
+        self.line_noise_injector.generate_all(self.elapsed_time);
+        let delta_blend_progress = self
+            .line_noise_injector
+            .get_delta_blend_progress(self.elapsed_time);
+
         // TODO: the line animation is still dependent on the client’s fps. Is
         // this worth fixing?
-        self.drawer
-            .place_lines(timestep, &self.fluid.get_velocity());
+        self.drawer.place_lines(
+            &self.fluid.get_velocity(),
+            &self.line_noise_injector.get_noise(),
+            delta_blend_progress,
+            timestep,
+        );
 
         self.drawer.with_antialiasing(|| unsafe {
             self.context.clear_color(0.0, 0.0, 0.0, 1.0);
             self.context.clear(glow::COLOR_BUFFER_BIT);
 
             // Debugging
-            // self.drawer.draw_texture(self.noise_injector.get_noise_channel(0).unwrap());
-            // self.drawer.draw_texture(self.noise_injector.get_noise_channel(1).unwrap());
+            // self.drawer.draw_texture(self.fluid_noise_injector.get_noise());
+            // self.drawer.draw_texture(self.line_noise_injector.get_noise());
             // self.drawer.draw_texture(&self.fluid.get_velocity());
             // self.drawer.draw_texture(&self.fluid.get_pressure());
 
