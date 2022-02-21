@@ -289,6 +289,7 @@ version = "1.0.0"
 dependencies = [
  "bytemuck",
  "glow",
+ "half",
  "nalgebra-glm",
  "rustc-hash",
  "serde",
@@ -432,6 +433,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3da5951a1569dbab865c6f2a863efafff193a93caf05538d193e9e3816d21696"
 dependencies = [
  "gl_generator",
+]
+
+[[package]]
+name = "half"
+version = "1.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eabb4a44450da02c90444cf74558da904edde8fb4e9035a9a6a4e15445af0bd7"
+dependencies = [
+ "bytemuck",
 ]
 
 [[package]]

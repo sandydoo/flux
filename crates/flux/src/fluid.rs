@@ -7,6 +7,7 @@ use settings::Settings;
 
 use bytemuck::{Pod, Zeroable};
 use glow::HasContext;
+use half::f16;
 use std::cell::Ref;
 use std::rc::Rc;
 
@@ -66,7 +67,11 @@ impl Fluid {
         let (width, height, texel_size) = compute_fluid_size(settings.fluid_size as f32, ratio);
 
         // Framebuffers
-        let initial_velocity_data = vec![0.0; (2 * width * height) as usize];
+        let zero_in_f16 = f16::from_f32(0.0);
+        let mut initial_data: Vec<f16> = Vec::with_capacity((2 * width * height) as usize);
+        for _ in 0..initial_data.capacity() {
+            initial_data.push(zero_in_f16);
+        }
 
         let velocity_textures = render::DoubleFramebuffer::new(
             &context,
@@ -75,11 +80,11 @@ impl Fluid {
             TextureOptions {
                 mag_filter: glow::LINEAR,
                 min_filter: glow::LINEAR,
-                format: glow::RG32F,
+                format: glow::RG16F,
                 ..Default::default()
             },
         )?
-        .with_f32_data(&initial_velocity_data)?;
+        .with_data(Some(&initial_data))?;
 
         let divergence_texture = render::Framebuffer::new(
             &context,
@@ -88,11 +93,11 @@ impl Fluid {
             TextureOptions {
                 mag_filter: glow::LINEAR,
                 min_filter: glow::LINEAR,
-                format: glow::RG32F,
+                format: glow::RG16F,
                 ..Default::default()
             },
         )?
-        .with_f32_data(&vec![0.0; (2 * width * height) as usize])?;
+        .with_data(Some(&initial_data))?;
 
         let pressure_textures = render::DoubleFramebuffer::new(
             &context,
@@ -101,11 +106,11 @@ impl Fluid {
             TextureOptions {
                 mag_filter: glow::LINEAR,
                 min_filter: glow::LINEAR,
-                format: glow::RG32F,
+                format: glow::RG16F,
                 ..Default::default()
             },
         )?
-        .with_f32_data(&vec![0.0; (2 * width * height) as usize])?;
+        .with_data(Some(&initial_data))?;
 
         // Geometry
         let plane_vertices = Buffer::from_f32(

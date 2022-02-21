@@ -13,6 +13,7 @@ build = "build.rs"
 [dependencies]
 bytemuck = { version = "1.4", features = ["derive"] }
 glow = "0.11.2"
+half = { version = "1.8", features = ["bytemuck"] }
 nalgebra-glm = "0.15"
 rustc-hash = "1.1.0"
 serde = { version = "1", features = ["derive"] }

@@ -7,6 +7,7 @@ use settings::Noise;
 
 use bytemuck::{Pod, Zeroable};
 use glow::HasContext;
+use half::f16;
 use std::rc::Rc;
 
 static NOISE_VERT_SHADER: &'static str =
@@ -205,11 +206,11 @@ impl NoiseInjector {
             TextureOptions {
                 mag_filter: glow::LINEAR,
                 min_filter: glow::LINEAR,
-                format: glow::RG32F,
+                format: glow::RG16F,
                 ..Default::default()
             },
         )?
-        .with_f32_data(&vec![0.0; (self.width * self.height * 2) as usize])?;
+        .with_data(None::<&[f16]>)?;
 
         self.channels.push(NoiseChannel {
             noise: noise.clone(),
