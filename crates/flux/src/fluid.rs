@@ -15,6 +15,10 @@ static FLUID_VERT_SHADER: &'static str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/fluid.vert"));
 static ADVECTION_FRAG_SHADER: &'static str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/advection.frag"));
+static ADJUST_ADVECTION_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/adjust_advection.frag"));
+static DIFFUSE_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/diffuse.frag"));
 static DIVERGENCE_FRAG_SHADER: &'static str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/divergence.frag"));
 static SOLVE_PRESSURE_FRAG_SHADER: &'static str =
@@ -47,10 +51,13 @@ pub struct Fluid {
     vertex_buffer: VertexArrayObject,
 
     velocity_textures: DoubleFramebuffer,
+    advection_forward_texture: Framebuffer,
+    advection_reverse_texture: Framebuffer,
     divergence_texture: Framebuffer,
     pressure_textures: DoubleFramebuffer,
 
     advection_pass: render::Program,
+    adjust_advection_pass: render::Program,
     diffusion_pass: render::Program,
     divergence_pass: render::Program,
     pressure_pass: render::Program,
@@ -67,11 +74,9 @@ impl Fluid {
         let (width, height, texel_size) = compute_fluid_size(settings.fluid_size as f32, ratio);
 
         // Framebuffers
-        let zero_in_f16 = f16::from_f32(0.0);
-        let mut initial_data: Vec<f16> = Vec::with_capacity((2 * width * height) as usize);
-        for _ in 0..initial_data.capacity() {
-            initial_data.push(zero_in_f16);
-        }
+        let half_float_zero = f16::from_f32(0.0);
+        let zero_array_of_r16 = vec![half_float_zero; (width * height) as usize];
+        let zero_array_of_rg16 = vec![half_float_zero; (2 * width * height) as usize];
 
         let velocity_textures = render::DoubleFramebuffer::new(
             &context,
@@ -84,7 +89,33 @@ impl Fluid {
                 ..Default::default()
             },
         )?
-        .with_data(Some(&initial_data))?;
+        .with_data(Some(&zero_array_of_rg16))?;
+
+        let advection_forward_texture = render::Framebuffer::new(
+            &context,
+            width,
+            height,
+            TextureOptions {
+                mag_filter: glow::LINEAR,
+                min_filter: glow::LINEAR,
+                format: glow::RG16F,
+                ..Default::default()
+            },
+        )?
+        .with_data(Some(&zero_array_of_rg16))?;
+
+        let advection_reverse_texture = render::Framebuffer::new(
+            &context,
+            width,
+            height,
+            TextureOptions {
+                mag_filter: glow::LINEAR,
+                min_filter: glow::LINEAR,
+                format: glow::RG16F,
+                ..Default::default()
+            },
+        )?
+        .with_data(Some(&zero_array_of_rg16))?;
 
         let divergence_texture = render::Framebuffer::new(
             &context,
@@ -93,11 +124,11 @@ impl Fluid {
             TextureOptions {
                 mag_filter: glow::LINEAR,
                 min_filter: glow::LINEAR,
-                format: glow::RG16F,
+                format: glow::R16F,
                 ..Default::default()
             },
         )?
-        .with_data(Some(&initial_data))?;
+        .with_data(Some(&zero_array_of_r16))?;
 
         let pressure_textures = render::DoubleFramebuffer::new(
             &context,
@@ -106,11 +137,11 @@ impl Fluid {
             TextureOptions {
                 mag_filter: glow::LINEAR,
                 min_filter: glow::LINEAR,
-                format: glow::RG16F,
+                format: glow::R16F,
                 ..Default::default()
             },
         )?
-        .with_data(Some(&initial_data))?;
+        .with_data(Some(&zero_array_of_r16))?;
 
         // Geometry
         let plane_vertices = Buffer::from_f32(
@@ -128,11 +159,14 @@ impl Fluid {
 
         let advection_program =
             render::Program::new(&context, (FLUID_VERT_SHADER, ADVECTION_FRAG_SHADER))?;
+        let adjust_advection_pass =
+            render::Program::new(&context, (FLUID_VERT_SHADER, ADJUST_ADVECTION_FRAG_SHADER))?;
+        let diffusion_program =
+            render::Program::new(&context, (FLUID_VERT_SHADER, DIFFUSE_FRAG_SHADER))?;
         let divergence_program =
             render::Program::new(&context, (FLUID_VERT_SHADER, DIVERGENCE_FRAG_SHADER))?;
         let pressure_program =
             render::Program::new(&context, (FLUID_VERT_SHADER, SOLVE_PRESSURE_FRAG_SHADER))?;
-        let diffusion_program = pressure_program.clone();
         let subtract_gradient_program =
             render::Program::new(&context, (FLUID_VERT_SHADER, SUBTRACT_GRADIENT_FRAG_SHADER))?;
 
@@ -154,36 +188,41 @@ impl Fluid {
         )?;
 
         advection_program.set_uniform_block("FluidUniforms", 0);
+        adjust_advection_pass.set_uniform_block("FluidUniforms", 0);
         diffusion_program.set_uniform_block("FluidUniforms", 0);
         divergence_program.set_uniform_block("FluidUniforms", 0);
         pressure_program.set_uniform_block("FluidUniforms", 0);
         subtract_gradient_program.set_uniform_block("FluidUniforms", 0);
 
-        // TODO can I add this to the uniform buffer? Is that even worth it?
-        advection_program.set_uniforms(&[
-            &Uniform {
-                name: "inputTexture",
-                value: UniformValue::Texture2D(0),
-            },
+        advection_program.set_uniforms(&[&Uniform {
+            name: "velocityTexture",
+            value: UniformValue::Texture2D(0),
+        }]);
+        adjust_advection_pass.set_uniforms(&[
             &Uniform {
                 name: "velocityTexture",
-                value: UniformValue::Texture2D(1),
-            },
-        ]);
-        diffusion_program.set_uniforms(&[
-            &Uniform {
-                name: "divergenceTexture",
                 value: UniformValue::Texture2D(0),
             },
             &Uniform {
-                name: "pressureTexture",
+                name: "forwardAdvectedTexture",
                 value: UniformValue::Texture2D(1),
             },
+            &Uniform {
+                name: "reverseAdvectedTexture",
+                value: UniformValue::Texture2D(2),
+            },
         ]);
+        diffusion_program.set_uniforms(&[&Uniform {
+            name: "velocityTexture",
+            value: UniformValue::Texture2D(0),
+        }]);
         divergence_program.set_uniform(&Uniform {
             name: "velocityTexture",
             value: UniformValue::Texture2D(0),
         });
+
+        let alpha = -grid_size * grid_size;
+        let r_beta = 0.25;
         pressure_program.set_uniforms(&[
             &Uniform {
                 name: "divergenceTexture",
@@ -193,7 +232,16 @@ impl Fluid {
                 name: "pressureTexture",
                 value: UniformValue::Texture2D(1),
             },
+            &Uniform {
+                name: "alpha",
+                value: UniformValue::Float(alpha),
+            },
+            &Uniform {
+                name: "rBeta",
+                value: UniformValue::Float(r_beta),
+            },
         ]);
+
         subtract_gradient_program.set_uniforms(&[
             &Uniform {
                 name: "velocityTexture",
@@ -233,11 +281,14 @@ impl Fluid {
             vertex_buffer,
 
             velocity_textures,
+            advection_forward_texture,
+            advection_reverse_texture,
             divergence_texture,
             pressure_textures,
 
             advection_pass: advection_program,
-            diffusion_pass: pressure_program.clone(),
+            adjust_advection_pass,
+            diffusion_pass: diffusion_program,
             divergence_pass: divergence_program,
             pressure_pass: pressure_program,
             subtract_gradient_pass: subtract_gradient_program,
@@ -345,17 +396,73 @@ impl Fluid {
         }
     }
 
-    pub fn advect(&self) -> () {
+    pub fn advect_forward(&self) -> () {
+        self.advection_forward_texture
+            .draw_to(&self.context, || unsafe {
+                self.advection_pass.use_program();
+
+                self.advection_pass.set_uniform(&Uniform {
+                    name: "amount",
+                    value: UniformValue::Float(0.017),
+                });
+
+                self.context.active_texture(glow::TEXTURE0);
+                self.context.bind_texture(
+                    glow::TEXTURE_2D,
+                    Some(self.velocity_textures.current().texture),
+                );
+
+                self.context
+                    .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
+            });
+    }
+
+    pub fn advect_reverse(&self) -> () {
+        self.advection_reverse_texture
+            .draw_to(&self.context, || unsafe {
+                self.advection_pass.use_program();
+
+                self.advection_pass.set_uniform(&Uniform {
+                    name: "amount",
+                    value: UniformValue::Float(-0.017),
+                });
+
+                self.context.active_texture(glow::TEXTURE0);
+                self.context.bind_texture(
+                    glow::TEXTURE_2D,
+                    Some(self.velocity_textures.current().texture),
+                );
+
+                self.context
+                    .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
+            });
+    }
+
+    pub fn adjust_advection(&self) -> () {
         self.velocity_textures
             .draw_to(&self.context, |velocity_texture| unsafe {
-                self.advection_pass.use_program();
+                self.adjust_advection_pass.use_program();
+
+                self.adjust_advection_pass.set_uniform(&&Uniform {
+                    name: "deltaTime",
+                    value: UniformValue::Float(0.017),
+                });
 
                 self.context.active_texture(glow::TEXTURE0);
                 self.context
                     .bind_texture(glow::TEXTURE_2D, Some(velocity_texture.texture));
+
                 self.context.active_texture(glow::TEXTURE1);
-                self.context
-                    .bind_texture(glow::TEXTURE_2D, Some(velocity_texture.texture));
+                self.context.bind_texture(
+                    glow::TEXTURE_2D,
+                    Some(self.advection_forward_texture.texture),
+                );
+
+                self.context.active_texture(glow::TEXTURE2);
+                self.context.bind_texture(
+                    glow::TEXTURE_2D,
+                    Some(self.advection_reverse_texture.texture),
+                );
 
                 self.context
                     .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
@@ -363,7 +470,9 @@ impl Fluid {
     }
 
     pub fn diffuse(&self, timestep: f32) -> () {
-        let center_factor = self.grid_size.powf(2.0) / (self.settings.viscosity * timestep);
+        self.diffusion_pass.use_program();
+
+        let center_factor = self.grid_size * self.grid_size / (self.settings.viscosity * timestep);
         let stencil_factor = 1.0 / (4.0 + center_factor);
 
         self.diffusion_pass.set_uniforms(&[
@@ -381,9 +490,6 @@ impl Fluid {
             self.velocity_textures
                 .draw_to(&self.context, |velocity_texture| unsafe {
                     self.context.active_texture(glow::TEXTURE0);
-                    self.context
-                        .bind_texture(glow::TEXTURE_2D, Some(velocity_texture.texture));
-                    self.context.active_texture(glow::TEXTURE1);
                     self.context
                         .bind_texture(glow::TEXTURE_2D, Some(velocity_texture.texture));
 
@@ -409,24 +515,11 @@ impl Fluid {
     }
 
     pub fn solve_pressure(&self) -> () {
-        let alpha = -self.grid_size * self.grid_size;
-        let r_beta = 0.25;
-
         self.pressure_textures
             .clear_color_with(&[self.settings.starting_pressure, 0.0, 0.0, 1.0])
             .unwrap();
 
-        self.pressure_pass.set_uniforms(&[
-            &Uniform {
-                name: "alpha",
-                value: UniformValue::Float(alpha),
-            },
-            &Uniform {
-                name: "rBeta",
-                value: UniformValue::Float(r_beta),
-            },
-        ]);
-
+        self.pressure_pass.use_program();
         unsafe {
             self.context.active_texture(glow::TEXTURE0);
             self.context

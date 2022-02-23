@@ -1,4 +1,4 @@
-precision highp float;
+precision mediump float;
 precision highp sampler2D;
 
 layout(std140) uniform FluidUniforms
@@ -12,35 +12,15 @@ layout(std140) uniform FluidUniforms
   lowp float pad2;
 };
 
-uniform sampler2D inputTexture;
 uniform sampler2D velocityTexture;
+uniform float amount;
 
 in vec2 textureCoord;
-out vec2 newVelocity;
+out vec2 outVelocity;
 
 void main() {
-  vec2 offset = vec2(0.0, 0.0);
-  vec2 scale = vec2(1.0, 1.0);
-
-  if (textureCoord.x < 0.0) {
-    offset.x = 1.0;
-    scale.x = -1.0;
-  } else if (textureCoord.x > 1.0) {
-    offset.x = -1.0;
-    scale.x = -1.0;
-  }
-  if (textureCoord.y < 0.0) {
-    offset.y = 1.0;
-    scale.y = -1.0;
-  } else if (textureCoord.y > 1.0) {
-    offset.y = -1.0;
-    scale.y = -1.0;
-  }
-
-  vec2 velocity = scale * texture(velocityTexture, textureCoord + offset).xy;
-
-  vec2 pastCoord = textureCoord - (epsilon * deltaT * velocity);
-  vec2 pastVelocity = texture(inputTexture, pastCoord).rg;
-  float decay = 1.0 + dissipation * deltaT;
-  newVelocity = pastVelocity / decay;
+  vec2 velocity = texture(velocityTexture, textureCoord).xy;
+  vec2 advectedCoord = textureCoord - amount * velocity;
+  float decay = 1.0 + dissipation * amount;
+  outVelocity = texture(velocityTexture, advectedCoord).xy / decay;
 }

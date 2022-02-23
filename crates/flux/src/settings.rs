@@ -45,7 +45,6 @@ pub enum ColorScheme {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum BlendMethod {
     Curl,
-    Wiggle,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

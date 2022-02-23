@@ -134,11 +134,16 @@ impl Flux {
         // TODO: move frame times to fluid
         while self.frame_time >= self.fluid_frame_time {
             self.fluid_noise_injector.generate_all(self.elapsed_time);
-            self.fluid_noise_injector
-                .blend_noise_into(&self.fluid.get_velocity_textures(), self.elapsed_time);
+            self.fluid_noise_injector.blend_noise_into(
+                &self.fluid.get_velocity_textures(),
+                self.elapsed_time,
+                self.fluid_frame_time,
+            );
 
             self.fluid.prepare_pass(self.fluid_frame_time);
-            self.fluid.advect();
+            self.fluid.advect_forward();
+            self.fluid.advect_reverse();
+            self.fluid.adjust_advection();
             self.fluid.diffuse(self.fluid_frame_time); // <- Convection
             self.fluid.calculate_divergence();
             self.fluid.solve_pressure();

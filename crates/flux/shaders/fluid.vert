@@ -23,8 +23,8 @@ void main() {
   gl_Position = vec4(position, 1.0);
   textureCoord = position.xy * 0.5 + 0.5;
 
-  vL = textureCoord - vec2(uTexelSize.x, 0.0);
+  vL = textureCoord + vec2(-uTexelSize.x, 0.0);
   vR = textureCoord + vec2(uTexelSize.x, 0.0);
   vT = textureCoord + vec2(0.0, uTexelSize.y);
-  vB = textureCoord - vec2(0.0, uTexelSize.y);
+  vB = textureCoord + vec2(0.0, -uTexelSize.y);
 }

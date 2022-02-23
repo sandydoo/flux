@@ -97,7 +97,6 @@ type alias Noise =
 
 type BlendMethod
     = Curl
-    | Wiggle
 
 
 defaultSettings : Settings
@@ -1111,9 +1110,6 @@ blendMethodToString blendMethod =
     case blendMethod of
         Curl ->
             "Curl"
-
-        Wiggle ->
-            "Wiggle"
 
 
 encodeNoise : Noise -> Encode.Value

@@ -14,10 +14,8 @@ static NOISE_VERT_SHADER: &'static str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/noise.vert"));
 static SIMPLEX_NOISE_FRAG_SHADER: &'static str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/simplex_noise.frag"));
-static BLEND_WITH_CURL: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/blend_with_curl.frag"));
-static BLEND_WITH_WIGGLE: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/blend_with_wiggle.frag"));
+static INJECT_NOISE_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/inject_noise.frag"));
 
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
@@ -67,8 +65,7 @@ pub struct NoiseInjector {
     height: u32,
 
     generate_noise_pass: Program,
-    blend_with_curl_pass: Program,
-    blend_with_wiggle_pass: Program,
+    inject_noise_pass: Program,
 
     noise_buffer: VertexArrayObject,
 }
@@ -118,9 +115,8 @@ impl NoiseInjector {
 
         let simplex_noise_program =
             Program::new(&context, (NOISE_VERT_SHADER, SIMPLEX_NOISE_FRAG_SHADER))?;
-        let blend_with_curl_program = Program::new(&context, (NOISE_VERT_SHADER, BLEND_WITH_CURL))?;
-        let blend_with_wiggle_program =
-            Program::new(&context, (NOISE_VERT_SHADER, BLEND_WITH_WIGGLE))?;
+        let inject_noise_program =
+            Program::new(&context, (NOISE_VERT_SHADER, INJECT_NOISE_FRAG_SHADER))?;
 
         let noise_buffer = VertexArrayObject::new(
             &context,
@@ -138,27 +134,15 @@ impl NoiseInjector {
         )?;
 
         simplex_noise_program.set_uniform_block("NoiseUniforms", 3);
-        blend_with_curl_program.set_uniform_block("NoiseUniforms", 3);
-        blend_with_wiggle_program.set_uniform_block("NoiseUniforms", 3);
 
         simplex_noise_program.set_uniform(&Uniform {
             name: "uResolution",
             value: UniformValue::Vec2(&[width as f32, height as f32]),
         });
 
-        blend_with_curl_program.set_uniforms(&[
+        inject_noise_program.set_uniforms(&[
             &Uniform {
-                name: "inputTexture",
-                value: UniformValue::Texture2D(0),
-            },
-            &Uniform {
-                name: "noiseTexture",
-                value: UniformValue::Texture2D(1),
-            },
-        ]);
-        blend_with_wiggle_program.set_uniforms(&[
-            &Uniform {
-                name: "inputTexture",
+                name: "velocityTexture",
                 value: UniformValue::Texture2D(0),
             },
             &Uniform {
@@ -174,8 +158,7 @@ impl NoiseInjector {
             height,
 
             generate_noise_pass: simplex_noise_program,
-            blend_with_curl_pass: blend_with_curl_program,
-            blend_with_wiggle_pass: blend_with_wiggle_program,
+            inject_noise_pass: inject_noise_program,
 
             noise_buffer,
         })
@@ -282,6 +265,7 @@ impl NoiseInjector {
         &mut self,
         target_textures: &DoubleFramebuffer,
         elapsed_time: f32,
+        timestep: f32,
     ) -> () {
         for channel in self.channels.iter_mut() {
             let blend_progress: f32 = ((elapsed_time - channel.blend_begin_time)
@@ -292,27 +276,15 @@ impl NoiseInjector {
                 continue;
             }
 
-            let delta_blend_progress = blend_progress - channel.last_blend_progress;
-            let blend_pass: &Program = match channel.noise.blend_method {
-                settings::BlendMethod::Curl => &self.blend_with_curl_pass,
-                settings::BlendMethod::Wiggle => &self.blend_with_wiggle_pass,
-            };
-
             target_textures.draw_to(&self.context, |target_texture| {
-                blend_pass.use_program();
+                self.inject_noise_pass.use_program();
 
                 unsafe {
                     self.context.bind_vertex_array(Some(self.noise_buffer.id));
 
-                    self.context.bind_buffer_base(
-                        glow::UNIFORM_BUFFER,
-                        3,
-                        Some(channel.uniforms.id),
-                    );
-
-                    blend_pass.set_uniform(&Uniform {
-                        name: "uBlendProgress",
-                        value: UniformValue::Float(delta_blend_progress),
+                    self.inject_noise_pass.set_uniform(&Uniform {
+                        name: "deltaTime",
+                        value: UniformValue::Float(timestep),
                     });
 
                     self.context.active_texture(glow::TEXTURE0);

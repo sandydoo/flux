@@ -19,7 +19,7 @@ in vec2 vL;
 in vec2 vR;
 in vec2 vT;
 in vec2 vB;
-out vec2 newDivergence;
+out float newDivergence;
 
 void main() {
   float L = texture(velocityTexture, vL).x;
@@ -33,6 +33,5 @@ void main() {
   if (vT.y > 1.0) { T = -velocity.y; }
   if (vB.y < 0.0) { B = -velocity.y; }
 
-  float div = halfEpsilon * (R - L + T - B);
-  newDivergence = vec2(div, 0.0);
+  newDivergence = halfEpsilon * (R - L + T - B);
 }
