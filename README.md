@@ -30,6 +30,10 @@ This is an attempt at capturing that magic and bottling it up in a more portable
 > “You’re the first person I’ve seen take this much of an interest in how we made Drift and it looks like you nailed it… minus maybe one or two little elements that give it some extra magic 😉 Great work!”
 > — anonymous Apple employee
 
+## Screensavers
+
+I’m working on wrapping Flux into native screensavers for MacOS, Windows, and Linux. The source code for that is at [sandydoo/flux-screensavers][flux-screensavers-url]. [Follow me on Twitter for updates][twitter].
+
 ## Build
 
 ### Using Nix
@@ -87,3 +91,5 @@ pnpm build
 
 [license-url]: https://github.com/sandydoo/flux/blob/main/LICENSE
 [maintainer-url]: https://github.com/sandydoo/
+[flux-screensavers-url]: https://github.com/sandydoo/flux-screensavers/
+[twitter]: https://twitter.com/sandy_doo/
