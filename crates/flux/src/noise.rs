@@ -44,7 +44,7 @@ impl NoiseChannel {
         self.blend_begin_time = elapsed_time;
         self.last_blend_progress = 0.0;
         self.offset1 += self.noise.offset_increment;
-        self.offset2 += self.noise.offset_increment;
+        // self.offset2 += self.noise.offset_increment;
 
         unsafe {
             context.bind_buffer(glow::UNIFORM_BUFFER, Some(self.uniforms.id));
@@ -198,7 +198,7 @@ impl NoiseInjector {
         self.channels.push(NoiseChannel {
             noise: noise.clone(),
             texture,
-            blend_begin_time: 0.0,
+            blend_begin_time: -noise.delay,
             last_blend_progress: 0.0,
             offset1: noise.offset_1,
             offset2: noise.offset_2,

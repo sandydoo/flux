@@ -12,7 +12,6 @@ pub struct Flux {
     fluid: Fluid,
     drawer: Drawer,
     fluid_noise_injector: NoiseInjector,
-    line_noise_injector: NoiseInjector,
     settings: Rc<Settings>,
 
     pub context: render::Context,
@@ -57,9 +56,8 @@ impl Flux {
         )
         .map_err(Problem::CannotRender)?;
 
-        let mut fluid_noise_injector =
-            NoiseInjector::new(&context, fluid.width / 4, fluid.height / 4)
-                .map_err(Problem::CannotRender)?;
+        let mut fluid_noise_injector = NoiseInjector::new(&context, fluid.width, fluid.height)
+            .map_err(Problem::CannotRender)?;
 
         fluid_noise_injector
             .add_noise(settings.noise_channel_1.clone())
@@ -70,28 +68,10 @@ impl Flux {
             .add_noise(settings.noise_channel_2.clone())
             .map_err(Problem::CannotRender)?;
 
-        let mut line_noise_injector =
-            NoiseInjector::new(&context, drawer.grid_width, drawer.grid_height)
-                .map_err(Problem::CannotRender)?;
-        line_noise_injector
-            .add_noise(settings::Noise {
-                scale: 3.0,
-                multiplier: 2.0,
-                offset_1: 2.0,
-                offset_2: 3.0,
-                offset_increment: 1.0,
-                delay: 2.0,
-                blend_duration: 1.0,
-                blend_threshold: 0.0,
-                blend_method: settings::BlendMethod::Curl,
-            })
-            .map_err(Problem::CannotRender)?;
-
         Ok(Flux {
             fluid,
             drawer,
             fluid_noise_injector,
-            line_noise_injector,
             settings: Rc::clone(settings),
 
             context: Rc::clone(context),
@@ -134,6 +114,13 @@ impl Flux {
         // TODO: move frame times to fluid
         while self.frame_time >= self.fluid_frame_time {
             self.fluid_noise_injector.generate_all(self.elapsed_time);
+
+            self.fluid.prepare_pass(self.fluid_frame_time);
+            self.fluid.advect_forward();
+            self.fluid.advect_reverse();
+            self.fluid.adjust_advection();
+            self.fluid.diffuse(self.fluid_frame_time); // <- Convection
+
             self.fluid_noise_injector.blend_noise_into(
                 &self.fluid.get_velocity_textures(),
                 self.elapsed_time,
@@ -141,10 +128,6 @@ impl Flux {
             );
 
             self.fluid.prepare_pass(self.fluid_frame_time);
-            self.fluid.advect_forward();
-            self.fluid.advect_reverse();
-            self.fluid.adjust_advection();
-            self.fluid.diffuse(self.fluid_frame_time); // <- Convection
             self.fluid.calculate_divergence();
             self.fluid.solve_pressure();
             self.fluid.subtract_gradient();
@@ -152,19 +135,10 @@ impl Flux {
             self.frame_time -= self.fluid_frame_time;
         }
 
-        self.line_noise_injector.generate_all(self.elapsed_time);
-        let delta_blend_progress = self
-            .line_noise_injector
-            .get_delta_blend_progress(self.elapsed_time);
-
         // TODO: the line animation is still dependent on the client’s fps. Is
         // this worth fixing?
-        self.drawer.place_lines(
-            &self.fluid.get_velocity(),
-            &self.line_noise_injector.get_noise(),
-            delta_blend_progress,
-            timestep,
-        );
+        self.drawer
+            .place_lines(&self.fluid.get_velocity(), timestep);
 
         self.drawer.with_antialiasing(|| unsafe {
             self.context.clear_color(0.0, 0.0, 0.0, 1.0);
@@ -172,9 +146,9 @@ impl Flux {
 
             // Debugging
             // self.drawer.draw_texture(self.fluid_noise_injector.get_noise());
-            // self.drawer.draw_texture(self.line_noise_injector.get_noise());
             // self.drawer.draw_texture(&self.fluid.get_velocity());
             // self.drawer.draw_texture(&self.fluid.get_pressure());
+            // self.drawer.draw_texture(&self.fluid.get_divergence());
 
             self.drawer.draw_lines();
             self.drawer.draw_endpoints();

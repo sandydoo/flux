@@ -70,8 +70,11 @@ impl Fluid {
         ratio: f32,
         settings: &Rc<Settings>,
     ) -> Result<Self, render::Problem> {
+        // let (width, height, texel_size) = compute_fluid_size(settings.fluid_size as f32, ratio);
+        let width = 128;
+        let height = 128;
+        let texel_size = [1.0 / 128.0, 1.0 / 128.0];
         let grid_size: f32 = 1.0;
-        let (width, height, texel_size) = compute_fluid_size(settings.fluid_size as f32, ratio);
 
         // Framebuffers
         let half_float_zero = f16::from_f32(0.0);

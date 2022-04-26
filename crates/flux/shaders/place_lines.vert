@@ -1,4 +1,4 @@
-#define PI 3.1415926535897932384626433832795
+#define TWO_PI 6.283185307179586
 
 precision highp float;
 precision highp sampler2D;
@@ -15,22 +15,13 @@ in float iLineOpacity;
 in float iEndpointOpacity;
 
 uniform float deltaT;
-// uniform float elapsedTime;
-uniform float uBlendProgress;
-uniform float uSpringStiffness;
 uniform float uSpringVariance;
-uniform float uSpringMass;
-uniform float uSpringDamping;
-uniform float uSpringRestLength;
-uniform float uLineFadeOutLength;
-uniform float uMaxLineVelocity;
-uniform float uAdjustAdvection;
-uniform float uAdvectionDirection;
 uniform mediump vec4 uColorWheel[6];
 uniform mat4 uProjection;
 
+uniform float springNoiseOffset1;
+
 uniform sampler2D velocityTexture;
-uniform sampler2D noiseTexture;
 
 // transform feedback output
 out vec2 vEndpointVector;
@@ -52,127 +43,134 @@ float clampTo(float value, float max) {
   return min(current, max) / current;
 }
 
-vec3 getColor(vec4 wheel[6], float angle) {
-  float slice = 2.0 * PI / 6.0;
-  float rawIndex = angle / slice;
+vec4 getColor(vec4 wheel[6], float angle) {
+  float slice = TWO_PI / 6.0;
+  float rawIndex = mod(angle, TWO_PI) / slice;
   float index = floor(rawIndex);
   float nextIndex = mod(index + 1.0, 6.0);
   float interpolate = fract(rawIndex);
 
-  vec3 currentColor = wheel[int(index)].rgb;
-  vec3 nextColor = wheel[int(nextIndex)].rgb;
+  vec4 currentColor = wheel[int(index)];
+  vec4 nextColor = wheel[int(nextIndex)];
   return mix(currentColor, nextColor, interpolate);
 }
 
-float springForce(float stiffness, float displacement,  float damping, float velocity, float mass) {
-  return ((-stiffness * displacement) + (-damping * velocity)) / mass;
+vec3 mod289(vec3 x) {
+  return x - floor(x * (1.0 / 289.0)) * 289.0;
 }
 
-float random1f(in vec2 st) {
-  return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
+vec4 mod289(vec4 x) {
+  return x - floor(x * (1.0 / 289.0)) * 289.0;
 }
 
-float easeInCirc(float x) {
-  return 1.0 - sqrt(1.0 - pow(x, 2.0));
+vec4 permute(vec4 x) {
+  return mod289(((x * 34.0) + 1.0) * x);
 }
 
-float easeOutCirc(float x) {
-  return sqrt(1.0 - pow(x - 1.0, 2.0));
+vec4 taylorInvSqrt(vec4 r) {
+  return 1.79284291400159 - 0.85373472095314 * r;
 }
 
-float inverseEaseInCirc(float x) {
-  return 1.0 - easeInCirc(x);
-}
+float snoise(vec3 v) {
+  const vec2 C = vec2(1.0 / 6.0, 1.0 / 3.0);
+  const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
 
-float endpointCurve(float lineLength, float lineOpacity, float fadeInPoint) {
-  return mix(
-    0.75 * easeOutCirc(smoothstep(uLineFadeOutLength - 0.01, 1.0, lineLength)),
-    lineOpacity,
-    smoothstep(fadeInPoint - 0.2, fadeInPoint, lineLength)
-  );
+  // First corner
+  vec3 i = floor(v + dot(v, C.yyy));
+  vec3 x0 = v - i + dot(i, C.xxx);
+
+  // Other corners
+  vec3 g = step(x0.yzx, x0.xyz);
+  vec3 l = 1.0 - g;
+  vec3 i1 = min(g.xyz, l.zxy);
+  vec3 i2 = max(g.xyz, l.zxy);
+
+  // x0 = x0 - 0.0 + 0.0 * C.xxx;
+  // x1 = x0 - i1  + 1.0 * C.xxx;
+  // x2 = x0 - i2  + 2.0 * C.xxx;
+  // x3 = x0 - 1.0 + 3.0 * C.xxx;
+  vec3 x1 = x0 - i1 + C.xxx;
+  vec3 x2 = x0 - i2 + C.yyy; // 2.0 * C.x = 1/3 = C.y
+  vec3 x3 = x0 - D.yyy;      // -1.0 + 3.0 * C.x = -0.5 = -D.y
+
+  // Permutations
+  i = mod289(i);
+  vec4 p = permute(permute(permute(
+             i.z + vec4(0.0, i1.z, i2.z, 1.0))
+           + i.y + vec4(0.0, i1.y, i2.y, 1.0))
+           + i.x + vec4(0.0, i1.x, i2.x, 1.0));
+
+  // Gradients: 7x7 points over a square, mapped onto an octahedron.
+  // The ring size 17 * 17 = 289 is close to a multiple of 49 (49 * 6 = 294)
+  float n_ = 0.142857142857; // 1.0 / 7.0
+  vec3 ns = n_ * D.wyz - D.xzx;
+
+  vec4 j = p - 49.0 * floor(p * ns.z * ns.z); // mod(p, 7 * 7)
+
+  vec4 x_ = floor(j * ns.z);
+  vec4 y_ = floor(j - 7.0 * x_); // mod(j, N)
+
+  vec4 x = x_ * ns.x + ns.yyyy;
+  vec4 y = y_ * ns.x + ns.yyyy;
+  vec4 h = 1.0 - abs(x) - abs(y);
+
+  vec4 b0 = vec4(x.xy, y.xy);
+  vec4 b1 = vec4(x.zw, y.zw);
+
+  // vec4 s0 = vec4(lessThan(b0, 0.0)) * 2.0 - 1.0;
+  // vec4 s1 = vec4(lessThan(b1, 0.0)) * 2.0 - 1.0;
+  vec4 s0 = floor(b0) * 2.0 + 1.0;
+  vec4 s1 = floor(b1) * 2.0 + 1.0;
+  vec4 sh = -step(h, vec4(0.0));
+
+  vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy;
+  vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
+
+  vec3 p0 = vec3(a0.xy,h.x);
+  vec3 p1 = vec3(a0.zw,h.y);
+  vec3 p2 = vec3(a1.xy,h.z);
+  vec3 p3 = vec3(a1.zw,h.w);
+
+  // Normalise gradients
+  vec4 norm = taylorInvSqrt(vec4(dot(p0, p0), dot(p1, p1), dot(p2, p2), dot(p3, p3)));
+  p0 *= norm.x;
+  p1 *= norm.y;
+  p2 *= norm.z;
+  p3 *= norm.w;
+
+  // Mix final noise value
+  vec4 m = max(0.6 - vec4(dot(x0, x0), dot(x1, x1), dot(x2, x2), dot(x3, x3)), 0.0);
+  m = m * m;
+  return 42.0 * dot(m * m, vec4(dot(p0, x0), dot(p1, x1),
+                                dot(p2, x2), dot(p3, x3)));
 }
 
 void main() {
-  vec2 endpointDirection = safeNormalize(iEndpointVector);
-  float currentLength = length(iEndpointVector);
+  float deltaTime = deltaT;
+  float springNoiseScale = 64.0;
 
-  // Velocity
   vec2 basepointInClipSpace = 0.5 + 0.5 * (uProjection * vec4(basepoint, 0.0, 1.0)).xy;
-  vec2 currentVelocityVector = texture(velocityTexture, basepointInClipSpace).xy;
-  vec2 deltaVelocity = currentVelocityVector - iVelocityVector;
+  vec2 velocity = texture(velocityTexture, basepointInClipSpace).xy;
+  float noise = snoise(vec3((0.5 + 0.5 * basepointInClipSpace) * springNoiseScale, springNoiseOffset1));
 
-  vec2 velocityDirection = normalize(uAdvectionDirection * iVelocityVector);
-  vec2 lineDirection = normalize(iEndpointVector);
-  float directionAlignment = clamp(dot(lineDirection, velocityDirection), -1.0, 1.0);
+  // Blend noise
 
-  float mass = uSpringMass * (1.0 + uSpringVariance * random1f(basepoint));
+  float variance = mix(1.0 - uSpringVariance, 1.0, 0.5 + 0.5 * noise);
+  float inverseVariance = 1.0 - variance;
+  float velocityDeltaVariance = mix(3.0, 25.0, inverseVariance);
+  float momentumVariance = mix(3.0, 5.0, variance);
 
-  float advectionDirection = 1.0;
-  vec2 noise = texture(noiseTexture, basepointInClipSpace).xy;
-  if (noise.x <= 0.0) {
-    // advectionDirection = -1.0;
-  }
-    vVelocityVector = iVelocityVector + deltaT * (0.0 * currentVelocityVector + 1.0 * deltaVelocity);
+  float lineLength = 1.0; //0.6 // 1.4 // Do I need this? will I be changing this value?
+  vVelocityVector = ((1.0 - deltaTime * momentumVariance) * iVelocityVector) + ((lineLength * velocity - iEndpointVector) * velocityDeltaVariance) * deltaTime;
+  vEndpointVector = iEndpointVector + deltaTime * vVelocityVector;
 
-    // Spring forces
-    float springbackForce = springForce(
-      uSpringStiffness,
-      currentLength - uSpringRestLength,
-      uSpringDamping,
-      directionAlignment * length(vVelocityVector),
-      mass
-    );
-    vVelocityVector += uAdvectionDirection * endpointDirection * springbackForce * deltaT;
-  // } else {
-    // advectionDirection = -1.0;
-    // vVelocityVector = iVelocityVector;
-  // }
+  float widthBoost = clamp(2.5 * length(velocity), 0.0, 1.0);
+  vLineWidth = widthBoost * widthBoost * (3.0 - widthBoost * 2.0);
 
-  // Jiggle stuff
-  // vec2 noise = texture(noiseTexture, basepointInClipSpace).xy;
-  // float frequency = 10.0;
-  // float sx = 0.006 * snoise(vec3(basepointInClipSpace * frequency, elapsedTime));
-  // float sy = 0.006 * snoise(vec3(basepointInClipSpace * frequency, 2.0 + elapsedTime));
-  // length(force) > uBlendThreshold &&
-  // if (uBlendProgress < 1.0 && length(noise) > 0.2) {
-    // vVelocityVector += 0.002 * uBlendProgress * noise;
-    // vVelocityVector *= 1.0 - 0.1 * noise.x;
-  // }
-  // vec2 adjustAdvection = uAdjustAdvection * (1.0 + 1.0 * noise.xy);
-  // float adjustAdvection = uAdjustAdvection * length(noise.xy);
+  float angle = atan(velocity.x, velocity.y);
+  vColor = getColor(uColorWheel, angle);
+  vLineOpacity = widthBoost;
 
-  // Cap line velocity
-  vVelocityVector *= clampTo(length(vVelocityVector), uMaxLineVelocity);
-
-  // Advect forward
-  vEndpointVector = iEndpointVector + uAdjustAdvection * advectionDirection * vVelocityVector * deltaT;
-  currentLength = length(vEndpointVector);
-
-  // Color
-  float angle = mod(
-    PI / 4.0 * currentLength + (PI + atan(iEndpointVector.y, iEndpointVector.x)),
-    2.0 * PI
-  );
-  vec4 newColor = vec4(getColor(uColorWheel, angle), 0.0);
-  vec4 colorDiff = newColor - iColor;
-  vColor = clamp(
-    iColor + colorDiff * deltaT,
-    0.0,
-    1.0
-  );
-  // Debug spring extension
-  // vColor = mix(vColor, vec4(1.0), smoothstep(0.95, 1.05, currentLength));
-
-  // Width
-  float clampedLength = clamp(currentLength, 0.0, 1.0);
-  float lineWidthBoost = 1.6;
-  vLineWidth = clamp(
-    iLineWidth + inverseEaseInCirc(clampedLength) * lineWidthBoost * uAdjustAdvection * directionAlignment * length(vVelocityVector) * deltaT,
-    0.05,
-    1.0
-  );
-
-  // Opacity
-  vLineOpacity = smoothstep(uLineFadeOutLength, 1.0, currentLength);
-  vEndpointOpacity = endpointCurve(currentLength, iLineOpacity, 0.8);
+  // TODO: check this
+  vEndpointOpacity = clamp(vLineOpacity + 0.4, 0.0, 1.0);
 }

@@ -113,6 +113,6 @@ void main() {
   float sx = snoise(vec3(st * uFrequency, uOffset1));
   float sy = snoise(vec3(st * uFrequency, uOffset2));
 
-  noise = vec2(sx, sy);
+  noise = uMultiplier * vec2(sx, sy);
 }
 

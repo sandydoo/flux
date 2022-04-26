@@ -179,6 +179,9 @@ pub struct Drawer {
     pub grid_height: u32,
     pub line_count: u32,
 
+    //TODO
+    spring_noise_offset: f32,
+
     basepoint_buffer: Buffer,
     line_state_buffers: DoubleTransformFeedback,
 
@@ -666,6 +669,8 @@ impl Drawer {
             grid_height,
             line_count,
 
+            spring_noise_offset: 0.0,
+
             basepoint_buffer,
             line_state_buffers,
 
@@ -766,44 +771,8 @@ impl Drawer {
                 value: UniformValue::Texture2D(0),
             },
             &Uniform {
-                name: "noiseTexture",
-                value: UniformValue::Texture2D(1),
-            },
-            &Uniform {
-                name: "uLineFadeOutLength",
-                value: UniformValue::Float(settings.line_fade_out_length),
-            },
-            &Uniform {
-                name: "uSpringStiffness",
-                value: UniformValue::Float(settings.spring_stiffness),
-            },
-            &Uniform {
                 name: "uSpringVariance",
                 value: UniformValue::Float(settings.spring_variance),
-            },
-            &Uniform {
-                name: "uSpringMass",
-                value: UniformValue::Float(settings.spring_mass),
-            },
-            &Uniform {
-                name: "uSpringDamping",
-                value: UniformValue::Float(settings.spring_damping),
-            },
-            &Uniform {
-                name: "uSpringRestLength",
-                value: UniformValue::Float(settings.spring_rest_length),
-            },
-            &Uniform {
-                name: "uMaxLineVelocity",
-                value: UniformValue::Float(settings.max_line_velocity),
-            },
-            &Uniform {
-                name: "uAdvectionDirection",
-                value: UniformValue::Float(settings.advection_direction),
-            },
-            &Uniform {
-                name: "uAdjustAdvection",
-                value: UniformValue::Float(settings.adjust_advection),
             },
             &Uniform {
                 name: "uColorWheel[0]",
@@ -1006,13 +975,7 @@ impl Drawer {
         });
     }
 
-    pub fn place_lines(
-        &mut self,
-        velocity_texture: &Framebuffer,
-        noise_texture: &Framebuffer,
-        delta_blend_progress: f32,
-        timestep: f32,
-    ) -> () {
+    pub fn place_lines(&mut self, velocity_texture: &Framebuffer, timestep: f32) -> () {
         unsafe {
             self.context.viewport(
                 0,
@@ -1028,22 +991,20 @@ impl Drawer {
                 self.place_lines_buffers[self.line_state_buffers.active_buffer].id,
             ));
 
+            self.spring_noise_offset += timestep;
+
             self.place_lines_pass.set_uniform(&Uniform {
                 name: "deltaT",
                 value: UniformValue::Float(timestep),
             });
             self.place_lines_pass.set_uniform(&Uniform {
-                name: "uBlendProgress",
-                value: UniformValue::Float(delta_blend_progress),
+                name: "springNoiseOffset1",
+                value: UniformValue::Float(self.spring_noise_offset),
             });
 
             self.context.active_texture(glow::TEXTURE0);
             self.context
                 .bind_texture(glow::TEXTURE_2D, Some(velocity_texture.texture));
-
-            self.context.active_texture(glow::TEXTURE1);
-            self.context
-                .bind_texture(glow::TEXTURE_2D, Some(noise_texture.texture));
 
             self.line_state_buffers.draw_to(|| {
                 self.context
