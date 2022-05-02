@@ -129,7 +129,9 @@ pub fn get_rendering_context(
         desynchronized: false,
         antialias: false,
         fail_if_major_performance_caveat: false,
-        power_preference: "high-performance",
+        // Revert to high-performance once dual-GPU issues on Chrome are
+        // resolved.
+        power_preference: "default",
         premultiplied_alpha: true,
         preserve_drawing_buffer: false,
     }
