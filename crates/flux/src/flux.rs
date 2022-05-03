@@ -30,8 +30,8 @@ impl Flux {
         self.drawer.update(&self.settings);
         self.fluid_noise_injector
             .update_channel(0, &self.settings.noise_channel_1);
-        self.fluid_noise_injector
-            .update_channel(1, &self.settings.noise_channel_2);
+        // self.fluid_noise_injector
+        //     .update_channel(1, &self.settings.noise_channel_2);
     }
 
     pub fn new(
@@ -56,17 +56,16 @@ impl Flux {
         )
         .map_err(Problem::CannotRender)?;
 
-        let mut fluid_noise_injector = NoiseInjector::new(&context, fluid.width, fluid.height)
-            .map_err(Problem::CannotRender)?;
+        let mut fluid_noise_injector =
+            NoiseInjector::new(&context, 256, 256).map_err(Problem::CannotRender)?;
 
         fluid_noise_injector
             .add_noise(settings.noise_channel_1.clone())
             .map_err(Problem::CannotRender)?;
 
-        // fluid_noise_injector.generate_by_channel_number(0, 0.0);
-        fluid_noise_injector
-            .add_noise(settings.noise_channel_2.clone())
-            .map_err(Problem::CannotRender)?;
+        // fluid_noise_injector
+        //     .add_noise(settings.noise_channel_2.clone())
+        //     .map_err(Problem::CannotRender)?;
 
         Ok(Flux {
             fluid,

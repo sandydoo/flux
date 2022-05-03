@@ -20,12 +20,11 @@ static INJECT_NOISE_FRAG_SHADER: &'static str =
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 pub struct NoiseUniforms {
-    frequency: f32,
+    scale: f32,
     offset_1: f32,
     offset_2: f32,
     multiplier: f32,
-    texel_size: [f32; 2],
-    blend_threshold: f32,
+    blend_factor: f32,
     pad2: f32,
 }
 
@@ -76,12 +75,11 @@ impl NoiseInjector {
             channel.noise = noise.clone();
 
             let uniforms = NoiseUniforms {
-                frequency: noise.scale,
+                scale: noise.scale,
                 offset_1: noise.offset_1,
                 offset_2: noise.offset_2,
                 multiplier: noise.multiplier,
-                texel_size: [1.0 / self.width as f32, 1.0 / self.height as f32],
-                blend_threshold: noise.blend_threshold,
+                blend_factor: 0.0,
                 pad2: 0.0,
             };
 
@@ -133,12 +131,7 @@ impl NoiseInjector {
             Some(&plane_indices),
         )?;
 
-        simplex_noise_program.set_uniform_block("NoiseUniforms", 3);
-
-        simplex_noise_program.set_uniform(&Uniform {
-            name: "uResolution",
-            value: UniformValue::Vec2(&[width as f32, height as f32]),
-        });
+        simplex_noise_program.set_uniform_block("NoiseUniforms", 0);
 
         inject_noise_program.set_uniforms(&[
             &Uniform {
@@ -166,12 +159,11 @@ impl NoiseInjector {
 
     pub fn add_noise(&mut self, noise: Noise) -> Result<(), render::Problem> {
         let uniforms = NoiseUniforms {
-            frequency: noise.scale,
+            scale: noise.scale,
             offset_1: noise.offset_1,
             offset_2: noise.offset_2,
             multiplier: noise.multiplier,
-            texel_size: [1.0 / self.width as f32, 1.0 / self.height as f32],
-            blend_threshold: noise.blend_threshold,
+            blend_factor: 0.0,
             pad2: 0.0,
         };
 
@@ -216,13 +208,11 @@ impl NoiseInjector {
                 self.generate_noise_pass.use_program();
 
                 unsafe {
-                    // self.context.enable(glow::BLEND);
-                    // self.context.blend_func(glow::ONE, glow::ONE);
                     self.context.bind_vertex_array(Some(self.noise_buffer.id));
 
                     self.context.bind_buffer_base(
                         glow::UNIFORM_BUFFER,
-                        3,
+                        0,
                         Some(channel.uniforms.id),
                     );
 
@@ -249,7 +239,7 @@ impl NoiseInjector {
                 self.context.bind_vertex_array(Some(self.noise_buffer.id));
 
                 self.context
-                    .bind_buffer_base(glow::UNIFORM_BUFFER, 3, Some(channel.uniforms.id));
+                    .bind_buffer_base(glow::UNIFORM_BUFFER, 0, Some(channel.uniforms.id));
 
                 channel.texture.draw_to(&self.context, || {
                     self.context
@@ -280,6 +270,7 @@ impl NoiseInjector {
                 self.inject_noise_pass.use_program();
 
                 unsafe {
+                    self.context.disable(glow::BLEND);
                     self.context.bind_vertex_array(Some(self.noise_buffer.id));
 
                     self.inject_noise_pass.set_uniform(&Uniform {

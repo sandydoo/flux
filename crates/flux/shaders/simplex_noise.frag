@@ -1,17 +1,15 @@
 precision mediump float;
 
 layout(std140) uniform NoiseUniforms {
-  highp float uFrequency;
+  highp float uScale;
   highp float uOffset1;
   highp float uOffset2;
   highp float uMultiplier;
-  highp vec2 uTexelSize;
-  highp float uBlendThreshold;
+  highp float uBlendFactor;
   lowp float pad2;
 };
 
-uniform vec2 uResolution;
-
+in vec2 textureCoord;
 out vec2 noise;
 
 vec3 mod289(vec3 x) {
@@ -104,15 +102,29 @@ float snoise(vec3 v) {
                                 dot(p2, x2), dot(p3, x3)));
 }
 
-// TODO split this up into two noise textures and reuse the same program.
+vec2 makeNoise(vec2 scale, float offset) {
+  vec3 xPosition = vec3(scale, offset);
+  float x1 = snoise(xPosition);
+  float x2 = snoise(xPosition * 6.03);
+  float x3 = snoise(xPosition * 12.013);
+  float sX = x1 + 0.7 * x2 + 0.49 * x3;
+
+  vec3 yPosition = xPosition + vec3(8.0, -8.0, 0.0);
+  float y1 = snoise(yPosition);
+  float y2 = snoise(yPosition * 6.03);
+  float y3 = snoise(yPosition * 12.013);
+  float sY = y1 + 0.7 * y2 + 0.49 * y3;
+
+  return 0.4566 * vec2(sX, sY);
+}
+
 void main() {
-  vec2 st = gl_FragCoord.xy / uResolution.xy;
-  st.x *= uResolution.x / uResolution.y;
-  // vec2 st = gl_PointCoord;
+  vec2 scale = textureCoord * vec2(uScale);
 
-  float sx = snoise(vec3(st * uFrequency, uOffset1));
-  float sy = snoise(vec3(st * uFrequency, uOffset2));
+  vec2 noise1 = makeNoise(scale, uOffset1);
+  vec2 noise2 = makeNoise(scale, uOffset2);
 
-  noise = uMultiplier * vec2(sx, sy);
+  noise = mix(noise1, noise2, uBlendFactor);
+  noise = uMultiplier * noise;
 }
 
