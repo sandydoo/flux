@@ -7,8 +7,6 @@ layout(std140) uniform FluidUniforms
   highp float halfEpsilon;
   highp float dissipation;
   highp vec2 uTexelSize;
-  lowp float pad1;
-  lowp float pad2;
 };
 
 in vec3 position;

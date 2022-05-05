@@ -4,8 +4,8 @@ use render::{
 };
 use settings::Settings;
 
-extern crate nalgebra_glm as glm;
 use bytemuck::{Pod, Zeroable};
+use crevice::std140::{AsStd140, Std140};
 use glow::HasContext;
 use std::f32::consts::PI;
 use std::rc::Rc;
@@ -48,15 +48,13 @@ struct LineState {
     endpoint_opacity: f32,
 }
 
-#[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable)]
+#[derive(AsStd140)]
 struct Projection {
-    projection: [f32; 16],
-    view: [f32; 16],
+    projection: mint::ColumnMatrix4<f32>,
+    view: mint::ColumnMatrix4<f32>,
 }
 
-#[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable)]
+#[derive(AsStd140)]
 struct LineUniforms {
     line_width: f32,
     line_length: f32,
@@ -82,14 +80,14 @@ struct TransformFeedback {
 }
 
 impl TransformFeedback {
-    pub fn new(context: &Context, data: &[f32]) -> Result<Self, render::Problem> {
+    pub fn new(context: &Context, data: &[u8]) -> Result<Self, render::Problem> {
         let feedback = unsafe {
             context
                 .create_transform_feedback()
                 .map_err(|_| render::Problem::OutOfMemory)?
         };
         let buffer =
-            render::Buffer::from_f32(context, data, glow::ARRAY_BUFFER, glow::DYNAMIC_DRAW)?;
+            render::Buffer::from_bytes(context, data, glow::ARRAY_BUFFER, glow::DYNAMIC_DRAW)?;
 
         unsafe {
             context.bind_transform_feedback(glow::TRANSFORM_FEEDBACK, Some(feedback));
@@ -132,7 +130,7 @@ struct DoubleTransformFeedback {
 }
 
 impl DoubleTransformFeedback {
-    pub fn new(context: &Context, data: &[f32]) -> Result<Self, render::Problem> {
+    pub fn new(context: &Context, data: &[u8]) -> Result<Self, render::Problem> {
         let front = TransformFeedback::new(context, data)?;
         let back = TransformFeedback::new(context, data)?;
 
@@ -214,9 +212,9 @@ impl Drawer {
         let line_count =
             (grid_width / settings.grid_spacing) * (grid_height / settings.grid_spacing);
         let line_state = new_line_state(grid_width, grid_height, settings.grid_spacing);
-        let line_state_buffer = Buffer::from_f32(
+        let line_state_buffer = Buffer::from_bytes(
             &context,
-            &bytemuck::cast_slice(&line_state),
+            bytemuck::cast_slice(&line_state),
             glow::ARRAY_BUFFER,
             glow::DYNAMIC_DRAW,
         )?;
@@ -331,26 +329,23 @@ impl Drawer {
             physical_height as f32,
         );
 
-        let view_matrix = glm::scale(
-            &glm::identity(),
-            &glm::vec3(settings.view_scale, settings.view_scale, 1.0),
-        );
+        let view_matrix = nalgebra::Matrix4::new_scaling(settings.view_scale);
 
         let projection = Projection {
-            projection: projection_matrix.as_slice().try_into().unwrap(),
-            view: view_matrix.as_slice().try_into().unwrap(),
+            projection: projection_matrix.into(),
+            view: view_matrix.into(),
         };
-        let view_buffer = Buffer::from_f32(
+        let view_buffer = Buffer::from_bytes(
             &context,
-            &bytemuck::cast_slice(&[projection]),
+            projection.as_std140().as_bytes(),
             glow::ARRAY_BUFFER,
             glow::STATIC_DRAW,
         )?;
 
         let uniforms = LineUniforms::new(&settings);
-        let line_uniforms = Buffer::from_f32(
+        let line_uniforms = Buffer::from_bytes(
             &context,
-            &bytemuck::cast_slice(&[uniforms]),
+            &uniforms.as_std140().as_bytes(),
             glow::ARRAY_BUFFER,
             glow::STATIC_DRAW,
         )?;
@@ -370,7 +365,7 @@ impl Drawer {
         )?;
 
         let mut line_state_buffers =
-            DoubleTransformFeedback::new(context, &bytemuck::cast_slice(&line_state))?;
+            DoubleTransformFeedback::new(context, bytemuck::cast_slice(&line_state))?;
 
         let mut place_lines_buffers = Vec::with_capacity(2);
         for _ in 0..2 {
@@ -704,7 +699,7 @@ impl Drawer {
             self.context.buffer_sub_data_u8_slice(
                 glow::UNIFORM_BUFFER,
                 0,
-                &bytemuck::bytes_of(&uniforms),
+                uniforms.as_std140().as_bytes(),
             );
 
             self.context.bind_buffer(glow::UNIFORM_BUFFER, None);
@@ -758,7 +753,7 @@ impl Drawer {
         &self,
         place_lines_program: &render::Program,
         settings: &Settings,
-        projection_matrix: &glm::TMat4<f32>,
+        projection_matrix: &nalgebra::Matrix4<f32>,
     ) {
         // Workaround for iOS
         //
@@ -954,7 +949,7 @@ impl Drawer {
     //     Ok(())
     // }
 
-    fn update_projection(&self, projection: &glm::TMat4<f32>) {
+    fn update_projection(&self, projection: &nalgebra::Matrix4<f32>) {
         let projection: [f32; 16] = projection.as_slice().try_into().unwrap();
 
         unsafe {
@@ -1136,7 +1131,7 @@ fn new_projection_matrix(
     grid_height: f32,
     physical_width: f32,
     physical_height: f32,
-) -> glm::TMat4<f32> {
+) -> nalgebra::Matrix4<f32> {
     let grid_ratio = grid_width / grid_height;
     let physical_ratio = physical_width / physical_height;
 
@@ -1149,7 +1144,7 @@ fn new_projection_matrix(
     let half_width = width / 2.0;
     let half_height = height / 2.0;
 
-    glm::ortho(
+    nalgebra::Matrix4::new_orthographic(
         -half_width,
         half_width,
         -half_height,
@@ -1198,7 +1193,7 @@ fn new_line_state(width: u32, height: u32, grid_spacing: u32) -> Vec<LineState> 
                 velocity: [0.0, 0.0],
                 color: [0.0, 0.0, 0.0, 0.0],
                 width: 0.0,
-                line_opacity: 1.0,
+                line_opacity: 0.0,
                 endpoint_opacity: 0.0,
             });
         }

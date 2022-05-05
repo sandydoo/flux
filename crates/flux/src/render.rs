@@ -60,78 +60,12 @@ pub struct Buffer {
 
 #[allow(dead_code)]
 impl Buffer {
-    pub fn from_f32(context: &Context, data: &[f32], buffer_type: u32, usage: u32) -> Result<Self> {
-        // let memory_buffer = wasm_bindgen::memory()
-        //     .dyn_into::<WebAssembly::Memory>()
-        //     .unwrap() // fix
-        //     .buffer();
-        // let arr_location = data.as_ptr() as u32 / 4;
-        // let data_array = js_sys::Float32Array::new(&memory_buffer)
-        //     .subarray(arr_location, arr_location + data.len() as u32);
-
-        let buffer = unsafe {
-            let buffer = context
-                .create_buffer()
-                .map_err(|_| Problem::CannotCreateBuffer)?;
-
-            context.bind_buffer(buffer_type, Some(buffer));
-            context.buffer_data_u8_slice(buffer_type, &bytemuck::cast_slice(&data), usage);
-            context.bind_buffer(buffer_type, None);
-
-            buffer
-        };
-
-        Ok(Self {
-            context: Rc::clone(context),
-            id: buffer,
-            size: data.len(),
-            type_: buffer_type,
-        })
-    }
-
-    pub fn from_u16(context: &Context, data: &[u16], buffer_type: u32, usage: u32) -> Result<Self> {
-        // let memory_buffer = wasm_bindgen::memory()
-        //     .dyn_into::<WebAssembly::Memory>()
-        //     .unwrap() // fix
-        //     .buffer();
-        // let data_location = data.as_ptr() as u32 / 2;
-        // let data_array = js_sys::Uint16Array::new(&memory_buffer)
-        //     .subarray(data_location, data_location + data.len() as u32);
-
-        let buffer = unsafe {
-            let buffer = context
-                .create_buffer()
-                .map_err(|_| Problem::CannotCreateBuffer)?;
-
-            context.bind_buffer(buffer_type, Some(buffer));
-            context.buffer_data_u8_slice(buffer_type, &bytemuck::cast_slice(&data), usage);
-            context.bind_buffer(buffer_type, None);
-
-            buffer
-        };
-
-        Ok(Self {
-            context: Rc::clone(context),
-            id: buffer,
-            size: data.len(),
-            type_: buffer_type,
-        })
-    }
-
-    pub fn from_u32(
+    pub fn from_bytes(
         context: &Context,
-        data: &Vec<u32>,
+        data: &[u8],
         buffer_type: u32,
         usage: u32,
     ) -> Result<Self> {
-        // let memory_buffer = wasm_bindgen::memory()
-        //     .dyn_into::<WebAssembly::Memory>()
-        //     .unwrap() // fix
-        //     .buffer();
-        // let data_location = data.as_ptr() as u32 / 4;
-        // let data_array = js_sys::Uint16Array::new(&memory_buffer)
-        //     .subarray(data_location, data_location + data.len() as u32);
-
         let buffer = unsafe {
             let buffer = context
                 .create_buffer()
@@ -150,6 +84,14 @@ impl Buffer {
             size: data.len(),
             type_: buffer_type,
         })
+    }
+
+    pub fn from_f32(context: &Context, data: &[f32], buffer_type: u32, usage: u32) -> Result<Self> {
+        Self::from_bytes(context, bytemuck::cast_slice(data), buffer_type, usage)
+    }
+
+    pub fn from_u16(context: &Context, data: &[u16], buffer_type: u32, usage: u32) -> Result<Self> {
+        Self::from_bytes(context, bytemuck::cast_slice(data), buffer_type, usage)
     }
 }
 

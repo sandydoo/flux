@@ -5,7 +5,7 @@ use render::{
 };
 use settings::Noise;
 
-use bytemuck::{Pod, Zeroable};
+use crevice::std140::{AsStd140, Std140};
 use glow::HasContext;
 use half::f16;
 use std::rc::Rc;
@@ -17,15 +17,13 @@ static SIMPLEX_NOISE_FRAG_SHADER: &'static str =
 static INJECT_NOISE_FRAG_SHADER: &'static str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/inject_noise.frag"));
 
-#[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable)]
+#[derive(AsStd140)]
 pub struct NoiseUniforms {
     scale: f32,
     offset_1: f32,
     offset_2: f32,
     multiplier: f32,
     blend_factor: f32,
-    pad2: f32,
 }
 
 pub struct NoiseChannel {
@@ -80,7 +78,6 @@ impl NoiseInjector {
                 offset_2: noise.offset_2,
                 multiplier: noise.multiplier,
                 blend_factor: 0.0,
-                pad2: 0.0,
             };
 
             unsafe {
@@ -89,7 +86,7 @@ impl NoiseInjector {
                 self.context.buffer_sub_data_u8_slice(
                     glow::UNIFORM_BUFFER,
                     0,
-                    &bytemuck::bytes_of(&uniforms),
+                    uniforms.as_std140().as_bytes(),
                 );
                 self.context.bind_buffer(glow::UNIFORM_BUFFER, None);
             }
@@ -164,12 +161,11 @@ impl NoiseInjector {
             offset_2: noise.offset_2,
             multiplier: noise.multiplier,
             blend_factor: 0.0,
-            pad2: 0.0,
         };
 
-        let uniforms = Buffer::from_f32(
+        let uniforms = Buffer::from_bytes(
             &self.context,
-            &bytemuck::cast_slice(&[uniforms]),
+            &uniforms.as_std140().as_bytes(),
             glow::ARRAY_BUFFER,
             glow::STATIC_DRAW,
         )?;

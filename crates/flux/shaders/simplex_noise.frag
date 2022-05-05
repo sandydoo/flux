@@ -6,7 +6,6 @@ layout(std140) uniform NoiseUniforms {
   highp float uOffset2;
   highp float uMultiplier;
   highp float uBlendFactor;
-  lowp float pad2;
 };
 
 in vec2 textureCoord;
@@ -119,7 +118,7 @@ vec2 makeNoise(vec2 scale, float offset) {
 }
 
 void main() {
-  vec2 scale = textureCoord * vec2(uScale);
+  vec2 scale = uScale * textureCoord;
 
   vec2 noise1 = makeNoise(scale, uOffset1);
   vec2 noise2 = makeNoise(scale, uOffset2);
