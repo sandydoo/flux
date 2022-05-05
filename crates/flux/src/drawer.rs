@@ -38,15 +38,18 @@ const LINE_VERTICES: [f32; 12] = [
 ];
 
 #[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable)]
+#[derive(Clone, Copy)]
 struct LineState {
-    endpoint: [f32; 2],
-    velocity: [f32; 2],
-    color: [f32; 4],
+    endpoint: mint::Vector2<f32>,
+    velocity: mint::Vector2<f32>,
+    color: mint::Vector4<f32>,
     width: f32,
     line_opacity: f32,
     endpoint_opacity: f32,
 }
+
+unsafe impl Zeroable for LineState {}
+unsafe impl Pod for LineState {}
 
 #[derive(AsStd140)]
 struct Projection {
@@ -1189,9 +1192,9 @@ fn new_line_state(width: u32, height: u32, grid_spacing: u32) -> Vec<LineState> 
     for _ in 0..rows {
         for _ in 0..cols {
             data.push(LineState {
-                endpoint: [0.0, 0.0],
-                velocity: [0.0, 0.0],
-                color: [0.0, 0.0, 0.0, 0.0],
+                endpoint: [0.0, 0.0].into(),
+                velocity: [0.0, 0.0].into(),
+                color: [0.0, 0.0, 0.0, 0.0].into(),
                 width: 0.0,
                 line_opacity: 0.0,
                 endpoint_opacity: 0.0,
