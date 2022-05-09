@@ -1,5 +1,6 @@
 port module Main exposing (..)
 
+import Array exposing (Array)
 import Browser
 import Browser.Events as BrowserEvent
 import FormatNumber as F
@@ -65,8 +66,7 @@ type alias Settings =
     , adjustAdvection : Float
     , gridSpacing : Int
     , viewScale : Float
-    , noiseChannel1 : Noise
-    , noiseChannel2 : Noise
+    , noiseChannels : Array Noise
     }
 
 
@@ -88,15 +88,7 @@ type alias Noise =
     , offset1 : Float
     , offset2 : Float
     , offsetIncrement : Float
-    , delay : Float
-    , blendDuration : Float
-    , blendThreshold : Float
-    , blendMethod : BlendMethod
     }
-
-
-type BlendMethod
-    = Curl
 
 
 defaultSettings : Settings
@@ -109,8 +101,8 @@ defaultSettings =
     , colorScheme = Peacock
     , diffusionIterations = 3
     , pressureIterations = 20
-    , lineLength = 350.0
-    , lineWidth = 6.0
+    , lineLength = 300.0
+    , lineWidth = 5.0
     , lineBeginOffset = 0.5
     , lineFadeOutLength = 0.005
     , springVariance = 0.47
@@ -122,29 +114,28 @@ defaultSettings =
     , advectionDirection = Forward
     , viewScale = 1.6
     , adjustAdvection = 1.0
-    , gridSpacing = 16
-    , noiseChannel1 =
-        { scale = 3.6 -- 2.3
-        , multiplier = 0.6 -- 0.9
-        , offset1 = 0.0
-        , offset2 = 0.0
-        , offsetIncrement = 0.00138889
-        , delay = 0.00138889
-        , blendDuration = 0.00138889
-        , blendThreshold = 0.0
-        , blendMethod = Curl
-        }
-    , noiseChannel2 =
-        { scale = 30.0
-        , multiplier = 1.0
-        , offset1 = 0.0
-        , offset2 = 0.0
-        , offsetIncrement = 0.00138889
-        , delay = 0.00138889
-        , blendDuration = 0.00138889
-        , blendThreshold = 0.0
-        , blendMethod = Curl
-        }
+    , gridSpacing = 14
+    , noiseChannels =
+        Array.fromList
+            [ { scale = 2.3 -- 2.3
+              , multiplier = 1.0 -- 0.9
+              , offset1 = 0.0
+              , offset2 = 0.0
+              , offsetIncrement = 0.002
+              }
+            , { scale = 13.8
+              , multiplier = 0.7
+              , offset1 = 0.0
+              , offset2 = 0.0
+              , offsetIncrement = 0.002
+              }
+            , { scale = 27.6
+              , multiplier = 0.5
+              , offset1 = 0.0
+              , offset2 = 0.0
+              , offsetIncrement = 0.002
+              }
+            ]
     }
 
 
@@ -204,8 +195,7 @@ type SettingMsg
     | SetSpringRestLength Float
     | SetAdvectionDirection AdvectionDirection
     | SetAdjustAdvection Float
-    | SetNoiseChannel1 NoiseMsg
-    | SetNoiseChannel2 NoiseMsg
+    | SetNoiseChannel Int NoiseMsg
 
 
 type NoiseMsg
@@ -214,9 +204,6 @@ type NoiseMsg
     | SetNoiseOffset1 Float
     | SetNoiseOffset2 Float
     | SetNoiseOffsetIncrement Float
-    | SetNoiseDelay Float
-    | SetNoiseBlendDuration Float
-    | SetNoiseBlendThreshold Float
 
 
 updateSettings : SettingMsg -> Settings -> Settings
@@ -273,11 +260,17 @@ updateSettings msg settings =
         SetAdjustAdvection newAdjustAdvection ->
             { settings | adjustAdvection = newAdjustAdvection }
 
-        SetNoiseChannel1 noiseMsg ->
-            { settings | noiseChannel1 = updateNoise noiseMsg settings.noiseChannel1 }
+        SetNoiseChannel channelNumber noiseMsg ->
+            let
+                maybeChannel =
+                    Array.get channelNumber settings.noiseChannels
+            in
+            case maybeChannel of
+                Just channel ->
+                    { settings | noiseChannels = Array.set channelNumber (updateNoise noiseMsg channel) settings.noiseChannels }
 
-        SetNoiseChannel2 noiseMsg ->
-            { settings | noiseChannel2 = updateNoise noiseMsg settings.noiseChannel2 }
+                Nothing ->
+                    settings
 
 
 updateNoise : NoiseMsg -> Noise -> Noise
@@ -297,15 +290,6 @@ updateNoise msg noise =
 
         SetNoiseOffsetIncrement newOffsetIncrement ->
             { noise | offsetIncrement = newOffsetIncrement }
-
-        SetNoiseDelay newDelay ->
-            { noise | delay = newDelay }
-
-        SetNoiseBlendDuration newBlendDuration ->
-            { noise | blendDuration = newBlendDuration }
-
-        SetNoiseBlendThreshold newBlendThreshold ->
-            { noise | blendThreshold = newBlendThreshold }
 
 
 
@@ -401,6 +385,7 @@ viewSettings : Settings -> Html Msg
 viewSettings settings =
     Html.ul
         [ HA.class "control-list" ]
+    <|
         [ Html.div
             [ HA.class "col-span-2-md" ]
             [ Html.button
@@ -758,9 +743,8 @@ viewSettings settings =
         , Html.h2
             [ HA.class "col-span-2-md" ]
             [ Html.text "Noise" ]
-        , viewNoiseChannel "Channel 1" SetNoiseChannel1 settings.noiseChannel1
-        , viewNoiseChannel "Channel 2" SetNoiseChannel2 settings.noiseChannel2
         ]
+            ++ Array.toList (Array.indexedMap (\index channel -> viewNoiseChannel ("Channel " ++ String.fromInt (index + 1)) (SetNoiseChannel index) channel) settings.noiseChannels)
 
 
 viewButtonGroup : (value -> msg) -> value -> List ( String, value ) -> Html msg
@@ -793,7 +777,6 @@ viewNoiseChannel title setNoiseChannel noiseChannel =
         [ HA.class "control-list-single" ]
         [ Html.div []
             [ Html.h4 [] [ Html.text title ]
-            , Html.p [ HA.class "control-description" ] [ Html.text "Simplex noise" ]
             ]
         , viewControl <|
             Control
@@ -885,63 +868,6 @@ viewNoiseChannel title setNoiseChannel noiseChannel =
                             String.toFloat value
                                 |> Maybe.withDefault 0.0
                                 |> SetNoiseOffsetIncrement
-                                |> setNoiseChannel
-                                |> SaveSetting
-                    , toString = formatFloat 2
-                    }
-                )
-        , viewControl <|
-            Control
-                "Delay"
-                ""
-                (Slider
-                    { min = 0.0
-                    , max = 10.0
-                    , step = 0.1
-                    , value = noiseChannel.delay
-                    , onInput =
-                        \value ->
-                            String.toFloat value
-                                |> Maybe.withDefault 1.0
-                                |> SetNoiseDelay
-                                |> setNoiseChannel
-                                |> SaveSetting
-                    , toString = formatFloat 1
-                    }
-                )
-        , viewControl <|
-            Control
-                "Blend duration"
-                ""
-                (Slider
-                    { min = 0.1
-                    , max = 10.0
-                    , step = 0.1
-                    , value = noiseChannel.blendDuration
-                    , onInput =
-                        \value ->
-                            String.toFloat value
-                                |> Maybe.withDefault 0.0
-                                |> SetNoiseBlendDuration
-                                |> setNoiseChannel
-                                |> SaveSetting
-                    , toString = formatFloat 1
-                    }
-                )
-        , viewControl <|
-            Control
-                "Blend threshold"
-                ""
-                (Slider
-                    { min = 0.0
-                    , max = 0.6
-                    , step = 0.01
-                    , value = noiseChannel.blendThreshold
-                    , onInput =
-                        \value ->
-                            String.toFloat value
-                                |> Maybe.withDefault 0.0
-                                |> SetNoiseBlendThreshold
                                 |> setNoiseChannel
                                 |> SaveSetting
                     , toString = formatFloat 2
@@ -1059,8 +985,7 @@ encodeSettings settings =
         , ( "adjustAdvection", Encode.float settings.adjustAdvection )
         , ( "gridSpacing", Encode.int settings.gridSpacing )
         , ( "viewScale", Encode.float settings.viewScale )
-        , ( "noiseChannel1", encodeNoise settings.noiseChannel1 )
-        , ( "noiseChannel2", encodeNoise settings.noiseChannel2 )
+        , ( "noiseChannels", Encode.array encodeNoise settings.noiseChannels )
         ]
 
 
@@ -1100,18 +1025,6 @@ colorSchemeToString colorscheme =
             "Pollen"
 
 
-encodeBlendMethod : BlendMethod -> Encode.Value
-encodeBlendMethod =
-    blendMethodToString >> Encode.string
-
-
-blendMethodToString : BlendMethod -> String
-blendMethodToString blendMethod =
-    case blendMethod of
-        Curl ->
-            "Curl"
-
-
 encodeNoise : Noise -> Encode.Value
 encodeNoise noise =
     Encode.object
@@ -1120,8 +1033,4 @@ encodeNoise noise =
         , ( "offset1", Encode.float noise.offset1 )
         , ( "offset2", Encode.float noise.offset2 )
         , ( "offsetIncrement", Encode.float noise.offsetIncrement )
-        , ( "delay", Encode.float noise.delay )
-        , ( "blendDuration", Encode.float noise.blendDuration )
-        , ( "blendThreshold", Encode.float noise.blendThreshold )
-        , ( "blendMethod", encodeBlendMethod noise.blendMethod )
         ]

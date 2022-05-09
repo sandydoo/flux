@@ -30,8 +30,7 @@ pub struct Settings {
     pub grid_spacing: u32,
     pub view_scale: f32,
 
-    pub noise_channel_1: Noise,
-    pub noise_channel_2: Noise,
+    pub noise_channels: Vec<Noise>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -43,11 +42,6 @@ pub enum ColorScheme {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub enum BlendMethod {
-    Curl,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Noise {
     pub scale: f32,
@@ -55,10 +49,6 @@ pub struct Noise {
     pub offset_1: f32,
     pub offset_2: f32,
     pub offset_increment: f32,
-    pub delay: f32,
-    pub blend_duration: f32,
-    pub blend_threshold: f32,
-    pub blend_method: BlendMethod,
 }
 
 pub fn color_wheel_from_scheme(color_scheme: &ColorScheme) -> [f32; 24] {

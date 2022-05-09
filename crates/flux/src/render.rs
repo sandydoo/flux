@@ -1,5 +1,6 @@
 use glow::HasContext;
 use rustc_hash::FxHashMap;
+use std::borrow::Cow;
 use std::cell::{Ref, RefCell};
 use std::rc::Rc;
 use thiserror::Error;
@@ -398,7 +399,7 @@ pub struct Program {
 
 impl Program {
     pub fn new(context: &Context, shaders: (&str, &str)) -> Result<Self> {
-        Self::new_impl(&context, shaders, None)
+        Self::new_impl(&context, shaders, None, None)
     }
 
     pub fn new_with_transform_feedback(
@@ -406,16 +407,33 @@ impl Program {
         shaders: (&str, &str),
         transform_feedback: &TransformFeedback,
     ) -> Result<Self> {
-        Self::new_impl(&context, shaders, Some(&transform_feedback))
+        Self::new_impl(&context, shaders, None, Some(&transform_feedback))
+    }
+
+    pub fn new_with_variables(
+        context: &Context,
+        shaders: (&str, &str),
+        variables: &[(&'static str, &str)],
+    ) -> Result<Self> {
+        Self::new_impl(&context, shaders, Some(&variables), None)
     }
 
     pub fn new_impl(
         context: &Context,
         shaders: (&str, &str),
+        optional_variables: Option<&[(&'static str, &str)]>,
         transform_feedback: Option<&TransformFeedback>,
     ) -> Result<Self> {
-        let vertex_shader = compile_shader(&context, glow::VERTEX_SHADER, shaders.0)?;
-        let fragment_shader = compile_shader(&context, glow::FRAGMENT_SHADER, shaders.1)?;
+        let vertex_shader = compile_shader(
+            &context,
+            glow::VERTEX_SHADER,
+            &preprocess_shader(shaders.0, optional_variables),
+        )?;
+        let fragment_shader = compile_shader(
+            &context,
+            glow::FRAGMENT_SHADER,
+            &preprocess_shader(shaders.1, optional_variables),
+        )?;
 
         let program = unsafe {
             let program = context
@@ -578,6 +596,26 @@ impl Program {
 
     pub fn get_uniform_block_location(&self, name: &str) -> Option<u32> {
         unsafe { self.context.get_uniform_block_index(self.program, name) }
+    }
+}
+
+fn preprocess_shader<'a>(
+    source: &'a str,
+    optional_variables: Option<&[(&'static str, &str)]>,
+) -> Cow<'a, str> {
+    if let Some(variables) = optional_variables {
+        let preamble = variables.iter().fold(String::new(), |vars, (name, value)| {
+            vars + &format!("#define {} {}\n", name, value)
+        });
+
+        if source.starts_with("#version") {
+            let (version, source_rest) = source.split_once('\n').unwrap();
+            format!("{}\n{}{}", version, preamble, source_rest).into()
+        } else {
+            (preamble + source).into()
+        }
+    } else {
+        source.into()
     }
 }
 
