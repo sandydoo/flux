@@ -4,8 +4,6 @@ precision highp sampler2D;
 layout(std140) uniform FluidUniforms
 {
   highp float deltaT;
-  highp float epsilon;
-  highp float halfEpsilon;
   highp float dissipation;
   highp vec2 uTexelSize;
 };
@@ -28,5 +26,5 @@ void main() {
   float T = texture(pressureTexture, vT).x;
   float B = texture(pressureTexture, vB).x;
 
-  newVelocity = velocity - halfEpsilon * vec2(R - L, T - B);
+  newVelocity = velocity - 0.5 * vec2(R - L, T - B);
 }

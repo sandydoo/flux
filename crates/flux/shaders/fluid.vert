@@ -3,8 +3,6 @@ precision highp float;
 layout(std140) uniform FluidUniforms
 {
   highp float deltaT;
-  highp float epsilon;
-  highp float halfEpsilon;
   highp float dissipation;
   highp vec2 uTexelSize;
 };

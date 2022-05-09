@@ -4,8 +4,6 @@ precision highp sampler2D;
 layout(std140) uniform FluidUniforms
 {
   highp float deltaT;
-  highp float epsilon;
-  highp float halfEpsilon;
   highp float dissipation;
   highp vec2 uTexelSize;
 };
@@ -31,5 +29,5 @@ void main() {
   if (vT.y > 1.0) { T = -velocity.y; }
   if (vB.y < 0.0) { B = -velocity.y; }
 
-  newDivergence = halfEpsilon * (R - L + T - B);
+  newDivergence = 0.5 * (R - L + T - B);
 }

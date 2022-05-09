@@ -29,8 +29,6 @@ static SUBTRACT_GRADIENT_FRAG_SHADER: &'static str =
 #[derive(Copy, Clone, Debug, AsStd140)]
 struct Uniforms {
     timestep: f32,
-    epsilon: f32,
-    half_epsilon: f32,
     dissipation: f32,
     texel_size: mint::Vector2<f32>,
 }
@@ -172,8 +170,6 @@ impl Fluid {
 
         let uniforms = Uniforms {
             timestep: 0.0,
-            epsilon: grid_size,
-            half_epsilon: 0.5 * grid_size,
             dissipation: settings.velocity_dissipation,
             texel_size: texel_size.into(),
         };
@@ -298,8 +294,6 @@ impl Fluid {
 
         let uniforms = Uniforms {
             timestep: 0.0,
-            epsilon: self.grid_size,
-            half_epsilon: 0.5 * self.grid_size,
             dissipation: settings.velocity_dissipation,
             texel_size: self.texel_size.into(),
         };
