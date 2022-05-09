@@ -13,12 +13,12 @@ layout(std140) uniform FluidUniforms
 uniform sampler2D velocityTexture;
 uniform float amount;
 
-in vec2 textureCoord;
+in vec2 texturePosition;
 out vec2 outVelocity;
 
 void main() {
-  vec2 velocity = texture(velocityTexture, textureCoord).xy;
-  vec2 advectedCoord = textureCoord - amount * velocity;
+  vec2 velocity = texture(velocityTexture, texturePosition).xy;
+  vec2 advectedCoord = texturePosition - amount * velocity;
   float decay = 1.0 + dissipation * amount;
   outVelocity = texture(velocityTexture, advectedCoord).xy / decay;
 }

@@ -12,7 +12,7 @@ layout(std140) uniform FluidUniforms
 
 uniform sampler2D velocityTexture;
 
-in highp vec2 textureCoord;
+in highp vec2 texturePosition;
 in vec2 vL;
 in vec2 vR;
 in vec2 vT;
@@ -25,7 +25,7 @@ void main() {
   float T = texture(velocityTexture, vT).y;
   float B = texture(velocityTexture, vB).y;
 
-  vec2 velocity = texture(velocityTexture, textureCoord).xy;
+  vec2 velocity = texture(velocityTexture, texturePosition).xy;
   if (vL.x < 0.0) { L = -velocity.x; }
   if (vR.x > 1.0) { R = -velocity.x; }
   if (vT.y > 1.0) { T = -velocity.y; }
