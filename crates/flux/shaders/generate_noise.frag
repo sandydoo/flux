@@ -1,52 +1,23 @@
-#define TWO_PI 6.283185307179586
+precision mediump float;
 
-precision highp float;
-precision highp sampler2D;
+// Defined at compile-time
+// #define CHANNEL_COUNT 3
 
-// static input
-in vec2 basepoint;
+struct Channel {
+  mediump float uScale;
+  mediump float uOffset1;
+  mediump float uOffset2;
+  mediump float uMultiplier;
+  mediump float uBlendFactor;
+};
 
-// dynamic input
-in vec2 iEndpointVector;
-in vec2 iVelocityVector;
-in vec4 iColor;
-in float iLineWidth;
-in float iLineOpacity;
-in float iEndpointOpacity;
+layout(std140) uniform Channels
+{
+  Channel uChannels[CHANNEL_COUNT];
+};
 
-uniform float deltaT;
-uniform float uSpringVariance;
-uniform mediump vec4 uColorWheel[6];
-uniform mat4 uProjection;
-
-uniform float springNoiseOffset1;
-
-uniform sampler2D velocityTexture;
-
-// transform feedback output
-out vec2 vEndpointVector;
-out vec2 vVelocityVector;
-out vec4 vColor;
-out float vLineWidth;
-out float vLineOpacity;
-out float vEndpointOpacity;
-
-float clampTo(float value, float max) {
-  float current = value + 0.0001;
-  return min(current, max) / current;
-}
-
-vec4 getColor(vec4 wheel[6], float angle) {
-  float slice = TWO_PI / 6.0;
-  float rawIndex = mod(angle, TWO_PI) / slice;
-  float index = floor(rawIndex);
-  float nextIndex = mod(index + 1.0, 6.0);
-  float interpolate = fract(rawIndex);
-
-  vec4 currentColor = wheel[int(index)];
-  vec4 nextColor = wheel[int(nextIndex)];
-  return mix(currentColor, nextColor, interpolate);
-}
+in vec2 texturePosition;
+out vec2 noise;
 
 vec3 mod289(vec3 x) {
   return x - floor(x * (1.0 / 289.0)) * 289.0;
@@ -136,32 +107,45 @@ float snoise(vec3 v) {
   return 42.0 * dot(m, px);
 }
 
-void main() {
-  float deltaTime = deltaT;
-  float springNoiseScale = 64.0;
-
-  vec2 basepointInClipSpace = 0.5 + 0.5 * (uProjection * vec4(basepoint, 0.0, 1.0)).xy;
-  vec2 velocity = texture(velocityTexture, basepointInClipSpace).xy;
-  float noise = snoise(vec3((0.5 + 0.5 * basepointInClipSpace) * springNoiseScale, springNoiseOffset1));
-
-  // Blend noise
-
-  float variance = mix(1.0 - uSpringVariance, 1.0, 0.5 + 0.5 * noise);
-  float inverseVariance = 1.0 - variance;
-  float velocityDeltaVariance = mix(3.0, 25.0, inverseVariance);
-  float momentumVariance = mix(3.0, 5.0, variance);
-
-  float lineLength = 1.0; //0.6 // 1.4 // Do I need this? will I be changing this value?
-  vVelocityVector = ((1.0 - deltaTime * momentumVariance) * iVelocityVector) + ((lineLength * velocity - iEndpointVector) * velocityDeltaVariance) * deltaTime;
-  vEndpointVector = iEndpointVector + deltaTime * vVelocityVector;
-
-  float widthBoost = clamp(2.5 * length(velocity), 0.0, 1.0);
-  vLineWidth = widthBoost * widthBoost * (3.0 - widthBoost * 2.0);
-
-  float angle = atan(velocity.x, velocity.y);
-  vColor = getColor(uColorWheel, angle);
-  vLineOpacity = widthBoost;
-
-  // TODO: check this
-  vEndpointOpacity = clamp(vLineOpacity + 0.4, 0.0, 1.0);
+vec2 makeNoisePair(vec3 params) {
+  return vec2(snoise(params), snoise(params + vec3(8.0, -8.0, 0.0)));
 }
+
+vec2 makeNoise(Channel channel) {
+  vec2 noise;
+  vec2 scale = channel.uScale * texturePosition;
+  vec2 noise1 = makeNoisePair(vec3(scale, channel.uOffset1));
+
+  if (channel.uBlendFactor > 0.0) {
+    vec2 noise2 = makeNoisePair(vec3(scale, channel.uOffset2));
+    noise = mix(noise1, noise2, channel.uBlendFactor);
+  } else {
+    noise = noise1;
+  }
+
+  return channel.uMultiplier * noise;
+}
+
+void main() {
+  noise = vec2(0.0);
+
+  // Safari and OpenGL on macOS aren’t happy with “dynamic indexing” inside a
+  // for-loop, so we unwrap the loop.
+  #if CHANNEL_COUNT > 0
+    Channel channel0 = uChannels[0];
+    noise += makeNoise(channel0);
+  #endif
+  #if CHANNEL_COUNT > 1
+    Channel channel1 = uChannels[1];
+    noise += makeNoise(channel1);
+  #endif
+  #if CHANNEL_COUNT > 2
+    Channel channel2 = uChannels[2];
+    noise += makeNoise(channel2);
+  #endif
+  #if CHANNEL_COUNT > 3
+    Channel channel2 = uChannels[3];
+    noise += makeNoise(channel2);
+  #endif
+}
+

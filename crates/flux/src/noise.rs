@@ -3,185 +3,183 @@ use render::{
     Buffer, Context, DoubleFramebuffer, Framebuffer, Program, TextureOptions, Uniform,
     UniformValue, VertexArrayObject, VertexBufferLayout,
 };
-use settings::Noise;
 
-use bytemuck::{Pod, Zeroable};
+use crevice::std140::{self, AsStd140};
 use glow::HasContext;
 use half::f16;
 use std::rc::Rc;
 
 static NOISE_VERT_SHADER: &'static str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/noise.vert"));
-static SIMPLEX_NOISE_FRAG_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/simplex_noise.frag"));
+static GENERATE_NOISE_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/generate_noise.frag"));
 static INJECT_NOISE_FRAG_SHADER: &'static str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/inject_noise.frag"));
 
-#[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable)]
+#[derive(AsStd140)]
 pub struct NoiseUniforms {
-    frequency: f32,
+    scale: f32,
     offset_1: f32,
     offset_2: f32,
     multiplier: f32,
-    texel_size: [f32; 2],
-    blend_threshold: f32,
-    pad2: f32,
+    blend_factor: f32,
 }
 
 pub struct NoiseChannel {
-    noise: Noise,
-    texture: Framebuffer,
+    settings: settings::Noise,
+    offset_1: f32,
+    offset_2: f32,
     blend_begin_time: f32,
     last_blend_progress: f32,
-    offset1: f32,
-    offset2: f32,
-    uniforms: Buffer,
 }
 
 impl NoiseChannel {
-    pub fn tick(&mut self, context: &Context, elapsed_time: f32) -> () {
+    pub fn tick(&mut self, elapsed_time: f32) -> () {
         self.blend_begin_time = elapsed_time;
         self.last_blend_progress = 0.0;
-        self.offset1 += self.noise.offset_increment;
-        // self.offset2 += self.noise.offset_increment;
-
-        unsafe {
-            context.bind_buffer(glow::UNIFORM_BUFFER, Some(self.uniforms.id));
-            context.buffer_sub_data_u8_slice(
-                glow::UNIFORM_BUFFER,
-                1 * 4,
-                &bytemuck::bytes_of(&[self.offset1, self.offset2]),
-            );
-            context.bind_buffer(glow::UNIFORM_BUFFER, None);
-        }
+        self.offset_1 += self.settings.offset_increment;
     }
 }
 
-pub struct NoiseInjector {
+pub struct NoiseGenerator {
     context: Context,
-    pub channels: Vec<NoiseChannel>,
-    width: u32,
-    height: u32,
+    channels: Vec<NoiseChannel>,
+    texture: Framebuffer,
 
     generate_noise_pass: Program,
     inject_noise_pass: Program,
 
     noise_buffer: VertexArrayObject,
+    uniforms: Buffer,
 }
 
-impl NoiseInjector {
-    pub fn update_channel(&mut self, channel_number: usize, noise: &Noise) -> () {
-        if let Some(channel) = self.channels.get_mut(channel_number) {
-            channel.noise = noise.clone();
+impl NoiseGenerator {
+    pub fn new(context: &Context, width: u32, height: u32) -> NoiseGeneratorBuilder {
+        NoiseGeneratorBuilder::new(context, width, height)
+    }
 
-            let uniforms = NoiseUniforms {
-                frequency: noise.scale,
-                offset_1: noise.offset_1,
-                offset_2: noise.offset_2,
-                multiplier: noise.multiplier,
-                texel_size: [1.0 / self.width as f32, 1.0 / self.height as f32],
-                blend_threshold: noise.blend_threshold,
-                pad2: 0.0,
-            };
-
-            unsafe {
-                self.context
-                    .bind_buffer(glow::UNIFORM_BUFFER, Some(channel.uniforms.id));
-                self.context.buffer_sub_data_u8_slice(
-                    glow::UNIFORM_BUFFER,
-                    0,
-                    &bytemuck::bytes_of(&uniforms),
-                );
-                self.context.bind_buffer(glow::UNIFORM_BUFFER, None);
+    pub fn update(&mut self, new_settings: &[settings::Noise]) -> () {
+        for (channel, new_setting) in self.channels.iter_mut().zip(new_settings.iter()) {
+            if channel.settings.offset_1 != new_setting.offset_1 {
+                channel.offset_1 = new_setting.offset_1;
             }
+
+            channel.settings = new_setting.clone();
         }
     }
 
-    pub fn new(context: &Context, width: u32, height: u32) -> Result<Self, render::Problem> {
+    pub fn generate(&mut self, elapsed_time: f32) -> () {
+        let uniforms = &build_noise_uniforms(&self.channels);
+        unsafe {
+            self.context
+                .bind_buffer(glow::UNIFORM_BUFFER, Some(self.uniforms.id));
+            self.context
+                .buffer_sub_data_u8_slice(glow::UNIFORM_BUFFER, 0, &uniforms);
+            self.context.bind_buffer(glow::UNIFORM_BUFFER, None);
+        }
+
+        self.generate_noise_pass.use_program();
+
+        unsafe {
+            self.context.bind_vertex_array(Some(self.noise_buffer.id));
+
+            self.context
+                .bind_buffer_base(glow::UNIFORM_BUFFER, 0, Some(self.uniforms.id));
+
+            self.texture.draw_to(&self.context, || {
+                self.context.clear_color(0.0, 0.0, 0.0, 0.0);
+                self.context.clear(glow::COLOR_BUFFER_BIT);
+                self.context
+                    .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
+            });
+        }
+
+        for channel in self.channels.iter_mut() {
+            channel.tick(elapsed_time);
+        }
+    }
+
+    pub fn blend_noise_into(
+        &mut self,
+        target_textures: &DoubleFramebuffer,
+        _elapsed_time: f32,
+        timestep: f32,
+    ) -> () {
+        target_textures.draw_to(&self.context, |target_texture| {
+            self.inject_noise_pass.use_program();
+
+            unsafe {
+                self.context.disable(glow::BLEND);
+                self.context.bind_vertex_array(Some(self.noise_buffer.id));
+
+                self.inject_noise_pass.set_uniform(&Uniform {
+                    name: "deltaTime",
+                    value: UniformValue::Float(timestep),
+                });
+
+                self.context.active_texture(glow::TEXTURE0);
+                self.context
+                    .bind_texture(glow::TEXTURE_2D, Some(target_texture.texture));
+
+                self.context.active_texture(glow::TEXTURE1);
+                self.context
+                    .bind_texture(glow::TEXTURE_2D, Some(self.texture.texture));
+
+                self.context
+                    .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
+            }
+        });
+    }
+
+    #[allow(dead_code)]
+    pub fn get_noise(&self) -> &Framebuffer {
+        &self.texture
+    }
+}
+
+pub struct NoiseGeneratorBuilder {
+    context: Context,
+    width: u32,
+    height: u32,
+    channels: Vec<NoiseChannel>,
+}
+
+impl NoiseGeneratorBuilder {
+    pub fn new(context: &Context, width: u32, height: u32) -> Self {
+        NoiseGeneratorBuilder {
+            context: Rc::clone(context),
+            width,
+            height,
+            channels: Vec::new(),
+        }
+    }
+
+    pub fn add_channel(&mut self, channel: &settings::Noise) -> &Self {
+        self.channels.push(NoiseChannel {
+            settings: channel.clone(),
+            offset_1: -channel.offset_1,
+            offset_2: channel.offset_2,
+            blend_begin_time: 0.0,
+            last_blend_progress: 0.0,
+        });
+
+        self
+    }
+
+    pub fn build(self) -> Result<NoiseGenerator, render::Problem> {
         // Geometry
         let plane_vertices = Buffer::from_f32(
-            &context,
+            &self.context,
             &data::PLANE_VERTICES,
             glow::ARRAY_BUFFER,
             glow::STATIC_DRAW,
         )?;
         let plane_indices = Buffer::from_u16(
-            &context,
+            &self.context,
             &data::PLANE_INDICES,
             glow::ELEMENT_ARRAY_BUFFER,
             glow::STATIC_DRAW,
         )?;
-
-        let simplex_noise_program =
-            Program::new(&context, (NOISE_VERT_SHADER, SIMPLEX_NOISE_FRAG_SHADER))?;
-        let inject_noise_program =
-            Program::new(&context, (NOISE_VERT_SHADER, INJECT_NOISE_FRAG_SHADER))?;
-
-        let noise_buffer = VertexArrayObject::new(
-            &context,
-            &simplex_noise_program,
-            &[(
-                &plane_vertices,
-                VertexBufferLayout {
-                    name: "position",
-                    size: 3,
-                    type_: glow::FLOAT,
-                    ..Default::default()
-                },
-            )],
-            Some(&plane_indices),
-        )?;
-
-        simplex_noise_program.set_uniform_block("NoiseUniforms", 3);
-
-        simplex_noise_program.set_uniform(&Uniform {
-            name: "uResolution",
-            value: UniformValue::Vec2(&[width as f32, height as f32]),
-        });
-
-        inject_noise_program.set_uniforms(&[
-            &Uniform {
-                name: "velocityTexture",
-                value: UniformValue::Texture2D(0),
-            },
-            &Uniform {
-                name: "noiseTexture",
-                value: UniformValue::Texture2D(1),
-            },
-        ]);
-
-        Ok(Self {
-            context: Rc::clone(context),
-            channels: Vec::new(),
-            width,
-            height,
-
-            generate_noise_pass: simplex_noise_program,
-            inject_noise_pass: inject_noise_program,
-
-            noise_buffer,
-        })
-    }
-
-    pub fn add_noise(&mut self, noise: Noise) -> Result<(), render::Problem> {
-        let uniforms = NoiseUniforms {
-            frequency: noise.scale,
-            offset_1: noise.offset_1,
-            offset_2: noise.offset_2,
-            multiplier: noise.multiplier,
-            texel_size: [1.0 / self.width as f32, 1.0 / self.height as f32],
-            blend_threshold: noise.blend_threshold,
-            pad2: 0.0,
-        };
-
-        let uniforms = Buffer::from_f32(
-            &self.context,
-            &bytemuck::cast_slice(&[uniforms]),
-            glow::ARRAY_BUFFER,
-            glow::STATIC_DRAW,
-        )?;
-
         let texture = Framebuffer::new(
             &self.context,
             self.width,
@@ -195,135 +193,76 @@ impl NoiseInjector {
         )?
         .with_data(None::<&[f16]>)?;
 
-        self.channels.push(NoiseChannel {
-            noise: noise.clone(),
+        let generate_noise_pass = Program::new_with_variables(
+            &self.context,
+            (NOISE_VERT_SHADER, GENERATE_NOISE_FRAG_SHADER),
+            &[("CHANNEL_COUNT", &self.channels.len().to_string())],
+        )?;
+        let inject_noise_pass =
+            Program::new(&self.context, (NOISE_VERT_SHADER, INJECT_NOISE_FRAG_SHADER))?;
+
+        let noise_buffer = VertexArrayObject::new(
+            &self.context,
+            &generate_noise_pass,
+            &[(
+                &plane_vertices,
+                VertexBufferLayout {
+                    name: "position",
+                    size: 3,
+                    type_: glow::FLOAT,
+                    ..Default::default()
+                },
+            )],
+            Some(&plane_indices),
+        )?;
+
+        let uniforms = Buffer::from_bytes(
+            &self.context,
+            &build_noise_uniforms(&self.channels),
+            glow::ARRAY_BUFFER,
+            glow::STATIC_DRAW,
+        )?;
+
+        generate_noise_pass.set_uniform_block("Channels", 0);
+        inject_noise_pass.set_uniforms(&[
+            &Uniform {
+                name: "velocityTexture",
+                value: UniformValue::Texture2D(0),
+            },
+            &Uniform {
+                name: "noiseTexture",
+                value: UniformValue::Texture2D(1),
+            },
+        ]);
+
+        Ok(NoiseGenerator {
+            context: self.context,
+            channels: self.channels,
             texture,
-            blend_begin_time: -noise.delay,
-            last_blend_progress: 0.0,
-            offset1: noise.offset_1,
-            offset2: noise.offset_2,
+
+            generate_noise_pass,
+            inject_noise_pass,
+
+            noise_buffer,
             uniforms,
-        });
-
-        Ok(())
+        })
     }
+}
 
-    pub fn generate_all(&mut self, elapsed_time: f32) -> () {
-        for channel in self.channels.iter_mut() {
-            let time_since_last_update = elapsed_time - channel.blend_begin_time;
+fn build_noise_uniforms(channels: &[NoiseChannel]) -> Vec<u8> {
+    let noise_uniforms: Vec<NoiseUniforms> = channels
+        .iter()
+        .map(|channel| NoiseUniforms {
+            scale: channel.settings.scale,
+            offset_1: channel.offset_1,
+            offset_2: channel.offset_2,
+            multiplier: channel.settings.multiplier,
+            blend_factor: 0.0,
+        })
+        .collect();
+    let mut aligned_uniforms = Vec::new();
+    let mut writer = std140::Writer::new(&mut aligned_uniforms);
+    writer.write(noise_uniforms.as_slice()).unwrap();
 
-            if time_since_last_update >= channel.noise.delay {
-                self.generate_noise_pass.use_program();
-
-                unsafe {
-                    // self.context.enable(glow::BLEND);
-                    // self.context.blend_func(glow::ONE, glow::ONE);
-                    self.context.bind_vertex_array(Some(self.noise_buffer.id));
-
-                    self.context.bind_buffer_base(
-                        glow::UNIFORM_BUFFER,
-                        3,
-                        Some(channel.uniforms.id),
-                    );
-
-                    channel.texture.draw_to(&self.context, || {
-                        self.context.clear_color(0.0, 0.0, 0.0, 0.0);
-                        self.context.clear(glow::COLOR_BUFFER_BIT);
-                        self.context
-                            .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
-                    });
-
-                    // self.context.disable(glow::BLEND);
-                }
-
-                channel.tick(&self.context, elapsed_time);
-            }
-        }
-    }
-
-    pub fn generate_by_channel_number(&mut self, channel_number: usize, elapsed_time: f32) {
-        if let Some(channel) = self.channels.get_mut(channel_number) {
-            self.generate_noise_pass.use_program();
-
-            unsafe {
-                self.context.bind_vertex_array(Some(self.noise_buffer.id));
-
-                self.context
-                    .bind_buffer_base(glow::UNIFORM_BUFFER, 3, Some(channel.uniforms.id));
-
-                channel.texture.draw_to(&self.context, || {
-                    self.context
-                        .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
-                });
-            }
-
-            channel.tick(&self.context, elapsed_time);
-        }
-    }
-
-    pub fn blend_noise_into(
-        &mut self,
-        target_textures: &DoubleFramebuffer,
-        elapsed_time: f32,
-        timestep: f32,
-    ) -> () {
-        for channel in self.channels.iter_mut() {
-            let blend_progress: f32 = ((elapsed_time - channel.blend_begin_time)
-                / channel.noise.blend_duration)
-                .clamp(0.0, 1.0);
-
-            if blend_progress >= 1.0 - 0.0001 {
-                continue;
-            }
-
-            target_textures.draw_to(&self.context, |target_texture| {
-                self.inject_noise_pass.use_program();
-
-                unsafe {
-                    self.context.bind_vertex_array(Some(self.noise_buffer.id));
-
-                    self.inject_noise_pass.set_uniform(&Uniform {
-                        name: "deltaTime",
-                        value: UniformValue::Float(timestep),
-                    });
-
-                    self.context.active_texture(glow::TEXTURE0);
-                    self.context
-                        .bind_texture(glow::TEXTURE_2D, Some(target_texture.texture));
-
-                    self.context.active_texture(glow::TEXTURE1);
-                    self.context
-                        .bind_texture(glow::TEXTURE_2D, Some(channel.texture.texture));
-
-                    self.context
-                        .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
-                }
-            });
-
-            channel.last_blend_progress = blend_progress;
-        }
-    }
-
-    pub fn get_delta_blend_progress(&mut self, elapsed_time: f32) -> f32 {
-        let channel = &mut self.channels[0];
-
-        if channel.last_blend_progress >= 1.0 {
-            return 0.0;
-        }
-
-        let blend_progress: f32 =
-            (elapsed_time - channel.blend_begin_time) / channel.noise.blend_duration;
-
-        let delta_blend_progress = (blend_progress - channel.last_blend_progress).clamp(0.0, 1.0);
-
-        channel.last_blend_progress = blend_progress;
-
-        delta_blend_progress
-    }
-
-    #[allow(dead_code)]
-    pub fn get_noise(&self) -> &Framebuffer {
-        let channel = &self.channels[0];
-        &channel.texture
-    }
+    aligned_uniforms
 }

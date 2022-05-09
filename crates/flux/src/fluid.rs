@@ -5,7 +5,7 @@ use render::{
 };
 use settings::Settings;
 
-use bytemuck::{Pod, Zeroable};
+use crevice::std140::{AsStd140, Std140};
 use glow::HasContext;
 use half::f16;
 use std::cell::Ref;
@@ -26,16 +26,13 @@ static SOLVE_PRESSURE_FRAG_SHADER: &'static str =
 static SUBTRACT_GRADIENT_FRAG_SHADER: &'static str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/subtract_gradient.frag"));
 
-#[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable)]
+#[derive(Copy, Clone, Debug, AsStd140)]
 struct Uniforms {
     timestep: f32,
     epsilon: f32,
     half_epsilon: f32,
     dissipation: f32,
-    texel_size: [f32; 2],
-    pad1: f32,
-    pad2: f32,
+    texel_size: mint::Vector2<f32>,
 }
 
 pub struct Fluid {
@@ -178,14 +175,12 @@ impl Fluid {
             epsilon: grid_size,
             half_epsilon: 0.5 * grid_size,
             dissipation: settings.velocity_dissipation,
-            texel_size,
-            pad1: 0.0,
-            pad2: 0.0,
+            texel_size: texel_size.into(),
         };
 
-        let uniform_buffer = Buffer::from_f32(
+        let uniform_buffer = Buffer::from_bytes(
             &context,
-            &bytemuck::cast_slice(&[uniforms]),
+            uniforms.as_std140().as_bytes(),
             glow::ARRAY_BUFFER,
             glow::STATIC_DRAW,
         )?;
@@ -306,9 +301,7 @@ impl Fluid {
             epsilon: self.grid_size,
             half_epsilon: 0.5 * self.grid_size,
             dissipation: settings.velocity_dissipation,
-            texel_size: self.texel_size,
-            pad1: 0.0,
-            pad2: 0.0,
+            texel_size: self.texel_size.into(),
         };
 
         unsafe {
@@ -317,7 +310,7 @@ impl Fluid {
             self.context.buffer_sub_data_u8_slice(
                 glow::UNIFORM_BUFFER,
                 0,
-                &bytemuck::bytes_of(&uniforms),
+                uniforms.as_std140().as_bytes(),
             );
             self.context.bind_buffer(glow::UNIFORM_BUFFER, None);
         }

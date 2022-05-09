@@ -1,7 +1,7 @@
 use crate::{drawer, fluid, noise, render, settings};
 use drawer::Drawer;
 use fluid::Fluid;
-use noise::NoiseInjector;
+use noise::NoiseGenerator;
 use settings::Settings;
 
 use glow::HasContext;
@@ -11,7 +11,7 @@ use std::rc::Rc;
 pub struct Flux {
     fluid: Fluid,
     drawer: Drawer,
-    fluid_noise_injector: NoiseInjector,
+    noise_generator: NoiseGenerator,
     settings: Rc<Settings>,
 
     pub context: render::Context,
@@ -25,13 +25,9 @@ pub struct Flux {
 impl Flux {
     pub fn update(&mut self, settings: &Rc<Settings>) -> () {
         self.settings = Rc::clone(settings);
-
         self.fluid.update(&self.settings);
         self.drawer.update(&self.settings);
-        self.fluid_noise_injector
-            .update_channel(0, &self.settings.noise_channel_1);
-        self.fluid_noise_injector
-            .update_channel(1, &self.settings.noise_channel_2);
+        self.noise_generator.update(&self.settings.noise_channels);
     }
 
     pub fn new(
@@ -44,6 +40,7 @@ impl Flux {
     ) -> Result<Flux, Problem> {
         let fluid_frame_time = 1.0 / settings.fluid_simulation_frame_rate;
         let ratio = logical_width as f32 / logical_height as f32;
+
         let fluid = Fluid::new(&context, ratio, &settings).map_err(Problem::CannotRender)?;
 
         let drawer = Drawer::new(
@@ -56,22 +53,18 @@ impl Flux {
         )
         .map_err(Problem::CannotRender)?;
 
-        let mut fluid_noise_injector = NoiseInjector::new(&context, fluid.width, fluid.height)
-            .map_err(Problem::CannotRender)?;
-
-        fluid_noise_injector
-            .add_noise(settings.noise_channel_1.clone())
-            .map_err(Problem::CannotRender)?;
-
-        // fluid_noise_injector.generate_by_channel_number(0, 0.0);
-        fluid_noise_injector
-            .add_noise(settings.noise_channel_2.clone())
+        let mut noise_generator_builder = NoiseGenerator::new(&context, 256, 256);
+        for channel in settings.noise_channels.iter() {
+            noise_generator_builder.add_channel(&channel);
+        }
+        let noise_generator = noise_generator_builder
+            .build()
             .map_err(Problem::CannotRender)?;
 
         Ok(Flux {
             fluid,
             drawer,
-            fluid_noise_injector,
+            noise_generator,
             settings: Rc::clone(settings),
 
             context: Rc::clone(context),
@@ -113,7 +106,7 @@ impl Flux {
 
         // TODO: move frame times to fluid
         while self.frame_time >= self.fluid_frame_time {
-            self.fluid_noise_injector.generate_all(self.elapsed_time);
+            self.noise_generator.generate(self.elapsed_time);
 
             self.fluid.prepare_pass(self.fluid_frame_time);
             self.fluid.advect_forward();
@@ -121,7 +114,7 @@ impl Flux {
             self.fluid.adjust_advection();
             self.fluid.diffuse(self.fluid_frame_time); // <- Convection
 
-            self.fluid_noise_injector.blend_noise_into(
+            self.noise_generator.blend_noise_into(
                 &self.fluid.get_velocity_textures(),
                 self.elapsed_time,
                 self.fluid_frame_time,
@@ -145,7 +138,7 @@ impl Flux {
             self.context.clear(glow::COLOR_BUFFER_BIT);
 
             // Debugging
-            // self.drawer.draw_texture(self.fluid_noise_injector.get_noise());
+            // self.drawer.draw_texture(self.noise_generator.get_noise());
             // self.drawer.draw_texture(&self.fluid.get_velocity());
             // self.drawer.draw_texture(&self.fluid.get_pressure());
             // self.drawer.draw_texture(&self.fluid.get_divergence());

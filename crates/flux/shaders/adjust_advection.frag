@@ -1,7 +1,7 @@
 precision mediump float;
 precision highp sampler2D;
 
-in vec2 textureCoord;
+in vec2 texturePosition;
 
 uniform sampler2D velocityTexture;
 uniform sampler2D forwardAdvectedTexture;
@@ -12,7 +12,7 @@ out vec2 outVelocity;
 
 void main() {
   vec2 size = vec2(textureSize(velocityTexture, 0));
-  ivec2 position = ivec2(textureCoord * size);
+  ivec2 position = ivec2(texturePosition * size);
   vec2 velocity = texelFetch(velocityTexture, position, 0).xy;
 
   vec2 newCoord = (0.5 + floor((vec2(position) + 1.0) - deltaTime * velocity)) / size;

@@ -1,5 +1,6 @@
 use glow::HasContext;
 use rustc_hash::FxHashMap;
+use std::borrow::Cow;
 use std::cell::{Ref, RefCell};
 use std::rc::Rc;
 use thiserror::Error;
@@ -60,78 +61,12 @@ pub struct Buffer {
 
 #[allow(dead_code)]
 impl Buffer {
-    pub fn from_f32(context: &Context, data: &[f32], buffer_type: u32, usage: u32) -> Result<Self> {
-        // let memory_buffer = wasm_bindgen::memory()
-        //     .dyn_into::<WebAssembly::Memory>()
-        //     .unwrap() // fix
-        //     .buffer();
-        // let arr_location = data.as_ptr() as u32 / 4;
-        // let data_array = js_sys::Float32Array::new(&memory_buffer)
-        //     .subarray(arr_location, arr_location + data.len() as u32);
-
-        let buffer = unsafe {
-            let buffer = context
-                .create_buffer()
-                .map_err(|_| Problem::CannotCreateBuffer)?;
-
-            context.bind_buffer(buffer_type, Some(buffer));
-            context.buffer_data_u8_slice(buffer_type, &bytemuck::cast_slice(&data), usage);
-            context.bind_buffer(buffer_type, None);
-
-            buffer
-        };
-
-        Ok(Self {
-            context: Rc::clone(context),
-            id: buffer,
-            size: data.len(),
-            type_: buffer_type,
-        })
-    }
-
-    pub fn from_u16(context: &Context, data: &[u16], buffer_type: u32, usage: u32) -> Result<Self> {
-        // let memory_buffer = wasm_bindgen::memory()
-        //     .dyn_into::<WebAssembly::Memory>()
-        //     .unwrap() // fix
-        //     .buffer();
-        // let data_location = data.as_ptr() as u32 / 2;
-        // let data_array = js_sys::Uint16Array::new(&memory_buffer)
-        //     .subarray(data_location, data_location + data.len() as u32);
-
-        let buffer = unsafe {
-            let buffer = context
-                .create_buffer()
-                .map_err(|_| Problem::CannotCreateBuffer)?;
-
-            context.bind_buffer(buffer_type, Some(buffer));
-            context.buffer_data_u8_slice(buffer_type, &bytemuck::cast_slice(&data), usage);
-            context.bind_buffer(buffer_type, None);
-
-            buffer
-        };
-
-        Ok(Self {
-            context: Rc::clone(context),
-            id: buffer,
-            size: data.len(),
-            type_: buffer_type,
-        })
-    }
-
-    pub fn from_u32(
+    pub fn from_bytes(
         context: &Context,
-        data: &Vec<u32>,
+        data: &[u8],
         buffer_type: u32,
         usage: u32,
     ) -> Result<Self> {
-        // let memory_buffer = wasm_bindgen::memory()
-        //     .dyn_into::<WebAssembly::Memory>()
-        //     .unwrap() // fix
-        //     .buffer();
-        // let data_location = data.as_ptr() as u32 / 4;
-        // let data_array = js_sys::Uint16Array::new(&memory_buffer)
-        //     .subarray(data_location, data_location + data.len() as u32);
-
         let buffer = unsafe {
             let buffer = context
                 .create_buffer()
@@ -150,6 +85,14 @@ impl Buffer {
             size: data.len(),
             type_: buffer_type,
         })
+    }
+
+    pub fn from_f32(context: &Context, data: &[f32], buffer_type: u32, usage: u32) -> Result<Self> {
+        Self::from_bytes(context, bytemuck::cast_slice(data), buffer_type, usage)
+    }
+
+    pub fn from_u16(context: &Context, data: &[u16], buffer_type: u32, usage: u32) -> Result<Self> {
+        Self::from_bytes(context, bytemuck::cast_slice(data), buffer_type, usage)
     }
 }
 
@@ -456,7 +399,7 @@ pub struct Program {
 
 impl Program {
     pub fn new(context: &Context, shaders: (&str, &str)) -> Result<Self> {
-        Self::new_impl(&context, shaders, None)
+        Self::new_impl(&context, shaders, None, None)
     }
 
     pub fn new_with_transform_feedback(
@@ -464,16 +407,33 @@ impl Program {
         shaders: (&str, &str),
         transform_feedback: &TransformFeedback,
     ) -> Result<Self> {
-        Self::new_impl(&context, shaders, Some(&transform_feedback))
+        Self::new_impl(&context, shaders, None, Some(&transform_feedback))
+    }
+
+    pub fn new_with_variables(
+        context: &Context,
+        shaders: (&str, &str),
+        variables: &[(&'static str, &str)],
+    ) -> Result<Self> {
+        Self::new_impl(&context, shaders, Some(&variables), None)
     }
 
     pub fn new_impl(
         context: &Context,
         shaders: (&str, &str),
+        optional_variables: Option<&[(&'static str, &str)]>,
         transform_feedback: Option<&TransformFeedback>,
     ) -> Result<Self> {
-        let vertex_shader = compile_shader(&context, glow::VERTEX_SHADER, shaders.0)?;
-        let fragment_shader = compile_shader(&context, glow::FRAGMENT_SHADER, shaders.1)?;
+        let vertex_shader = compile_shader(
+            &context,
+            glow::VERTEX_SHADER,
+            &preprocess_shader(shaders.0, optional_variables),
+        )?;
+        let fragment_shader = compile_shader(
+            &context,
+            glow::FRAGMENT_SHADER,
+            &preprocess_shader(shaders.1, optional_variables),
+        )?;
 
         let program = unsafe {
             let program = context
@@ -636,6 +596,26 @@ impl Program {
 
     pub fn get_uniform_block_location(&self, name: &str) -> Option<u32> {
         unsafe { self.context.get_uniform_block_index(self.program, name) }
+    }
+}
+
+fn preprocess_shader<'a>(
+    source: &'a str,
+    optional_variables: Option<&[(&'static str, &str)]>,
+) -> Cow<'a, str> {
+    if let Some(variables) = optional_variables {
+        let preamble = variables.iter().fold(String::new(), |vars, (name, value)| {
+            vars + &format!("#define {} {}\n", name, value)
+        });
+
+        if source.starts_with("#version") {
+            let (version, source_rest) = source.split_once('\n').unwrap();
+            format!("{}\n{}{}", version, preamble, source_rest).into()
+        } else {
+            (preamble + source).into()
+        }
+    } else {
+        source.into()
     }
 }
 
