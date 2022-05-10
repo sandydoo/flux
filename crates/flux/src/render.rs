@@ -1018,19 +1018,7 @@ impl VertexArrayObject {
         indices: Option<&Buffer>,
     ) -> Result<Self> {
         let vao = Self::empty(context)?;
-
-        unsafe {
-            context.bind_vertex_array(Some(vao.id));
-
-            for (vertex, attribute) in vertices.iter() {
-                bind_attributes(&context, &program, vertex, attribute)?;
-            }
-
-            context.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, indices.map(|buffer| buffer.id));
-
-            context.bind_vertex_array(None);
-        }
-
+        vao.update(program, vertices, indices)?;
         Ok(vao)
     }
 
@@ -1093,6 +1081,8 @@ pub fn bind_attributes(
 
             context.vertex_attrib_divisor(location, buffer_layout.divisor);
         }
+
+        context.bind_buffer(glow::ARRAY_BUFFER, None);
     }
 
     Ok(())

@@ -122,12 +122,6 @@ impl Drawer {
         let line_count =
             (grid_width / settings.grid_spacing) * (grid_height / settings.grid_spacing);
         let line_state = new_line_state(grid_width, grid_height, settings.grid_spacing);
-        let line_state_buffer = Buffer::from_bytes(
-            &context,
-            bytemuck::cast_slice(&line_state),
-            glow::ARRAY_BUFFER,
-            glow::DYNAMIC_DRAW,
-        )?;
         let line_vertices = Buffer::from_f32(
             &context,
             &bytemuck::cast_slice(&LINE_VERTICES),
@@ -186,35 +180,45 @@ impl Drawer {
 
         // Vertex buffers
 
-        // let place_lines_buffer = VertexArrayObject::empty(context)?;
-        let draw_lines_buffer = VertexArrayObject::new(
-            context,
-            &draw_lines_program,
-            &[(
-                &line_vertices,
-                VertexBufferLayout {
-                    name: "lineVertex",
-                    size: 2,
-                    type_: glow::FLOAT,
-                    ..Default::default()
-                },
-            )],
-            None,
-        )?;
-        let draw_endpoints_buffer = VertexArrayObject::new(
-            context,
-            &draw_endpoints_program,
-            &[(
-                &endpoint_vertices,
-                VertexBufferLayout {
-                    name: "vertex",
-                    size: 2,
-                    type_: glow::FLOAT,
-                    ..Default::default()
-                },
-            )],
-            None,
-        )?;
+        let line_state_buffers =
+            render::DoubleTransformFeedback::new(context, bytemuck::cast_slice(&line_state))?;
+        let mut place_lines_buffers = Vec::with_capacity(2);
+        let mut draw_lines_buffers = Vec::with_capacity(2);
+        let mut draw_endpoints_buffers = Vec::with_capacity(2);
+
+        for _ in 0..2 {
+            place_lines_buffers.push(VertexArrayObject::empty(context)?);
+
+            draw_lines_buffers.push(VertexArrayObject::new(
+                context,
+                &draw_lines_program,
+                &[(
+                    &line_vertices,
+                    VertexBufferLayout {
+                        name: "lineVertex",
+                        size: 2,
+                        type_: glow::FLOAT,
+                        ..Default::default()
+                    },
+                )],
+                None,
+            )?);
+
+            draw_endpoints_buffers.push(VertexArrayObject::new(
+                context,
+                &draw_endpoints_program,
+                &[(
+                    &endpoint_vertices,
+                    VertexBufferLayout {
+                        name: "vertex",
+                        size: 2,
+                        type_: glow::FLOAT,
+                        ..Default::default()
+                    },
+                )],
+                None,
+            )?);
+        }
         let draw_texture_buffer = VertexArrayObject::new(
             &context,
             &draw_texture_program,
@@ -274,296 +278,7 @@ impl Drawer {
             antialiasing_samples,
         )?;
 
-        let mut line_state_buffers =
-            render::DoubleTransformFeedback::new(context, bytemuck::cast_slice(&line_state))?;
-
-        let mut place_lines_buffers = Vec::with_capacity(2);
-        for _ in 0..2 {
-            place_lines_buffers.push(
-                VertexArrayObject::new(
-                    &context,
-                    &place_lines_program,
-                    &[
-                        (
-                            &basepoint_buffer,
-                            VertexBufferLayout {
-                                name: "basepoint",
-                                size: 2,
-                                type_: glow::FLOAT,
-                                ..Default::default()
-                            },
-                        ),
-                        (
-                            &line_state_buffers.current_buffer().buffer,
-                            VertexBufferLayout {
-                                name: "iEndpointVector",
-                                size: 2,
-                                type_: glow::FLOAT,
-                                stride: 11 * 4,
-                                offset: 0 * 4,
-                                divisor: 0,
-                            },
-                        ),
-                        (
-                            &line_state_buffers.current_buffer().buffer,
-                            VertexBufferLayout {
-                                name: "iVelocityVector",
-                                size: 2,
-                                type_: glow::FLOAT,
-                                stride: 11 * 4,
-                                offset: 2 * 4,
-                                divisor: 0,
-                            },
-                        ),
-                        (
-                            &line_state_buffers.current_buffer().buffer,
-                            VertexBufferLayout {
-                                name: "iColor",
-                                size: 4,
-                                type_: glow::FLOAT,
-                                stride: 11 * 4,
-                                offset: 4 * 4,
-                                divisor: 0,
-                            },
-                        ),
-                        (
-                            &line_state_buffers.current_buffer().buffer,
-                            VertexBufferLayout {
-                                name: "iLineWidth",
-                                size: 1,
-                                type_: glow::FLOAT,
-                                stride: 11 * 4,
-                                offset: 8 * 4,
-                                divisor: 0,
-                            },
-                        ),
-                        (
-                            &line_state_buffers.current_buffer().buffer,
-                            VertexBufferLayout {
-                                name: "iLineOpacity",
-                                size: 1,
-                                type_: glow::FLOAT,
-                                stride: 11 * 4,
-                                offset: 9 * 4,
-                                divisor: 0,
-                            },
-                        ),
-                        (
-                            &line_state_buffers.current_buffer().buffer,
-                            VertexBufferLayout {
-                                name: "iEndpointOpacity",
-                                size: 1,
-                                type_: glow::FLOAT,
-                                stride: 11 * 4,
-                                offset: 10 * 4,
-                                divisor: 0,
-                            },
-                        ),
-                    ],
-                    None,
-                )
-                .unwrap(),
-            );
-
-            line_state_buffers.swap();
-        }
-
-        let mut draw_lines_buffers = Vec::with_capacity(2);
-        for _ in 0..2 {
-            let line_state_attribs = [
-                (
-                    &line_vertices,
-                    VertexBufferLayout {
-                        name: "lineVertex",
-                        size: 2,
-                        type_: glow::FLOAT,
-                        ..Default::default()
-                    },
-                ),
-                (
-                    &basepoint_buffer,
-                    VertexBufferLayout {
-                        name: "basepoint",
-                        size: 2,
-                        type_: glow::FLOAT,
-                        divisor: 1,
-                        ..Default::default()
-                    },
-                ),
-                (
-                    &line_state_buffers.current_buffer().buffer,
-                    VertexBufferLayout {
-                        name: "iEndpointVector",
-                        size: 2,
-                        type_: glow::FLOAT,
-                        stride: 11 * 4,
-                        offset: 0 * 4,
-                        divisor: 1,
-                    },
-                ),
-                (
-                    &line_state_buffers.current_buffer().buffer,
-                    VertexBufferLayout {
-                        name: "iVelocityVector",
-                        size: 2,
-                        type_: glow::FLOAT,
-                        stride: 11 * 4,
-                        offset: 2 * 4,
-                        divisor: 1,
-                    },
-                ),
-                (
-                    &line_state_buffers.current_buffer().buffer,
-                    VertexBufferLayout {
-                        name: "iColor",
-                        size: 4,
-                        type_: glow::FLOAT,
-                        stride: 11 * 4,
-                        offset: 4 * 4,
-                        divisor: 1,
-                    },
-                ),
-                (
-                    &line_state_buffers.current_buffer().buffer,
-                    VertexBufferLayout {
-                        name: "iLineWidth",
-                        size: 1,
-                        type_: glow::FLOAT,
-                        stride: 11 * 4,
-                        offset: 8 * 4,
-                        divisor: 1,
-                    },
-                ),
-                (
-                    &line_state_buffers.current_buffer().buffer,
-                    VertexBufferLayout {
-                        name: "iLineOpacity",
-                        size: 1,
-                        type_: glow::FLOAT,
-                        stride: 11 * 4,
-                        offset: 9 * 4,
-                        divisor: 1,
-                    },
-                ),
-                (
-                    &line_state_buffers.current_buffer().buffer,
-                    VertexBufferLayout {
-                        name: "iEndpointOpacity",
-                        size: 1,
-                        type_: glow::FLOAT,
-                        stride: 11 * 4,
-                        offset: 10 * 4,
-                        divisor: 1,
-                    },
-                ),
-            ];
-            draw_lines_buffers.push(
-                VertexArrayObject::new(context, &draw_lines_program, &line_state_attribs, None)
-                    .unwrap(),
-            );
-            line_state_buffers.swap();
-
-            // self.draw_endpoints_buffer
-            //     .update(&self.draw_endpoints_pass, &line_state_attribs, None)?;
-        }
-
-        let mut draw_endpoints_buffers = Vec::with_capacity(2);
-        for _ in 0..2 {
-            let line_state_attribs = [
-                (
-                    &endpoint_vertices,
-                    VertexBufferLayout {
-                        name: "vertex",
-                        size: 2,
-                        type_: glow::FLOAT,
-                        ..Default::default()
-                    },
-                ),
-                (
-                    &basepoint_buffer,
-                    VertexBufferLayout {
-                        name: "basepoint",
-                        size: 2,
-                        type_: glow::FLOAT,
-                        divisor: 1,
-                        ..Default::default()
-                    },
-                ),
-                (
-                    &line_state_buffers.current_buffer().buffer,
-                    VertexBufferLayout {
-                        name: "iEndpointVector",
-                        size: 2,
-                        type_: glow::FLOAT,
-                        stride: 11 * 4,
-                        offset: 0 * 4,
-                        divisor: 1,
-                    },
-                ),
-                (
-                    &line_state_buffers.current_buffer().buffer,
-                    VertexBufferLayout {
-                        name: "iVelocityVector",
-                        size: 2,
-                        type_: glow::FLOAT,
-                        stride: 11 * 4,
-                        offset: 2 * 4,
-                        divisor: 1,
-                    },
-                ),
-                (
-                    &line_state_buffers.current_buffer().buffer,
-                    VertexBufferLayout {
-                        name: "iColor",
-                        size: 4,
-                        type_: glow::FLOAT,
-                        stride: 11 * 4,
-                        offset: 4 * 4,
-                        divisor: 1,
-                    },
-                ),
-                (
-                    &line_state_buffers.current_buffer().buffer,
-                    VertexBufferLayout {
-                        name: "iLineWidth",
-                        size: 1,
-                        type_: glow::FLOAT,
-                        stride: 11 * 4,
-                        offset: 8 * 4,
-                        divisor: 1,
-                    },
-                ),
-                (
-                    &line_state_buffers.current_buffer().buffer,
-                    VertexBufferLayout {
-                        name: "iLineOpacity",
-                        size: 1,
-                        type_: glow::FLOAT,
-                        stride: 11 * 4,
-                        offset: 9 * 4,
-                        divisor: 1,
-                    },
-                ),
-                (
-                    &line_state_buffers.current_buffer().buffer,
-                    VertexBufferLayout {
-                        name: "iEndpointOpacity",
-                        size: 1,
-                        type_: glow::FLOAT,
-                        stride: 11 * 4,
-                        offset: 10 * 4,
-                        divisor: 1,
-                    },
-                ),
-            ];
-            draw_endpoints_buffers.push(
-                VertexArrayObject::new(context, &draw_endpoints_program, &line_state_attribs, None)
-                    .unwrap(),
-            );
-            line_state_buffers.swap();
-        }
-
-        let drawer = Self {
+        let mut drawer = Self {
             context: Rc::clone(context),
             settings: Rc::clone(settings),
 
@@ -594,7 +309,7 @@ impl Drawer {
             antialiasing_pass,
         };
 
-        // drawer.update_line_buffers()?;
+        drawer.update_vertex_buffers()?;
         drawer.set_place_lines_uniforms(&drawer.place_lines_pass, &settings, &projection_matrix);
 
         Ok(drawer)
@@ -652,9 +367,10 @@ impl Drawer {
         )?;
 
         let line_state = new_line_state(grid_width, grid_height, self.settings.grid_spacing);
-        // TODO:update buffers
+        self.line_state_buffers =
+            render::DoubleTransformFeedback::new(&self.context, bytemuck::cast_slice(&line_state))?;
 
-        // self.update_line_buffers()?;
+        self.update_vertex_buffers()?;
 
         Ok(())
     }
@@ -690,174 +406,188 @@ impl Drawer {
         ]);
     }
 
-    // fn update_line_buffers(&self) -> Result<(), render::Problem> {
-    //     self.place_lines_buffer.update(
-    //         &self.place_lines_pass,
-    //         &[
-    //             (
-    //                 &self.basepoint_buffer,
-    //                 VertexBufferLayout {
-    //                     name: "basepoint",
-    //                     size: 2,
-    //                     type_: glow::FLOAT,
-    //                     ..Default::default()
-    //                 },
-    //             ),
-    //             (
-    //                 &self.line_state_buffer,
-    //                 VertexBufferLayout {
-    //                     name: "iEndpointVector",
-    //                     size: 2,
-    //                     type_: glow::FLOAT,
-    //                     stride: 11 * 4,
-    //                     offset: 0 * 4,
-    //                     divisor: 0,
-    //                 },
-    //             ),
-    //             (
-    //                 &self.line_state_buffer,
-    //                 VertexBufferLayout {
-    //                     name: "iVelocityVector",
-    //                     size: 2,
-    //                     type_: glow::FLOAT,
-    //                     stride: 11 * 4,
-    //                     offset: 2 * 4,
-    //                     divisor: 0,
-    //                 },
-    //             ),
-    //             (
-    //                 &self.line_state_buffer,
-    //                 VertexBufferLayout {
-    //                     name: "iColor",
-    //                     size: 4,
-    //                     type_: glow::FLOAT,
-    //                     stride: 11 * 4,
-    //                     offset: 4 * 4,
-    //                     divisor: 0,
-    //                 },
-    //             ),
-    //             (
-    //                 &self.line_state_buffer,
-    //                 VertexBufferLayout {
-    //                     name: "iLineWidth",
-    //                     size: 1,
-    //                     type_: glow::FLOAT,
-    //                     stride: 11 * 4,
-    //                     offset: 8 * 4,
-    //                     divisor: 0,
-    //                 },
-    //             ),
-    //             (
-    //                 &self.line_state_buffer,
-    //                 VertexBufferLayout {
-    //                     name: "iLineOpacity",
-    //                     size: 1,
-    //                     type_: glow::FLOAT,
-    //                     stride: 11 * 4,
-    //                     offset: 9 * 4,
-    //                     divisor: 0,
-    //                 },
-    //             ),
-    //             (
-    //                 &self.line_state_buffer,
-    //                 VertexBufferLayout {
-    //                     name: "iEndpointOpacity",
-    //                     size: 1,
-    //                     type_: glow::FLOAT,
-    //                     stride: 11 * 4,
-    //                     offset: 10 * 4,
-    //                     divisor: 0,
-    //                 },
-    //             ),
-    //         ],
-    //         None,
-    //     )?;
+    fn update_vertex_buffers(&mut self) -> Result<(), render::Problem> {
+        for _ in 0..2 {
+            let line_state_buffer = &self.line_state_buffers.current_buffer().buffer;
+            let active_buffer = self.line_state_buffers.active_buffer;
 
-    //     let line_state_attribs = [
-    //         (
-    //             &self.basepoint_buffer,
-    //             VertexBufferLayout {
-    //                 name: "basepoint",
-    //                 size: 2,
-    //                 type_: glow::FLOAT,
-    //                 divisor: 1,
-    //                 ..Default::default()
-    //             },
-    //         ),
-    //         (
-    //             &self.line_state_buffer,
-    //             VertexBufferLayout {
-    //                 name: "iEndpointVector",
-    //                 size: 2,
-    //                 type_: glow::FLOAT,
-    //                 stride: 11 * 4,
-    //                 offset: 0 * 4,
-    //                 divisor: 1,
-    //             },
-    //         ),
-    //         (
-    //             &self.line_state_buffer,
-    //             VertexBufferLayout {
-    //                 name: "iVelocityVector",
-    //                 size: 2,
-    //                 type_: glow::FLOAT,
-    //                 stride: 11 * 4,
-    //                 offset: 2 * 4,
-    //                 divisor: 1,
-    //             },
-    //         ),
-    //         (
-    //             &self.line_state_buffer,
-    //             VertexBufferLayout {
-    //                 name: "iColor",
-    //                 size: 4,
-    //                 type_: glow::FLOAT,
-    //                 stride: 11 * 4,
-    //                 offset: 4 * 4,
-    //                 divisor: 1,
-    //             },
-    //         ),
-    //         (
-    //             &self.line_state_buffer,
-    //             VertexBufferLayout {
-    //                 name: "iLineWidth",
-    //                 size: 1,
-    //                 type_: glow::FLOAT,
-    //                 stride: 11 * 4,
-    //                 offset: 8 * 4,
-    //                 divisor: 1,
-    //             },
-    //         ),
-    //         (
-    //             &self.line_state_buffer,
-    //             VertexBufferLayout {
-    //                 name: "iLineOpacity",
-    //                 size: 1,
-    //                 type_: glow::FLOAT,
-    //                 stride: 11 * 4,
-    //                 offset: 9 * 4,
-    //                 divisor: 1,
-    //             },
-    //         ),
-    //         (
-    //             &self.line_state_buffer,
-    //             VertexBufferLayout {
-    //                 name: "iEndpointOpacity",
-    //                 size: 1,
-    //                 type_: glow::FLOAT,
-    //                 stride: 11 * 4,
-    //                 offset: 10 * 4,
-    //                 divisor: 1,
-    //             },
-    //         ),
-    //     ];
-    //     self.draw_lines_buffer
-    //         .update(&self.draw_lines_pass, &line_state_attribs, None)?;
-    //     self.draw_endpoints_buffer
-    //         .update(&self.draw_endpoints_pass, &line_state_attribs, None)?;
+            self.place_lines_buffers[active_buffer].update(
+                &self.place_lines_pass,
+                &[
+                    (
+                        &self.basepoint_buffer,
+                        VertexBufferLayout {
+                            name: "basepoint",
+                            size: 2,
+                            type_: glow::FLOAT,
+                            ..Default::default()
+                        },
+                    ),
+                    (
+                        line_state_buffer,
+                        VertexBufferLayout {
+                            name: "iEndpointVector",
+                            size: 2,
+                            type_: glow::FLOAT,
+                            stride: 11 * 4,
+                            offset: 0 * 4,
+                            divisor: 0,
+                        },
+                    ),
+                    (
+                        line_state_buffer,
+                        VertexBufferLayout {
+                            name: "iVelocityVector",
+                            size: 2,
+                            type_: glow::FLOAT,
+                            stride: 11 * 4,
+                            offset: 2 * 4,
+                            divisor: 0,
+                        },
+                    ),
+                    (
+                        line_state_buffer,
+                        VertexBufferLayout {
+                            name: "iColor",
+                            size: 4,
+                            type_: glow::FLOAT,
+                            stride: 11 * 4,
+                            offset: 4 * 4,
+                            divisor: 0,
+                        },
+                    ),
+                    (
+                        line_state_buffer,
+                        VertexBufferLayout {
+                            name: "iLineWidth",
+                            size: 1,
+                            type_: glow::FLOAT,
+                            stride: 11 * 4,
+                            offset: 8 * 4,
+                            divisor: 0,
+                        },
+                    ),
+                    (
+                        line_state_buffer,
+                        VertexBufferLayout {
+                            name: "iLineOpacity",
+                            size: 1,
+                            type_: glow::FLOAT,
+                            stride: 11 * 4,
+                            offset: 9 * 4,
+                            divisor: 0,
+                        },
+                    ),
+                    (
+                        line_state_buffer,
+                        VertexBufferLayout {
+                            name: "iEndpointOpacity",
+                            size: 1,
+                            type_: glow::FLOAT,
+                            stride: 11 * 4,
+                            offset: 10 * 4,
+                            divisor: 0,
+                        },
+                    ),
+                ],
+                None,
+            )?;
 
-    //     Ok(())
-    // }
+            let line_state_attribs = [
+                (
+                    &self.basepoint_buffer,
+                    VertexBufferLayout {
+                        name: "basepoint",
+                        size: 2,
+                        type_: glow::FLOAT,
+                        divisor: 1,
+                        ..Default::default()
+                    },
+                ),
+                (
+                    line_state_buffer,
+                    VertexBufferLayout {
+                        name: "iEndpointVector",
+                        size: 2,
+                        type_: glow::FLOAT,
+                        stride: 11 * 4,
+                        offset: 0 * 4,
+                        divisor: 1,
+                    },
+                ),
+                (
+                    line_state_buffer,
+                    VertexBufferLayout {
+                        name: "iVelocityVector",
+                        size: 2,
+                        type_: glow::FLOAT,
+                        stride: 11 * 4,
+                        offset: 2 * 4,
+                        divisor: 1,
+                    },
+                ),
+                (
+                    line_state_buffer,
+                    VertexBufferLayout {
+                        name: "iColor",
+                        size: 4,
+                        type_: glow::FLOAT,
+                        stride: 11 * 4,
+                        offset: 4 * 4,
+                        divisor: 1,
+                    },
+                ),
+                (
+                    line_state_buffer,
+                    VertexBufferLayout {
+                        name: "iLineWidth",
+                        size: 1,
+                        type_: glow::FLOAT,
+                        stride: 11 * 4,
+                        offset: 8 * 4,
+                        divisor: 1,
+                    },
+                ),
+                (
+                    line_state_buffer,
+                    VertexBufferLayout {
+                        name: "iLineOpacity",
+                        size: 1,
+                        type_: glow::FLOAT,
+                        stride: 11 * 4,
+                        offset: 9 * 4,
+                        divisor: 1,
+                    },
+                ),
+                (
+                    line_state_buffer,
+                    VertexBufferLayout {
+                        name: "iEndpointOpacity",
+                        size: 1,
+                        type_: glow::FLOAT,
+                        stride: 11 * 4,
+                        offset: 10 * 4,
+                        divisor: 1,
+                    },
+                ),
+            ];
+
+            self.draw_lines_buffers[active_buffer].update(
+                &self.draw_lines_pass,
+                &line_state_attribs,
+                None,
+            )?;
+            self.draw_endpoints_buffers[active_buffer].update(
+                &self.draw_endpoints_pass,
+                &line_state_attribs,
+                None,
+            )?;
+
+            self.line_state_buffers.swap();
+        }
+
+        Ok(())
+    }
 
     fn update_projection(&self, projection: &nalgebra::Matrix4<f32>) {
         let projection: [f32; 16] = projection.as_slice().try_into().unwrap();
