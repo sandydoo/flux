@@ -86,8 +86,8 @@ impl Fluid {
                 format: glow::RG16F,
                 ..Default::default()
             },
-        )?
-        .with_data(Some(&zero_array_of_rg16))?;
+        )?;
+        velocity_textures.with_data(Some(&zero_array_of_rg16))?;
 
         let advection_forward_texture = render::Framebuffer::new(
             &context,
@@ -99,8 +99,8 @@ impl Fluid {
                 format: glow::RG16F,
                 ..Default::default()
             },
-        )?
-        .with_data(Some(&zero_array_of_rg16))?;
+        )?;
+        advection_forward_texture.with_data(Some(&zero_array_of_rg16))?;
 
         let advection_reverse_texture = render::Framebuffer::new(
             &context,
@@ -112,8 +112,8 @@ impl Fluid {
                 format: glow::RG16F,
                 ..Default::default()
             },
-        )?
-        .with_data(Some(&zero_array_of_rg16))?;
+        )?;
+        advection_reverse_texture.with_data(Some(&zero_array_of_rg16))?;
 
         let divergence_texture = render::Framebuffer::new(
             &context,
@@ -125,8 +125,8 @@ impl Fluid {
                 format: glow::R16F,
                 ..Default::default()
             },
-        )?
-        .with_data(Some(&zero_array_of_r16))?;
+        )?;
+        divergence_texture.with_data(Some(&zero_array_of_r16))?;
 
         let pressure_textures = render::DoubleFramebuffer::new(
             &context,
@@ -138,8 +138,8 @@ impl Fluid {
                 format: glow::R16F,
                 ..Default::default()
             },
-        )?
-        .with_data(Some(&zero_array_of_r16))?;
+        )?;
+        pressure_textures.with_data(Some(&zero_array_of_r16))?;
 
         // Geometry
         let plane_vertices = Buffer::from_f32(
@@ -335,8 +335,8 @@ impl Fluid {
             width,
             height,
             self.velocity_textures.current().options,
-        )?
-        .with_data(None::<&[f32]>)?;
+        )?;
+        velocity_textures.with_data(None::<&[f32]>)?;
         self.velocity_textures
             .blit_to(&self.context, &velocity_textures);
         self.velocity_textures = velocity_textures;
@@ -346,8 +346,8 @@ impl Fluid {
             width,
             height,
             self.divergence_texture.options,
-        )?
-        .with_data(None::<&[f32]>)?;
+        )?;
+        divergence_texture.with_data(None::<&[f32]>)?;
         self.divergence_texture
             .blit_to(&self.context, &divergence_texture);
         self.divergence_texture = divergence_texture;
@@ -357,8 +357,8 @@ impl Fluid {
             width,
             height,
             self.pressure_textures.current().options,
-        )?
-        .with_data(None::<&[f32]>)?;
+        )?;
+        pressure_textures.with_data(None::<&[f32]>)?;
         self.pressure_textures
             .blit_to(&self.context, &pressure_textures);
         self.pressure_textures = pressure_textures;

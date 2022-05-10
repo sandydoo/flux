@@ -59,6 +59,14 @@ pub struct Buffer {
     pub type_: u32,
 }
 
+impl Drop for Buffer {
+    fn drop(&mut self) {
+        unsafe {
+            self.context.delete_buffer(self.id);
+        }
+    }
+}
+
 #[allow(dead_code)]
 impl Buffer {
     pub fn from_bytes(
@@ -127,6 +135,25 @@ pub struct Framebuffer {
     pub options: TextureOptions,
 }
 
+impl Drop for Framebuffer {
+    fn drop(&mut self) {
+        unsafe {
+            self.context
+                .bind_framebuffer(glow::FRAMEBUFFER, Some(self.id));
+            self.context.framebuffer_texture_2d(
+                glow::FRAMEBUFFER,
+                glow::COLOR_ATTACHMENT0,
+                glow::TEXTURE_2D,
+                None,
+                0,
+            );
+            self.context.bind_framebuffer(glow::FRAMEBUFFER, None);
+            self.context.delete_framebuffer(self.id);
+            self.context.delete_texture(self.texture);
+        }
+    }
+}
+
 impl Framebuffer {
     pub fn new(
         context: &Context,
@@ -188,11 +215,7 @@ impl Framebuffer {
         })
     }
 
-    pub fn with_f32_data(self, data: &[f32]) -> Result<Self> {
-        self.with_data(Some(&data))
-    }
-
-    pub fn with_data<T: bytemuck::Pod>(self, data: Option<&[T]>) -> Result<Self> {
+    pub fn with_data<T: bytemuck::Pod>(&self, data: Option<&[T]>) -> Result<()> {
         let TextureFormat {
             internal_format,
             format,
@@ -242,7 +265,7 @@ impl Framebuffer {
             self.context.bind_framebuffer(glow::FRAMEBUFFER, None);
         }
 
-        Ok(self)
+        Ok(())
     }
 
     pub fn zero_out(&self) -> Result<()> {
@@ -325,20 +348,14 @@ impl DoubleFramebuffer {
         })
     }
 
-    pub fn with_data<T: bytemuck::Pod>(self, data: Option<&[T]>) -> Result<Self> {
-        // TODO: are these clones okay? The problem is that the builder pattern
-        // doesn’t work well with RefCell in the DoubleBuffer. Another option is
-        // to build with references and call a `finalize` method at the end.
-        self.front
-            .replace_with(|buffer| buffer.clone().with_data(data).unwrap());
-        // TODO: should we copy the data to the second buffer/texture, or just init with the right size?
-        self.back
-            .replace_with(|buffer| buffer.clone().with_data(data).unwrap());
+    pub fn with_data<T: bytemuck::Pod>(&self, data: Option<&[T]>) -> Result<()> {
+        self.front.borrow().with_data(data)?;
+        self.back.borrow().with_data(data)?;
 
-        Ok(self)
+        Ok(())
     }
 
-    pub fn with_f32_data(self, data: &[f32]) -> Result<Self> {
+    pub fn with_f32_data(&self, data: &[f32]) -> Result<()> {
         self.with_data(Some(&data))
     }
 
@@ -395,6 +412,14 @@ pub struct Program {
     pub program: glow::Program,
     attributes: FxHashMap<String, AttributeInfo>,
     uniforms: FxHashMap<String, UniformInfo>,
+}
+
+impl Drop for Program {
+    fn drop(&mut self) {
+        unsafe {
+            self.context.delete_program(self.program);
+        }
+    }
 }
 
 impl Program {
@@ -702,6 +727,15 @@ pub struct MsaaPass {
     renderbuffer: glow::Renderbuffer,
 }
 
+impl Drop for MsaaPass {
+    fn drop(&mut self) {
+        unsafe {
+            self.context.delete_framebuffer(self.framebuffer);
+            self.context.delete_renderbuffer(self.renderbuffer);
+        }
+    }
+}
+
 impl MsaaPass {
     pub fn new(context: &Context, width: u32, height: u32, requested_samples: u32) -> Result<Self> {
         let (framebuffer, renderbuffer, samples) = unsafe {
@@ -853,6 +887,14 @@ fn detect_texture_format(internal_format: GlDataType) -> Result<TextureFormat> {
 pub struct VertexArrayObject {
     context: Context,
     pub id: glow::VertexArray,
+}
+
+impl Drop for VertexArrayObject {
+    fn drop(&mut self) {
+        unsafe {
+            self.context.delete_vertex_array(self.id);
+        }
+    }
 }
 
 impl VertexArrayObject {

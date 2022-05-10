@@ -190,8 +190,8 @@ impl NoiseGeneratorBuilder {
                 format: glow::RG16F,
                 ..Default::default()
             },
-        )?
-        .with_data(None::<&[f16]>)?;
+        )?;
+        texture.with_data(None::<&[f16]>)?;
 
         let generate_noise_pass = Program::new_with_variables(
             &self.context,

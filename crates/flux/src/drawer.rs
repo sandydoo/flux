@@ -82,6 +82,20 @@ struct TransformFeedback {
     pub buffer: Buffer,
 }
 
+impl Drop for TransformFeedback {
+    fn drop(&mut self) {
+        unsafe {
+            self.context
+                .bind_transform_feedback(glow::TRANSFORM_FEEDBACK, Some(self.feedback));
+            self.context
+                .bind_buffer_base(glow::TRANSFORM_FEEDBACK_BUFFER, 0, None);
+            self.context
+                .bind_transform_feedback(glow::TRANSFORM_FEEDBACK, None);
+            self.context.delete_transform_feedback(self.feedback);
+        }
+    }
+}
+
 impl TransformFeedback {
     pub fn new(context: &Context, data: &[u8]) -> Result<Self, render::Problem> {
         let feedback = unsafe {
