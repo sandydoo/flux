@@ -406,6 +406,106 @@ impl DoubleFramebuffer {
     }
 }
 
+pub struct TransformFeedback {
+    context: Context,
+    pub feedback: glow::TransformFeedback,
+    pub buffer: Buffer,
+}
+
+impl Drop for TransformFeedback {
+    fn drop(&mut self) {
+        unsafe {
+            self.context
+                .bind_transform_feedback(glow::TRANSFORM_FEEDBACK, Some(self.feedback));
+            self.context
+                .bind_buffer_base(glow::TRANSFORM_FEEDBACK_BUFFER, 0, None);
+            self.context
+                .bind_transform_feedback(glow::TRANSFORM_FEEDBACK, None);
+            self.context.delete_transform_feedback(self.feedback);
+        }
+    }
+}
+
+impl TransformFeedback {
+    pub fn new(context: &Context, data: &[u8]) -> Result<Self> {
+        let feedback = unsafe {
+            context
+                .create_transform_feedback()
+                .map_err(|_| Problem::OutOfMemory)?
+        };
+        let buffer = Buffer::from_bytes(context, data, glow::ARRAY_BUFFER, glow::DYNAMIC_DRAW)?;
+
+        unsafe {
+            context.bind_transform_feedback(glow::TRANSFORM_FEEDBACK, Some(feedback));
+            context.bind_buffer_base(glow::TRANSFORM_FEEDBACK_BUFFER, 0, Some(buffer.id));
+            context.bind_transform_feedback(glow::TRANSFORM_FEEDBACK, None);
+        }
+
+        Ok(Self {
+            context: Rc::clone(context),
+            feedback,
+            buffer,
+        })
+    }
+
+    pub fn draw_to<T>(&self, draw_call: T)
+    where
+        T: Fn() -> (),
+    {
+        unsafe {
+            self.context
+                .bind_transform_feedback(glow::TRANSFORM_FEEDBACK, Some(self.feedback));
+
+            self.context.enable(glow::RASTERIZER_DISCARD);
+            self.context.begin_transform_feedback(glow::POINTS);
+
+            draw_call();
+
+            self.context.end_transform_feedback();
+            self.context
+                .bind_transform_feedback(glow::TRANSFORM_FEEDBACK, None);
+            self.context.disable(glow::RASTERIZER_DISCARD);
+        }
+    }
+}
+
+pub struct DoubleTransformFeedback {
+    pub active_buffer: usize,
+    buffers: [TransformFeedback; 2],
+}
+
+impl DoubleTransformFeedback {
+    pub fn new(context: &Context, data: &[u8]) -> Result<Self> {
+        let front = TransformFeedback::new(context, data)?;
+        let back = TransformFeedback::new(context, data)?;
+
+        Ok(Self {
+            active_buffer: 0,
+            buffers: [front, back],
+        })
+    }
+
+    pub fn current_buffer(&self) -> &TransformFeedback {
+        &self.buffers[self.active_buffer]
+    }
+
+    pub fn next_buffer(&self) -> &TransformFeedback {
+        &self.buffers[1 - self.active_buffer]
+    }
+
+    pub fn swap(&mut self) {
+        self.active_buffer = 1 - self.active_buffer;
+    }
+
+    pub fn draw_to<T>(&mut self, draw_call: T)
+    where
+        T: Fn() -> (),
+    {
+        self.next_buffer().draw_to(draw_call);
+        self.swap();
+    }
+}
+
 #[derive(Clone)]
 pub struct Program {
     context: Context,
@@ -430,7 +530,7 @@ impl Program {
     pub fn new_with_transform_feedback(
         context: &Context,
         shaders: (&str, &str),
-        transform_feedback: &TransformFeedback,
+        transform_feedback: &TransformFeedbackInfo,
     ) -> Result<Self> {
         Self::new_impl(&context, shaders, None, Some(&transform_feedback))
     }
@@ -447,7 +547,7 @@ impl Program {
         context: &Context,
         shaders: (&str, &str),
         optional_variables: Option<&[(&'static str, &str)]>,
-        transform_feedback: Option<&TransformFeedback>,
+        transform_feedback: Option<&TransformFeedbackInfo>,
     ) -> Result<Self> {
         let vertex_shader = compile_shader(
             &context,
@@ -467,7 +567,7 @@ impl Program {
             context.attach_shader(program, vertex_shader);
             context.attach_shader(program, fragment_shader);
 
-            if let Some(TransformFeedback { names, mode }) = transform_feedback {
+            if let Some(TransformFeedbackInfo { names, mode }) = transform_feedback {
                 context.transform_feedback_varyings(program, names, *mode);
             }
 
@@ -665,7 +765,7 @@ pub struct Attribute {
     pub divisor: u32,
 }
 
-pub struct TransformFeedback<'a> {
+pub struct TransformFeedbackInfo<'a> {
     pub names: &'a [&'static str],
     pub mode: u32,
 }

@@ -76,113 +76,6 @@ impl LineUniforms {
     }
 }
 
-struct TransformFeedback {
-    context: Context,
-    pub feedback: glow::TransformFeedback,
-    pub buffer: Buffer,
-}
-
-impl Drop for TransformFeedback {
-    fn drop(&mut self) {
-        unsafe {
-            self.context
-                .bind_transform_feedback(glow::TRANSFORM_FEEDBACK, Some(self.feedback));
-            self.context
-                .bind_buffer_base(glow::TRANSFORM_FEEDBACK_BUFFER, 0, None);
-            self.context
-                .bind_transform_feedback(glow::TRANSFORM_FEEDBACK, None);
-            self.context.delete_transform_feedback(self.feedback);
-        }
-    }
-}
-
-impl TransformFeedback {
-    pub fn new(context: &Context, data: &[u8]) -> Result<Self, render::Problem> {
-        let feedback = unsafe {
-            context
-                .create_transform_feedback()
-                .map_err(|_| render::Problem::OutOfMemory)?
-        };
-        let buffer =
-            render::Buffer::from_bytes(context, data, glow::ARRAY_BUFFER, glow::DYNAMIC_DRAW)?;
-
-        unsafe {
-            context.bind_transform_feedback(glow::TRANSFORM_FEEDBACK, Some(feedback));
-            context.bind_buffer_base(glow::TRANSFORM_FEEDBACK_BUFFER, 0, Some(buffer.id));
-            context.bind_transform_feedback(glow::TRANSFORM_FEEDBACK, None);
-        }
-
-        Ok(Self {
-            context: Rc::clone(context),
-            feedback,
-            buffer,
-        })
-    }
-
-    pub fn draw_to<T>(&self, draw_call: T)
-    where
-        T: Fn() -> (),
-    {
-        unsafe {
-            self.context
-                .bind_transform_feedback(glow::TRANSFORM_FEEDBACK, Some(self.feedback));
-
-            self.context.enable(glow::RASTERIZER_DISCARD);
-            self.context.begin_transform_feedback(glow::POINTS);
-
-            draw_call();
-
-            self.context.end_transform_feedback();
-            self.context
-                .bind_transform_feedback(glow::TRANSFORM_FEEDBACK, None);
-            self.context.disable(glow::RASTERIZER_DISCARD);
-        }
-    }
-}
-
-struct DoubleTransformFeedback {
-    context: Context,
-    pub active_buffer: usize,
-    buffers: [TransformFeedback; 2],
-}
-
-impl DoubleTransformFeedback {
-    pub fn new(context: &Context, data: &[u8]) -> Result<Self, render::Problem> {
-        let front = TransformFeedback::new(context, data)?;
-        let back = TransformFeedback::new(context, data)?;
-
-        Ok(Self {
-            context: Rc::clone(context),
-            active_buffer: 0,
-            buffers: [front, back],
-        })
-    }
-
-    pub fn current_buffer(&self) -> &TransformFeedback {
-        &self.buffers[self.active_buffer]
-    }
-
-    pub fn next_buffer(&self) -> &TransformFeedback {
-        let next = if self.active_buffer == 0 { 1 } else { 0 };
-        // &self.buffers[self.active_buffer | 1]
-        &self.buffers[next]
-    }
-
-    pub fn swap(&mut self) {
-        let next = if self.active_buffer == 0 { 1 } else { 0 };
-        self.active_buffer = next;
-        // self.active_buffer |= 1;
-    }
-
-    pub fn draw_to<T>(&mut self, draw_call: T)
-    where
-        T: Fn() -> (),
-    {
-        self.next_buffer().draw_to(draw_call);
-        self.swap();
-    }
-}
-
 pub struct Drawer {
     context: Context,
     settings: Rc<Settings>,
@@ -198,7 +91,7 @@ pub struct Drawer {
     spring_noise_offset: f32,
 
     basepoint_buffer: Buffer,
-    line_state_buffers: DoubleTransformFeedback,
+    line_state_buffers: render::DoubleTransformFeedback,
 
     place_lines_buffers: Vec<VertexArrayObject>,
     draw_lines_buffers: Vec<VertexArrayObject>,
@@ -271,7 +164,7 @@ impl Drawer {
         let place_lines_program = render::Program::new_with_transform_feedback(
             &context,
             (PLACE_LINES_VERT_SHADER, PLACE_LINES_FRAG_SHADER),
-            &render::TransformFeedback {
+            &render::TransformFeedbackInfo {
                 // The order here must match the order in the buffer!
                 names: &[
                     "vEndpointVector",
@@ -382,7 +275,7 @@ impl Drawer {
         )?;
 
         let mut line_state_buffers =
-            DoubleTransformFeedback::new(context, bytemuck::cast_slice(&line_state))?;
+            render::DoubleTransformFeedback::new(context, bytemuck::cast_slice(&line_state))?;
 
         let mut place_lines_buffers = Vec::with_capacity(2);
         for _ in 0..2 {
