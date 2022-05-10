@@ -60,15 +60,9 @@ pub struct Fluid {
 }
 
 impl Fluid {
-    pub fn new(
-        context: &Context,
-        ratio: f32,
-        settings: &Rc<Settings>,
-    ) -> Result<Self, render::Problem> {
-        // let (width, height, texel_size) = compute_fluid_size(settings.fluid_size as f32, ratio);
-        let width = 128;
-        let height = 128;
-        let texel_size = [1.0 / 128.0, 1.0 / 128.0];
+    pub fn new(context: &Context, settings: &Rc<Settings>) -> Result<Self, render::Problem> {
+        let (width, height) = (settings.fluid_size, settings.fluid_size);
+        let texel_size = [1.0 / width as f32, 1.0 / height as f32];
         let grid_size: f32 = 1.0;
 
         // Framebuffers
@@ -289,15 +283,16 @@ impl Fluid {
         })
     }
 
-    pub fn update(&mut self, settings: &Rc<Settings>) -> () {
-        self.settings = Rc::clone(settings); // Fix
+    pub fn update(&mut self, new_settings: &Rc<Settings>) -> () {
+        if self.settings.fluid_size != new_settings.fluid_size {
+            self.resize_fluid_texture(new_settings.fluid_size).unwrap();
+        }
 
         let uniforms = Uniforms {
             timestep: 0.0,
-            dissipation: settings.velocity_dissipation,
+            dissipation: new_settings.velocity_dissipation,
             texel_size: self.texel_size.into(),
         };
-
         unsafe {
             self.context
                 .bind_buffer(glow::UNIFORM_BUFFER, Some(self.uniform_buffer.id));
@@ -308,32 +303,20 @@ impl Fluid {
             );
             self.context.bind_buffer(glow::UNIFORM_BUFFER, None);
         }
+
+        self.settings = Rc::clone(new_settings); // Fix
     }
 
-    pub fn resize(&mut self, ratio: f32) -> Result<(), render::Problem> {
-        let (width, height, texel_size) =
-            compute_fluid_size(self.settings.fluid_size as f32, ratio);
-        self.width = width;
-        self.height = height;
-        self.texel_size = texel_size;
-
-        // Update texel size
-        unsafe {
-            self.context
-                .bind_buffer(glow::UNIFORM_BUFFER, Some(self.uniform_buffer.id));
-            self.context.buffer_sub_data_u8_slice(
-                glow::UNIFORM_BUFFER,
-                4 * 4,
-                &bytemuck::bytes_of(&texel_size),
-            );
-            self.context.bind_buffer(glow::UNIFORM_BUFFER, None);
-        }
+    pub fn resize_fluid_texture(&mut self, new_fluid_size: u32) -> Result<(), render::Problem> {
+        self.width = new_fluid_size;
+        self.height = new_fluid_size;
+        self.texel_size = [1.0 / new_fluid_size as f32, 1.0 / new_fluid_size as f32];
 
         // Create new textures and copy the old contents over
         let velocity_textures = render::DoubleFramebuffer::new(
             &self.context,
-            width,
-            height,
+            self.width,
+            self.height,
             self.velocity_textures.current().options,
         )?;
         velocity_textures.with_data(None::<&[f32]>)?;
@@ -343,8 +326,8 @@ impl Fluid {
 
         let divergence_texture = render::Framebuffer::new(
             &self.context,
-            width,
-            height,
+            self.width,
+            self.height,
             self.divergence_texture.options,
         )?;
         divergence_texture.with_data(None::<&[f32]>)?;
@@ -354,8 +337,8 @@ impl Fluid {
 
         let pressure_textures = render::DoubleFramebuffer::new(
             &self.context,
-            width,
-            height,
+            self.width,
+            self.height,
             self.pressure_textures.current().options,
         )?;
         pressure_textures.with_data(None::<&[f32]>)?;
@@ -567,12 +550,4 @@ impl Fluid {
     pub fn get_velocity_textures(&self) -> &DoubleFramebuffer {
         &self.velocity_textures
     }
-}
-
-fn compute_fluid_size(fluid_size: f32, ratio: f32) -> (u32, u32, [f32; 2]) {
-    let width = (fluid_size * ratio).round();
-    let height = fluid_size;
-    let texel_size = [1.0 / width, 1.0 / height];
-
-    (width as u32, height as u32, texel_size)
 }

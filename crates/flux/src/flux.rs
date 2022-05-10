@@ -38,10 +38,7 @@ impl Flux {
         physical_height: u32,
         settings: &Rc<Settings>,
     ) -> Result<Flux, Problem> {
-        let fluid_frame_time = 1.0 / settings.fluid_simulation_frame_rate;
-        let ratio = logical_width as f32 / logical_height as f32;
-
-        let fluid = Fluid::new(&context, ratio, &settings).map_err(Problem::CannotRender)?;
+        let fluid = Fluid::new(&context, &settings).map_err(Problem::CannotRender)?;
 
         let drawer = Drawer::new(
             &context,
@@ -71,7 +68,7 @@ impl Flux {
             elapsed_time: 0.0,
             last_timestamp: 0.0,
             frame_time: 0.0,
-            fluid_frame_time,
+            fluid_frame_time: 1.0 / settings.fluid_simulation_frame_rate,
             max_frame_time: 1.0 / 10.0,
         })
     }
@@ -83,9 +80,6 @@ impl Flux {
         physical_width: u32,
         physical_height: u32,
     ) {
-        let ratio = logical_width as f32 / logical_height as f32;
-        self.fluid.resize(ratio).unwrap(); // fix
-
         self.drawer
             .resize(
                 logical_width,
