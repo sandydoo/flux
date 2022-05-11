@@ -2,6 +2,7 @@ use glow::HasContext;
 use rustc_hash::FxHashMap;
 use std::borrow::Cow;
 use std::cell::{Ref, RefCell};
+use std::fmt::Write;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -729,9 +730,10 @@ fn preprocess_shader<'a>(
     optional_variables: Option<&[(&'static str, &str)]>,
 ) -> Cow<'a, str> {
     if let Some(variables) = optional_variables {
-        let preamble = variables.iter().fold(String::new(), |vars, (name, value)| {
-            vars + &format!("#define {} {}\n", name, value)
-        });
+        let mut preamble = String::new();
+        for (name, value) in variables.iter() {
+            write!(&mut preamble, "#define {} {}\n", name, value).unwrap();
+        }
 
         if source.starts_with("#version") {
             let (version, source_rest) = source.split_once('\n').unwrap();

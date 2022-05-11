@@ -114,7 +114,6 @@ impl Flux {
                 self.fluid_frame_time,
             );
 
-            self.fluid.prepare_pass(self.fluid_frame_time);
             self.fluid.calculate_divergence();
             self.fluid.solve_pressure();
             self.fluid.subtract_gradient();
