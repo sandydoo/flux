@@ -87,8 +87,6 @@ impl NoiseGenerator {
                 .bind_buffer_base(glow::UNIFORM_BUFFER, 0, Some(self.uniforms.id));
 
             self.texture.draw_to(&self.context, || {
-                self.context.clear_color(0.0, 0.0, 0.0, 0.0);
-                self.context.clear(glow::COLOR_BUFFER_BIT);
                 self.context
                     .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
             });
@@ -99,12 +97,7 @@ impl NoiseGenerator {
         }
     }
 
-    pub fn blend_noise_into(
-        &mut self,
-        target_textures: &DoubleFramebuffer,
-        _elapsed_time: f32,
-        timestep: f32,
-    ) -> () {
+    pub fn blend_noise_into(&mut self, target_textures: &DoubleFramebuffer, timestep: f32) -> () {
         target_textures.draw_to(&self.context, |target_texture| {
             self.inject_noise_pass.use_program();
 

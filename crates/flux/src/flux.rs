@@ -108,11 +108,8 @@ impl Flux {
             self.fluid.adjust_advection();
             self.fluid.diffuse(self.fluid_frame_time); // <- Convection
 
-            self.noise_generator.blend_noise_into(
-                &self.fluid.get_velocity_textures(),
-                self.elapsed_time,
-                self.fluid_frame_time,
-            );
+            self.noise_generator
+                .blend_noise_into(&self.fluid.get_velocity_textures(), timestep);
 
             self.fluid.calculate_divergence();
             self.fluid.solve_pressure();
