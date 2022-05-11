@@ -17,16 +17,7 @@ pub struct Settings {
     pub line_width: f32,
     pub line_begin_offset: f32,
     pub line_fade_out_length: f32,
-
-    pub spring_stiffness: f32,
     pub spring_variance: f32,
-    pub spring_mass: f32,
-    pub spring_damping: f32,
-    pub spring_rest_length: f32,
-
-    pub advection_direction: f32,
-    pub adjust_advection: f32,
-    pub max_line_velocity: f32,
     pub grid_spacing: u32,
     pub view_scale: f32,
 

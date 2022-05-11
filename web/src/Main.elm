@@ -56,23 +56,11 @@ type alias Settings =
     , lineWidth : Float
     , lineBeginOffset : Float
     , lineFadeOutLength : Float
-    , springStiffness : Float
     , springVariance : Float
-    , springMass : Float
-    , springDamping : Float
-    , springRestLength : Float
-    , maxLineVelocity : Float
-    , advectionDirection : AdvectionDirection
-    , adjustAdvection : Float
     , gridSpacing : Int
     , viewScale : Float
     , noiseChannels : Array Noise
     }
-
-
-type AdvectionDirection
-    = Forward
-    | Reverse
 
 
 type ColorScheme
@@ -99,21 +87,14 @@ defaultSettings =
     , fluidSize = 128
     , fluidSimulationFrameRate = 60
     , colorScheme = Peacock
-    , diffusionIterations = 3
+    , diffusionIterations = 4
     , pressureIterations = 20
     , lineLength = 300.0
     , lineWidth = 5.0
     , lineBeginOffset = 0.5
     , lineFadeOutLength = 0.005
     , springVariance = 0.47
-    , springStiffness = 30.0
-    , springMass = 1.0
-    , springDamping = 0.0
-    , springRestLength = 0.0
-    , maxLineVelocity = 1.0
-    , advectionDirection = Forward
     , viewScale = 1.6
-    , adjustAdvection = 1.0
     , gridSpacing = 14
     , noiseChannels =
         Array.fromList
@@ -188,13 +169,7 @@ type SettingMsg
     | SetLineWidth Float
     | SetLineBeginOffset Float
     | SetLineFadeOutLength Float
-    | SetSpringStiffness Float
     | SetSpringVariance Float
-    | SetSpringMass Float
-    | SetSpringDamping Float
-    | SetSpringRestLength Float
-    | SetAdvectionDirection AdvectionDirection
-    | SetAdjustAdvection Float
     | SetNoiseChannel Int NoiseMsg
 
 
@@ -239,26 +214,8 @@ updateSettings msg settings =
         SetLineFadeOutLength newLineFadeOutLength ->
             { settings | lineFadeOutLength = newLineFadeOutLength / settings.lineLength }
 
-        SetSpringStiffness newSpringStiffness ->
-            { settings | springStiffness = newSpringStiffness }
-
         SetSpringVariance newSpringVariance ->
             { settings | springVariance = newSpringVariance }
-
-        SetSpringMass newSpringMass ->
-            { settings | springMass = newSpringMass }
-
-        SetSpringDamping newSpringDamping ->
-            { settings | springDamping = newSpringDamping }
-
-        SetSpringRestLength newSpringRestLength ->
-            { settings | springRestLength = newSpringRestLength }
-
-        SetAdvectionDirection newDirection ->
-            { settings | advectionDirection = newDirection }
-
-        SetAdjustAdvection newAdjustAdvection ->
-            { settings | adjustAdvection = newAdjustAdvection }
 
         SetNoiseChannel channelNumber noiseMsg ->
             let
@@ -411,23 +368,6 @@ viewSettings settings =
             , ( "Poolside", Poolside )
             , ( "Pollen", Pollen )
             ]
-        , Html.div
-            [ HA.class "col-span-2-md" ]
-            [ Html.h2 [] [ Html.text "Advection" ]
-            , Html.p
-                [ HA.class "control-description" ]
-                [ Html.text
-                    """
-                    Advection is the transport of some substance by motion of a fluid, and that substance is the field of lines.
-                    In “forward” mode, the lines point in the direction of fluid movement and tend to curl outwards. And in “reverse”, the lines create whirlpools as they spiral inwards.
-                    """
-                ]
-            ]
-        , viewButtonGroup (SetAdvectionDirection >> SaveSetting)
-            settings.advectionDirection
-            [ ( "Forward", Forward )
-            , ( "Reverse", Reverse )
-            ]
         , Html.h2
             [ HA.class "col-span-2-md" ]
             [ Html.text "Look" ]
@@ -518,66 +458,6 @@ viewSettings settings =
                 )
         , viewControl <|
             Control
-                "Stiffness"
-                """
-                The stiffness of the line determines the amount of force needed to extend it.
-                """
-                (Slider
-                    { min = 0.0
-                    , max = 1.0
-                    , step = 0.01
-                    , value = settings.springStiffness
-                    , onInput =
-                        \value ->
-                            String.toFloat value
-                                |> Maybe.withDefault 0.0
-                                |> SetSpringStiffness
-                                |> SaveSetting
-                    , toString = formatFloat 2
-                    }
-                )
-        , viewControl <|
-            Control
-                "Mass"
-                """
-                Adjust the weight of each line. More mass means more momentum and more sluggish movement.
-                """
-                (Slider
-                    { min = 1.0
-                    , max = 20.0
-                    , step = 0.1
-                    , value = settings.springMass
-                    , onInput =
-                        \value ->
-                            String.toFloat value
-                                |> Maybe.withDefault 0.0
-                                |> SetSpringMass
-                                |> SaveSetting
-                    , toString = formatFloat 1
-                    }
-                )
-        , viewControl <|
-            Control
-                "Damping"
-                """
-                Dampen line oscillations.
-                """
-                (Slider
-                    { min = 0.0
-                    , max = 20.0
-                    , step = 0.1
-                    , value = settings.springDamping
-                    , onInput =
-                        \value ->
-                            String.toFloat value
-                                |> Maybe.withDefault 0.0
-                                |> SetSpringDamping
-                                |> SaveSetting
-                    , toString = formatFloat 1
-                    }
-                )
-        , viewControl <|
-            Control
                 "Variance"
                 """
                 Give each line a slightly different amount of mass.
@@ -594,46 +474,6 @@ viewSettings settings =
                                 |> SetSpringVariance
                                 |> SaveSetting
                     , toString = formatFloat 2
-                    }
-                )
-        , viewControl <|
-            Control
-                "Resting length"
-                """
-                The length of a line at rest, when no forces are applied to it.
-                """
-                (Slider
-                    { min = 0.0
-                    , max = 1.0
-                    , step = 0.01
-                    , value = settings.springRestLength
-                    , onInput =
-                        \value ->
-                            String.toFloat value
-                                |> Maybe.withDefault 0.0
-                                |> SetSpringRestLength
-                                |> SaveSetting
-                    , toString = formatFloat 2
-                    }
-                )
-        , viewControl <|
-            Control
-                "Advection speed"
-                """
-                Adjust how quickly the lines respond to changes in the fluid.
-                """
-                (Slider
-                    { min = 0.1
-                    , max = 50.0
-                    , step = 0.1
-                    , value = settings.adjustAdvection
-                    , onInput =
-                        \value ->
-                            String.toFloat value
-                                |> Maybe.withDefault 0.0
-                                |> SetAdjustAdvection
-                                |> SaveSetting
-                    , toString = formatFloat 1
                     }
                 )
         , Html.h2 [ HA.class "col-span-2-md" ] [ Html.text "Fluid simulation" ]
@@ -772,6 +612,7 @@ viewButtonGroup onClick active options =
             options
 
 
+viewNoiseChannel : String -> (NoiseMsg -> SettingMsg) -> Noise -> Html Msg
 viewNoiseChannel title setNoiseChannel noiseChannel =
     Html.div
         [ HA.class "control-list-single" ]
@@ -975,33 +816,11 @@ encodeSettings settings =
         , ( "lineWidth", Encode.float settings.lineWidth )
         , ( "lineBeginOffset", Encode.float settings.lineBeginOffset )
         , ( "lineFadeOutLength", Encode.float settings.lineFadeOutLength )
-        , ( "springStiffness", Encode.float settings.springStiffness )
         , ( "springVariance", Encode.float settings.springVariance )
-        , ( "springMass", Encode.float settings.springMass )
-        , ( "springDamping", Encode.float settings.springDamping )
-        , ( "springRestLength", Encode.float settings.springRestLength )
-        , ( "maxLineVelocity", Encode.float settings.maxLineVelocity )
-        , ( "advectionDirection", encodeAdvectionDirection settings.advectionDirection )
-        , ( "adjustAdvection", Encode.float settings.adjustAdvection )
         , ( "gridSpacing", Encode.int settings.gridSpacing )
         , ( "viewScale", Encode.float settings.viewScale )
         , ( "noiseChannels", Encode.array encodeNoise settings.noiseChannels )
         ]
-
-
-encodeAdvectionDirection : AdvectionDirection -> Encode.Value
-encodeAdvectionDirection =
-    advectionDirectionToInt >> Encode.int
-
-
-advectionDirectionToInt : AdvectionDirection -> Int
-advectionDirectionToInt direction =
-    case direction of
-        Forward ->
-            1
-
-        Reverse ->
-            -1
 
 
 encodeColorScheme : ColorScheme -> Encode.Value
