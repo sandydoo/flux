@@ -16,7 +16,7 @@ layout(std140) uniform Channels
   Channel uChannels[CHANNEL_COUNT];
 };
 
-in vec2 texturePosition;
+in vec2 clipPosition;
 out vec2 noise;
 
 vec3 mod289(vec3 x) {
@@ -113,7 +113,7 @@ vec2 makeNoisePair(vec3 params) {
 
 vec2 makeNoise(Channel channel) {
   vec2 noise;
-  vec2 scale = channel.uScale * texturePosition;
+  vec2 scale = channel.uScale * clipPosition;
   vec2 noise1 = makeNoisePair(vec3(scale, channel.uOffset1));
 
   if (channel.uBlendFactor > 0.0) {
