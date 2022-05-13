@@ -53,8 +53,8 @@ unsafe impl Pod for LineState {}
 
 #[derive(AsStd140)]
 struct Projection {
-    projection: mint::ColumnMatrix4<f32>,
-    view: mint::ColumnMatrix4<f32>,
+    projection_matrix: mint::ColumnMatrix4<f32>,
+    view_matrix: mint::ColumnMatrix4<f32>,
 }
 
 #[derive(AsStd140)]
@@ -100,6 +100,7 @@ pub struct Drawer {
 
     view_buffer: Buffer,
     line_uniforms: Buffer,
+    projection: Projection,
 
     place_lines_pass: render::Program,
     draw_lines_pass: render::Program,
@@ -246,8 +247,8 @@ impl Drawer {
         let view_matrix = nalgebra::Matrix4::new_scaling(settings.view_scale);
 
         let projection = Projection {
-            projection: projection_matrix.into(),
-            view: view_matrix.into(),
+            projection_matrix: projection_matrix.into(),
+            view_matrix: view_matrix.into(),
         };
         let view_buffer = Buffer::from_bytes(
             &context,
@@ -255,6 +256,24 @@ impl Drawer {
             glow::ARRAY_BUFFER,
             glow::STATIC_DRAW,
         )?;
+
+        place_lines_program.set_uniforms(&[
+            &Uniform {
+                name: "velocityTexture",
+                value: UniformValue::Texture2D(0),
+            },
+            // FIX: move into uniform buffer
+            &Uniform {
+                name: "uSpringVariance",
+                value: UniformValue::Float(settings.spring_variance),
+            },
+            &Uniform {
+                name: "uColorWheel[0]",
+                value: UniformValue::Vec4Array(&settings::color_wheel_from_scheme(
+                    &settings.color_scheme,
+                )),
+            },
+        ]);
 
         let uniforms = LineUniforms::new(&settings);
         let line_uniforms = Buffer::from_bytes(
@@ -264,6 +283,8 @@ impl Drawer {
             glow::STATIC_DRAW,
         )?;
 
+        place_lines_program.set_uniform_block("Projection", 0);
+        place_lines_program.set_uniform_block("LineUniforms", 1);
         draw_lines_program.set_uniform_block("Projection", 0);
         draw_lines_program.set_uniform_block("LineUniforms", 1);
         draw_endpoints_program.set_uniform_block("Projection", 0);
@@ -301,6 +322,7 @@ impl Drawer {
 
             view_buffer,
             line_uniforms,
+            projection,
 
             place_lines_pass: place_lines_program,
             draw_lines_pass: draw_lines_program,
@@ -310,27 +332,27 @@ impl Drawer {
         };
 
         drawer.update_vertex_buffers()?;
-        drawer.set_place_lines_uniforms(&drawer.place_lines_pass, &settings, &projection_matrix);
 
         Ok(drawer)
     }
 
-    pub fn update(&mut self, settings: &Rc<Settings>) -> () {
-        unsafe {
-            self.context
-                .bind_buffer(glow::UNIFORM_BUFFER, Some(self.line_uniforms.id));
+    pub fn update(&mut self, new_settings: &Rc<Settings>) -> () {
+        let uniforms = LineUniforms::new(new_settings);
+        self.line_uniforms.update(uniforms.as_std140().as_bytes());
 
-            let uniforms = LineUniforms::new(settings);
-            self.context.buffer_sub_data_u8_slice(
-                glow::UNIFORM_BUFFER,
-                0,
-                uniforms.as_std140().as_bytes(),
-            );
-
-            self.context.bind_buffer(glow::UNIFORM_BUFFER, None);
-        }
-
-        // self.set_place_lines_uniforms(&self.place_lines_pass, &self.settings);
+        // FIX: move into uniform buffer
+        self.place_lines_pass.set_uniforms(&[
+            &Uniform {
+                name: "uSpringVariance",
+                value: UniformValue::Float(new_settings.spring_variance),
+            },
+            &Uniform {
+                name: "uColorWheel[0]",
+                value: UniformValue::Vec4Array(&settings::color_wheel_from_scheme(
+                    &new_settings.color_scheme,
+                )),
+            },
+        ]);
     }
 
     pub fn resize(
@@ -347,12 +369,16 @@ impl Drawer {
         self.grid_width = grid_width;
         self.grid_height = grid_height;
 
-        self.update_projection(&new_projection_matrix(
+        self.projection.projection_matrix = new_projection_matrix(
             grid_width as f32,
             grid_height as f32,
             physical_width as f32,
             physical_height as f32,
-        ));
+        )
+        .into();
+        self.view_buffer
+            .update(self.projection.as_std140().as_bytes());
+
         self.antialiasing_pass
             .resize(physical_width, physical_height);
 
@@ -373,37 +399,6 @@ impl Drawer {
         self.update_vertex_buffers()?;
 
         Ok(())
-    }
-
-    fn set_place_lines_uniforms(
-        &self,
-        place_lines_program: &render::Program,
-        settings: &Settings,
-        projection_matrix: &nalgebra::Matrix4<f32>,
-    ) {
-        // Workaround for iOS
-        //
-        // Safari on iOS crashes if you use a uniform block buffer together with
-        // transform feedback.
-        let color_wheel = settings::color_wheel_from_scheme(&settings.color_scheme);
-        place_lines_program.set_uniforms(&[
-            &Uniform {
-                name: "velocityTexture",
-                value: UniformValue::Texture2D(0),
-            },
-            &Uniform {
-                name: "uSpringVariance",
-                value: UniformValue::Float(settings.spring_variance),
-            },
-            &Uniform {
-                name: "uColorWheel[0]",
-                value: UniformValue::Vec4Array(&color_wheel),
-            },
-            &Uniform {
-                name: "uProjection",
-                value: UniformValue::Mat4(&projection_matrix.as_slice()),
-            },
-        ]);
     }
 
     fn update_vertex_buffers(&mut self) -> Result<(), render::Problem> {
@@ -589,28 +584,9 @@ impl Drawer {
         Ok(())
     }
 
-    fn update_projection(&self, projection: &nalgebra::Matrix4<f32>) {
-        let projection: [f32; 16] = projection.as_slice().try_into().unwrap();
-
-        unsafe {
-            self.context
-                .bind_buffer(glow::UNIFORM_BUFFER, Some(self.view_buffer.id));
-            self.context.buffer_sub_data_u8_slice(
-                glow::UNIFORM_BUFFER,
-                0,
-                &bytemuck::cast_slice(&projection),
-            );
-            self.context.bind_buffer(glow::UNIFORM_BUFFER, None);
-        }
-
-        // Workaround for iOS
-        self.place_lines_pass.set_uniform(&Uniform {
-            name: "uProjection",
-            value: UniformValue::Mat4(&projection),
-        });
-    }
-
     pub fn place_lines(&mut self, velocity_texture: &Framebuffer, timestep: f32) -> () {
+        self.spring_noise_offset += timestep;
+
         unsafe {
             self.context.viewport(
                 0,
@@ -625,11 +601,13 @@ impl Drawer {
             self.context.bind_vertex_array(Some(
                 self.place_lines_buffers[self.line_state_buffers.active_buffer].id,
             ));
-
-            self.spring_noise_offset += timestep;
+            self.context
+                .bind_buffer_base(glow::UNIFORM_BUFFER, 0, Some(self.view_buffer.id));
+            self.context
+                .bind_buffer_base(glow::UNIFORM_BUFFER, 1, Some(self.line_uniforms.id));
 
             self.place_lines_pass.set_uniform(&Uniform {
-                name: "deltaT",
+                name: "deltaTime",
                 value: UniformValue::Float(timestep),
             });
             self.place_lines_pass.set_uniform(&Uniform {

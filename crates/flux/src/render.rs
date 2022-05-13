@@ -82,7 +82,7 @@ impl Buffer {
                 .map_err(|_| Problem::CannotCreateBuffer)?;
 
             context.bind_buffer(buffer_type, Some(buffer));
-            context.buffer_data_u8_slice(buffer_type, &bytemuck::cast_slice(&data), usage);
+            context.buffer_data_u8_slice(buffer_type, data, usage);
             context.bind_buffer(buffer_type, None);
 
             buffer
@@ -102,6 +102,14 @@ impl Buffer {
 
     pub fn from_u16(context: &Context, data: &[u16], buffer_type: u32, usage: u32) -> Result<Self> {
         Self::from_bytes(context, bytemuck::cast_slice(data), buffer_type, usage)
+    }
+
+    pub fn update(&self, data: &[u8]) {
+        unsafe {
+            self.context.bind_buffer(self.type_, Some(self.id));
+            self.context.buffer_sub_data_u8_slice(self.type_, 0, data);
+            self.context.bind_buffer(self.type_, None);
+        }
     }
 }
 

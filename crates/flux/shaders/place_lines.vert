@@ -1,4 +1,4 @@
-#define TWO_PI 6.283185307179586
+#define TAU 6.283185307179586
 
 precision highp float;
 precision highp sampler2D;
@@ -14,10 +14,23 @@ in float iLineWidth;
 in float iLineOpacity;
 in float iEndpointOpacity;
 
-uniform float deltaT;
+layout(std140) uniform Projection
+{
+  mat4 uProjection;
+  mat4 uView;
+};
+
+layout(std140) uniform LineUniforms
+{
+  mediump float uLineWidth;
+  mediump float uLineLength;
+  mediump float uLineBeginOffset;
+  mediump float uLineFadeOutLength;
+};
+
+uniform float deltaTime;
 uniform float uSpringVariance;
 uniform mediump vec4 uColorWheel[6];
-uniform mat4 uProjection;
 
 uniform float springNoiseOffset1;
 
@@ -37,8 +50,8 @@ float clampTo(float value, float max) {
 }
 
 vec4 getColor(vec4 wheel[6], float angle) {
-  float slice = TWO_PI / 6.0;
-  float rawIndex = mod(angle, TWO_PI) / slice;
+  float slice = TAU / 6.0;
+  float rawIndex = mod(angle, TAU) / slice;
   float index = floor(rawIndex);
   float nextIndex = mod(index + 1.0, 6.0);
   float interpolate = fract(rawIndex);
@@ -137,12 +150,11 @@ float snoise(vec3 v) {
 }
 
 void main() {
-  float deltaTime = deltaT;
   float springNoiseScale = 64.0;
 
   vec2 basepointInClipSpace = 0.5 + 0.5 * (uProjection * vec4(basepoint, 0.0, 1.0)).xy;
   vec2 velocity = texture(velocityTexture, basepointInClipSpace).xy;
-  float noise = snoise(vec3((0.5 + 0.5 * basepointInClipSpace) * springNoiseScale, springNoiseOffset1));
+  float noise = snoise(vec3(basepointInClipSpace * springNoiseScale, springNoiseOffset1));
 
   // Blend noise
 
@@ -152,7 +164,7 @@ void main() {
   float momentumVariance = mix(3.0, 5.0, variance);
 
   float lineLength = 1.0; //0.6 // 1.4 // Do I need this? will I be changing this value?
-  vVelocityVector = ((1.0 - deltaTime * momentumVariance) * iVelocityVector) + ((lineLength * velocity - iEndpointVector) * velocityDeltaVariance) * deltaTime;
+  vVelocityVector = (1.0 - deltaTime * momentumVariance) * iVelocityVector + (lineLength * velocity - iEndpointVector) * velocityDeltaVariance * deltaTime;
   vEndpointVector = iEndpointVector + deltaTime * vVelocityVector;
 
   float widthBoost = clamp(2.5 * length(velocity), 0.0, 1.0);
@@ -163,5 +175,5 @@ void main() {
   vLineOpacity = widthBoost;
 
   // TODO: check this
-  vEndpointOpacity = clamp(vLineOpacity + 0.4, 0.0, 1.0);
+  vEndpointOpacity = max(0.7, vLineOpacity);
 }
