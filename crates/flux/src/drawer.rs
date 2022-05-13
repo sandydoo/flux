@@ -137,7 +137,7 @@ impl Drawer {
         )?;
         let endpoint_vertices = Buffer::from_f32(
             &context,
-            &new_endpoint(4),
+            &new_endpoint(8),
             glow::ARRAY_BUFFER,
             glow::STATIC_DRAW,
         )?;
@@ -683,7 +683,7 @@ impl Drawer {
             });
 
             self.context
-                .draw_arrays_instanced(glow::TRIANGLE_FAN, 0, 6, self.line_count as i32);
+                .draw_arrays_instanced(glow::TRIANGLE_FAN, 0, 10, self.line_count as i32);
 
             self.draw_endpoints_pass.set_uniform(&Uniform {
                 name: "uOrientation",
@@ -691,7 +691,7 @@ impl Drawer {
             });
 
             self.context
-                .draw_arrays_instanced(glow::TRIANGLE_FAN, 0, 6, self.line_count as i32);
+                .draw_arrays_instanced(glow::TRIANGLE_FAN, 0, 10, self.line_count as i32);
 
             self.context.disable(glow::BLEND);
         }
