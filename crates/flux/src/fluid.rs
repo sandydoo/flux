@@ -163,7 +163,7 @@ impl Fluid {
             render::Program::new(&context, (FLUID_VERT_SHADER, SUBTRACT_GRADIENT_FRAG_SHADER))?;
 
         let uniforms = Uniforms {
-            timestep: 0.0,
+            timestep: 1.0 / settings.fluid_simulation_frame_rate,
             dissipation: settings.velocity_dissipation,
             texel_size: texel_size.into(),
         };
@@ -349,34 +349,20 @@ impl Fluid {
         Ok(())
     }
 
-    // Setup vertex and uniform buffers.
-    pub fn prepare_pass(&self, timestep: f32) {
-        unsafe {
-            // Update the timestep
-            self.context
-                .bind_buffer(glow::UNIFORM_BUFFER, Some(self.uniform_buffer.id));
-            self.context.buffer_sub_data_u8_slice(
-                glow::UNIFORM_BUFFER,
-                0,
-                &bytemuck::bytes_of(&timestep),
-            );
-            self.context.bind_buffer(glow::UNIFORM_BUFFER, None);
-
-            self.context.bind_vertex_array(Some(self.vertex_buffer.id));
-
-            self.context
-                .bind_buffer_base(glow::UNIFORM_BUFFER, 0, Some(self.uniform_buffer.id));
-        }
-    }
-
     pub fn advect_forward(&self) -> () {
         self.advection_forward_texture
             .draw_to(&self.context, || unsafe {
                 self.advection_pass.use_program();
+                self.context.bind_vertex_array(Some(self.vertex_buffer.id));
+                self.context.bind_buffer_base(
+                    glow::UNIFORM_BUFFER,
+                    0,
+                    Some(self.uniform_buffer.id),
+                );
 
                 self.advection_pass.set_uniform(&Uniform {
                     name: "amount",
-                    value: UniformValue::Float(0.017),
+                    value: UniformValue::Float(0.017), // fix
                 });
 
                 self.context.active_texture(glow::TEXTURE0);
@@ -394,10 +380,16 @@ impl Fluid {
         self.advection_reverse_texture
             .draw_to(&self.context, || unsafe {
                 self.advection_pass.use_program();
+                self.context.bind_vertex_array(Some(self.vertex_buffer.id));
+                self.context.bind_buffer_base(
+                    glow::UNIFORM_BUFFER,
+                    0,
+                    Some(self.uniform_buffer.id),
+                );
 
                 self.advection_pass.set_uniform(&Uniform {
                     name: "amount",
-                    value: UniformValue::Float(-0.017),
+                    value: UniformValue::Float(-0.017), // fix
                 });
 
                 self.context.active_texture(glow::TEXTURE0);
@@ -415,10 +407,11 @@ impl Fluid {
         self.velocity_textures
             .draw_to(&self.context, |velocity_texture| unsafe {
                 self.adjust_advection_pass.use_program();
+                self.context.bind_vertex_array(Some(self.vertex_buffer.id));
 
                 self.adjust_advection_pass.set_uniform(&&Uniform {
                     name: "deltaTime",
-                    value: UniformValue::Float(0.017),
+                    value: UniformValue::Float(0.017), // fix
                 });
 
                 self.context.active_texture(glow::TEXTURE0);
@@ -444,6 +437,7 @@ impl Fluid {
 
     pub fn diffuse(&self, timestep: f32) -> () {
         self.diffusion_pass.use_program();
+        unsafe { self.context.bind_vertex_array(Some(self.vertex_buffer.id)) };
 
         let center_factor = self.grid_size * self.grid_size / (self.settings.viscosity * timestep);
         let stencil_factor = 1.0 / (4.0 + center_factor);
@@ -475,6 +469,9 @@ impl Fluid {
     pub fn calculate_divergence(&self) -> () {
         self.divergence_texture.draw_to(&self.context, || unsafe {
             self.divergence_pass.use_program();
+            self.context.bind_vertex_array(Some(self.vertex_buffer.id));
+            self.context
+                .bind_buffer_base(glow::UNIFORM_BUFFER, 0, Some(self.uniform_buffer.id));
 
             self.context.active_texture(glow::TEXTURE0);
             self.context.bind_texture(
@@ -494,6 +491,7 @@ impl Fluid {
 
         self.pressure_pass.use_program();
         unsafe {
+            self.context.bind_vertex_array(Some(self.vertex_buffer.id));
             self.context.active_texture(glow::TEXTURE0);
             self.context
                 .bind_texture(glow::TEXTURE_2D, Some(self.divergence_texture.texture));
@@ -513,10 +511,16 @@ impl Fluid {
     }
 
     pub fn subtract_gradient(&self) -> () {
-        self.subtract_gradient_pass.use_program();
-
         self.velocity_textures
             .draw_to(&self.context, |velocity_texture| unsafe {
+                self.subtract_gradient_pass.use_program();
+                self.context.bind_vertex_array(Some(self.vertex_buffer.id));
+                self.context.bind_buffer_base(
+                    glow::UNIFORM_BUFFER,
+                    0,
+                    Some(self.uniform_buffer.id),
+                );
+
                 self.context.active_texture(glow::TEXTURE0);
                 self.context
                     .bind_texture(glow::TEXTURE_2D, Some(velocity_texture.texture));

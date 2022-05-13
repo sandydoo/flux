@@ -14,9 +14,8 @@ pub struct Flux {
     noise_generator: NoiseGenerator,
     settings: Rc<Settings>,
 
-    pub context: render::Context,
+    context: render::Context,
     elapsed_time: f32,
-    last_timestamp: f32,
     frame_time: f32,
     fluid_frame_time: f32,
     max_frame_time: f32,
@@ -66,7 +65,6 @@ impl Flux {
 
             context: Rc::clone(context),
             elapsed_time: 0.0,
-            last_timestamp: 0.0,
             frame_time: 0.0,
             fluid_frame_time: 1.0 / settings.fluid_simulation_frame_rate,
             max_frame_time: 1.0 / 10.0,
@@ -93,23 +91,21 @@ impl Flux {
     pub fn animate(&mut self, timestamp: f32) {
         let timestep = self
             .max_frame_time
-            .min(0.001 * (timestamp - self.last_timestamp));
-        self.last_timestamp = timestamp;
-        self.elapsed_time += timestep;
+            .min(0.001 * (timestamp - self.elapsed_time));
+        self.elapsed_time = timestamp;
         self.frame_time += timestep;
 
         // TODO: move frame times to fluid
         while self.frame_time >= self.fluid_frame_time {
             self.noise_generator.generate(self.elapsed_time);
 
-            self.fluid.prepare_pass(self.fluid_frame_time);
             self.fluid.advect_forward();
             self.fluid.advect_reverse();
             self.fluid.adjust_advection();
             self.fluid.diffuse(self.fluid_frame_time); // <- Convection
 
             self.noise_generator
-                .blend_noise_into(&self.fluid.get_velocity_textures(), timestep);
+                .blend_noise_into(&self.fluid.get_velocity_textures(), self.fluid_frame_time);
 
             self.fluid.calculate_divergence();
             self.fluid.solve_pressure();
