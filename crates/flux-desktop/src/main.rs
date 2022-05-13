@@ -1,4 +1,4 @@
-use flux::settings::{ColorScheme, Noise, Settings};
+use flux::settings::{ColorScheme, Mode, Noise, Settings};
 use flux::Flux;
 use glutin::event::{Event, WindowEvent};
 use glutin::event_loop::{ControlFlow, EventLoop};
@@ -8,6 +8,7 @@ use std::rc::Rc;
 
 fn main() {
     let settings = Settings {
+        mode: Mode::Normal,
         viscosity: 5.0,
         velocity_dissipation: 0.0,
         starting_pressure: 0.0,

@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
+    pub mode: Mode,
     pub viscosity: f32,
     pub velocity_dissipation: f32,
     pub starting_pressure: f32,
@@ -21,6 +22,15 @@ pub struct Settings {
     pub view_scale: f32,
 
     pub noise_channels: Vec<Noise>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub enum Mode {
+    Normal,
+    DebugNoise,
+    DebugFluid,
+    DebugPressure,
+    DebugDivergence,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

@@ -44,7 +44,8 @@ type alias Model =
 
 
 type alias Settings =
-    { viscosity : Float
+    { mode : Mode
+    , viscosity : Float
     , velocityDissipation : Float
     , startingPressure : Float
     , fluidSize : Int
@@ -60,6 +61,14 @@ type alias Settings =
     , viewScale : Float
     , noiseChannels : Array Noise
     }
+
+
+type Mode
+    = Normal
+    | DebugNoise
+    | DebugFluid
+    | DebugPressure
+    | DebugDivergence
 
 
 type ColorScheme
@@ -80,7 +89,8 @@ type alias Noise =
 
 defaultSettings : Settings
 defaultSettings =
-    { viscosity = 5.0
+    { mode = Normal
+    , viscosity = 5.0
     , velocityDissipation = 0.0
     , startingPressure = 0.0
     , fluidSize = 128
@@ -157,7 +167,8 @@ update msg model =
 
 
 type SettingMsg
-    = SetViscosity Float
+    = SetMode Mode
+    | SetViscosity Float
     | SetVelocityDissipation Float
     | SetStartingPressure Float
     | SetDiffusionIterations Int
@@ -181,6 +192,9 @@ type NoiseMsg
 updateSettings : SettingMsg -> Settings -> Settings
 updateSettings msg settings =
     case msg of
+        SetMode newMode ->
+            { settings | mode = newMode }
+
         SetViscosity newViscosity ->
             { settings | viscosity = newViscosity }
 
@@ -773,7 +787,8 @@ decodeKeyCode key msg =
 encodeSettings : Settings -> Encode.Value
 encodeSettings settings =
     Encode.object
-        [ ( "viscosity", Encode.float settings.viscosity )
+        [ ( "mode", encodeMode settings.mode )
+        , ( "viscosity", Encode.float settings.viscosity )
         , ( "velocityDissipation", Encode.float settings.velocityDissipation )
         , ( "startingPressure", Encode.float settings.startingPressure )
         , ( "fluidSize", Encode.int settings.fluidSize )
@@ -789,6 +804,26 @@ encodeSettings settings =
         , ( "viewScale", Encode.float settings.viewScale )
         , ( "noiseChannels", Encode.array encodeNoise settings.noiseChannels )
         ]
+
+
+encodeMode : Mode -> Encode.Value
+encodeMode mode =
+    Encode.string <|
+        case mode of
+            Normal ->
+                "Normal"
+
+            DebugNoise ->
+                "DebugNoise"
+
+            DebugFluid ->
+                "DebugFluid"
+
+            DebugPressure ->
+                "DebugPressure"
+
+            DebugDivergence ->
+                "DebugDivergence"
 
 
 encodeColorScheme : ColorScheme -> Encode.Value

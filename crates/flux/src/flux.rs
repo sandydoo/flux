@@ -123,14 +123,25 @@ impl Flux {
             self.context.clear_color(0.0, 0.0, 0.0, 1.0);
             self.context.clear(glow::COLOR_BUFFER_BIT);
 
-            // Debugging
-            // self.drawer.draw_texture(self.noise_generator.get_noise());
-            // self.drawer.draw_texture(&self.fluid.get_velocity());
-            // self.drawer.draw_texture(&self.fluid.get_pressure());
-            // self.drawer.draw_texture(&self.fluid.get_divergence());
-
-            self.drawer.draw_lines();
-            self.drawer.draw_endpoints();
+            use settings::Mode::*;
+            match &self.settings.mode {
+                Normal => {
+                    self.drawer.draw_lines();
+                    self.drawer.draw_endpoints();
+                }
+                DebugNoise => {
+                    self.drawer.draw_texture(self.noise_generator.get_noise());
+                }
+                DebugFluid => {
+                    self.drawer.draw_texture(&self.fluid.get_velocity());
+                }
+                DebugPressure => {
+                    self.drawer.draw_texture(&self.fluid.get_pressure());
+                }
+                DebugDivergence => {
+                    self.drawer.draw_texture(&self.fluid.get_divergence());
+                }
+            };
         });
     }
 }
