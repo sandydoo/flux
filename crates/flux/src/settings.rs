@@ -16,8 +16,7 @@ pub struct Settings {
     pub line_length: f32,
     pub line_width: f32,
     pub line_begin_offset: f32,
-    pub line_fade_out_length: f32,
-    pub spring_variance: f32,
+    pub line_variance: f32,
     pub grid_spacing: u32,
     pub view_scale: f32,
 

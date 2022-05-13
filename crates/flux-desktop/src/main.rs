@@ -19,8 +19,7 @@ fn main() {
         line_length: 300.0,
         line_width: 5.0,
         line_begin_offset: 0.5,
-        line_fade_out_length: 0.005,
-        spring_variance: 0.47,
+        line_variance: 0.47,
         grid_spacing: 14,
         view_scale: 1.6,
         noise_channels: vec![

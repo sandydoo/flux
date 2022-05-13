@@ -55,8 +55,7 @@ type alias Settings =
     , lineLength : Float
     , lineWidth : Float
     , lineBeginOffset : Float
-    , lineFadeOutLength : Float
-    , springVariance : Float
+    , lineVariance : Float
     , gridSpacing : Int
     , viewScale : Float
     , noiseChannels : Array Noise
@@ -92,8 +91,7 @@ defaultSettings =
     , lineLength = 300.0
     , lineWidth = 5.0
     , lineBeginOffset = 0.5
-    , lineFadeOutLength = 0.005
-    , springVariance = 0.47
+    , lineVariance = 0.47
     , viewScale = 1.6
     , gridSpacing = 14
     , noiseChannels =
@@ -168,8 +166,7 @@ type SettingMsg
     | SetLineLength Float
     | SetLineWidth Float
     | SetLineBeginOffset Float
-    | SetLineFadeOutLength Float
-    | SetSpringVariance Float
+    | SetLineVariance Float
     | SetNoiseChannel Int NoiseMsg
 
 
@@ -211,11 +208,8 @@ updateSettings msg settings =
         SetLineBeginOffset newLineBeginOffset ->
             { settings | lineBeginOffset = newLineBeginOffset }
 
-        SetLineFadeOutLength newLineFadeOutLength ->
-            { settings | lineFadeOutLength = newLineFadeOutLength / settings.lineLength }
-
-        SetSpringVariance newSpringVariance ->
-            { settings | springVariance = newSpringVariance }
+        SetLineVariance newLineVariance ->
+            { settings | lineVariance = newLineVariance }
 
         SetNoiseChannel channelNumber noiseMsg ->
             let
@@ -432,31 +426,6 @@ viewSettings settings =
                     }
                 )
         , viewControl <|
-            let
-                toAbsoluteLength : Float -> Float
-                toAbsoluteLength offset =
-                    settings.lineLength * offset
-            in
-            Control
-                "Fog level"
-                """
-                Adjust the height of the fog which consumes shorter lines.
-                """
-                (Slider
-                    { min = 0.0
-                    , max = toAbsoluteLength 0.5
-                    , step = 0.1
-                    , value = toAbsoluteLength settings.lineFadeOutLength
-                    , onInput =
-                        \value ->
-                            String.toFloat value
-                                |> Maybe.withDefault 0.0
-                                |> SetLineFadeOutLength
-                                |> SaveSetting
-                    , toString = formatFloat 1
-                    }
-                )
-        , viewControl <|
             Control
                 "Variance"
                 """
@@ -466,12 +435,12 @@ viewSettings settings =
                     { min = 0.0
                     , max = 1.0
                     , step = 0.01
-                    , value = settings.springVariance
+                    , value = settings.lineVariance
                     , onInput =
                         \value ->
                             String.toFloat value
                                 |> Maybe.withDefault 0.0
-                                |> SetSpringVariance
+                                |> SetLineVariance
                                 |> SaveSetting
                     , toString = formatFloat 2
                     }
@@ -815,8 +784,7 @@ encodeSettings settings =
         , ( "lineLength", Encode.float settings.lineLength )
         , ( "lineWidth", Encode.float settings.lineWidth )
         , ( "lineBeginOffset", Encode.float settings.lineBeginOffset )
-        , ( "lineFadeOutLength", Encode.float settings.lineFadeOutLength )
-        , ( "springVariance", Encode.float settings.springVariance )
+        , ( "lineVariance", Encode.float settings.lineVariance )
         , ( "gridSpacing", Encode.int settings.gridSpacing )
         , ( "viewScale", Encode.float settings.viewScale )
         , ( "noiseChannels", Encode.array encodeNoise settings.noiseChannels )

@@ -62,7 +62,6 @@ struct LineUniforms {
     line_width: f32,
     line_length: f32,
     line_begin_offset: f32,
-    line_fade_out_length: f32,
 }
 
 impl LineUniforms {
@@ -71,7 +70,6 @@ impl LineUniforms {
             line_width: settings.line_width,
             line_length: settings.line_length,
             line_begin_offset: settings.line_begin_offset,
-            line_fade_out_length: settings.line_fade_out_length,
         }
     }
 }
@@ -265,7 +263,7 @@ impl Drawer {
             // FIX: move into uniform buffer
             &Uniform {
                 name: "uSpringVariance",
-                value: UniformValue::Float(settings.spring_variance),
+                value: UniformValue::Float(settings.line_variance),
             },
             &Uniform {
                 name: "uColorWheel[0]",
@@ -344,7 +342,7 @@ impl Drawer {
         self.place_lines_pass.set_uniforms(&[
             &Uniform {
                 name: "uSpringVariance",
-                value: UniformValue::Float(new_settings.spring_variance),
+                value: UniformValue::Float(new_settings.line_variance),
             },
             &Uniform {
                 name: "uColorWheel[0]",
