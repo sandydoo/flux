@@ -162,7 +162,7 @@ void main() {
   float velocityDeltaVariance = mix(3.0, 25.0, inverseVariance);
   float momentumVariance = mix(3.0, 5.0, variance);
 
-  float lineLength = 1.0; //0.6 // 1.4 // Do I need this? will I be changing this value?
+  float lineLength = 1.2; //0.6 // 1.4 // Do I need this? will I be changing this value?
   vVelocityVector = (1.0 - deltaTime * momentumVariance) * iVelocityVector + (lineLength * velocity - iEndpointVector) * velocityDeltaVariance * deltaTime;
   vEndpointVector = iEndpointVector + deltaTime * vVelocityVector;
 

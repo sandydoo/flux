@@ -147,5 +147,7 @@ void main() {
     Channel channel2 = uChannels[3];
     noise += makeNoise(channel2);
   #endif
+
+  noise *= 0.45;
 }
 

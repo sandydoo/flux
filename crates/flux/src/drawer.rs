@@ -380,7 +380,7 @@ impl Drawer {
         draw_endpoints_program.set_uniform_block("LineUniforms", 1);
         draw_texture_program.set_uniform_block("Projection", 0);
 
-        let antialiasing_samples = 0;
+        let antialiasing_samples = 2;
         let antialiasing_pass = render::MsaaPass::new(
             context,
             physical_width,

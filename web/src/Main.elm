@@ -96,25 +96,25 @@ defaultSettings =
     , colorScheme = Peacock
     , diffusionIterations = 4
     , pressureIterations = 20
-    , lineLength = 300.0
-    , lineWidth = 5.0
+    , lineLength = 400.0
+    , lineWidth = 7.0
     , lineBeginOffset = 0.5
     , lineVariance = 0.47
     , viewScale = 1.6
-    , gridSpacing = 14
+    , gridSpacing = 12
     , noiseChannels =
         Array.fromList
             [ { scale = 2.3
               , multiplier = 1.0
-              , offsetIncrement = 1.0 / 512.0
+              , offsetIncrement = 1.0 / 1024.0
               }
             , { scale = 13.8
               , multiplier = 0.7
-              , offsetIncrement = 1.0 / 512.0
+              , offsetIncrement = 1.0 / 1024.0
               }
             , { scale = 27.6
               , multiplier = 0.5
-              , offsetIncrement = 1.0 / 512.0
+              , offsetIncrement = 1.0 / 1024.0
               }
             ]
     }
