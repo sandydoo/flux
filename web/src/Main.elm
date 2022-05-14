@@ -562,6 +562,7 @@ viewSettings settings =
                         )
                         settings.noiseChannels
                )
+            ++ viewDebug settings.mode
 
 
 viewButtonGroup : (value -> msg) -> value -> List ( String, value ) -> Html msg
@@ -679,6 +680,21 @@ viewNoiseChannel title setNoiseChannel noiseChannel =
                     }
                 )
         ]
+
+
+viewDebug : Mode -> List (Html Msg)
+viewDebug mode =
+    [ Html.h2 [ HA.class "col-span-2-md" ] [ Html.text "Debugging" ]
+    , viewButtonGroup (SetMode >> SaveSetting)
+        mode
+        [ ( "Normal", Normal )
+        , ( "Noise", DebugNoise )
+        , ( "Fluid", DebugFluid )
+
+        --, ( "Pressure", DebugPressure )
+        --, ( "Divergence", DebugDivergence )
+        ]
+    ]
 
 
 viewControl : Control number -> Html Msg
