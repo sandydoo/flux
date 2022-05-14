@@ -70,13 +70,7 @@ impl NoiseGenerator {
 
     pub fn generate(&mut self, elapsed_time: f32) -> () {
         let uniforms = &build_noise_uniforms(&self.channels);
-        unsafe {
-            self.context
-                .bind_buffer(glow::UNIFORM_BUFFER, Some(self.uniforms.id));
-            self.context
-                .buffer_sub_data_u8_slice(glow::UNIFORM_BUFFER, 0, &uniforms);
-            self.context.bind_buffer(glow::UNIFORM_BUFFER, None);
-        }
+        self.uniforms.update(&uniforms);
 
         self.generate_noise_pass.use_program();
 

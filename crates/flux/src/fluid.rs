@@ -293,16 +293,7 @@ impl Fluid {
             dissipation: new_settings.velocity_dissipation,
             texel_size: self.texel_size.into(),
         };
-        unsafe {
-            self.context
-                .bind_buffer(glow::UNIFORM_BUFFER, Some(self.uniform_buffer.id));
-            self.context.buffer_sub_data_u8_slice(
-                glow::UNIFORM_BUFFER,
-                0,
-                uniforms.as_std140().as_bytes(),
-            );
-            self.context.bind_buffer(glow::UNIFORM_BUFFER, None);
-        }
+        self.uniform_buffer.update(uniforms.as_std140().as_bytes());
 
         self.settings = Rc::clone(new_settings); // Fix
     }
