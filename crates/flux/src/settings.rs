@@ -46,8 +46,6 @@ pub enum ColorScheme {
 pub struct Noise {
     pub scale: f32,
     pub multiplier: f32,
-    pub offset_1: f32,
-    pub offset_2: f32,
     pub offset_increment: f32,
 }
 

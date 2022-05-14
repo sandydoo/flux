@@ -60,10 +60,6 @@ impl NoiseGenerator {
 
     pub fn update(&mut self, new_settings: &[settings::Noise]) -> () {
         for (channel, new_setting) in self.channels.iter_mut().zip(new_settings.iter()) {
-            if channel.settings.offset_1 != new_setting.offset_1 {
-                channel.offset_1 = new_setting.offset_1;
-            }
-
             channel.settings = new_setting.clone();
         }
     }
@@ -144,8 +140,8 @@ impl NoiseGeneratorBuilder {
     pub fn add_channel(&mut self, channel: &settings::Noise) -> &Self {
         self.channels.push(NoiseChannel {
             settings: channel.clone(),
-            offset_1: -channel.offset_1,
-            offset_2: channel.offset_2,
+            offset_1: 0.0,
+            offset_2: 0.0,
             blend_begin_time: 0.0,
             last_blend_progress: 0.0,
         });

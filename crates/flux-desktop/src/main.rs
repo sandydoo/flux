@@ -27,22 +27,16 @@ fn main() {
             Noise {
                 scale: 2.3,
                 multiplier: 1.0,
-                offset_1: 0.0,
-                offset_2: 0.0,
                 offset_increment: 0.002,
             },
             Noise {
                 scale: 13.8,
                 multiplier: 0.7,
-                offset_1: 0.0,
-                offset_2: 0.0,
                 offset_increment: 0.002,
             },
             Noise {
                 scale: 27.6,
                 multiplier: 0.5,
-                offset_1: 0.0,
-                offset_2: 0.0,
                 offset_increment: 0.002,
             },
         ],

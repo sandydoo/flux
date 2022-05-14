@@ -81,8 +81,6 @@ type ColorScheme
 type alias Noise =
     { scale : Float
     , multiplier : Float
-    , offset1 : Float
-    , offset2 : Float
     , offsetIncrement : Float
     }
 
@@ -106,23 +104,17 @@ defaultSettings =
     , gridSpacing = 14
     , noiseChannels =
         Array.fromList
-            [ { scale = 2.3 -- 2.3
-              , multiplier = 1.0 -- 0.9
-              , offset1 = 0.0
-              , offset2 = 0.0
-              , offsetIncrement = 0.002
+            [ { scale = 2.3
+              , multiplier = 1.0
+              , offsetIncrement = 1.0 / 512.0
               }
             , { scale = 13.8
               , multiplier = 0.7
-              , offset1 = 0.0
-              , offset2 = 0.0
-              , offsetIncrement = 0.002
+              , offsetIncrement = 1.0 / 512.0
               }
             , { scale = 27.6
               , multiplier = 0.5
-              , offset1 = 0.0
-              , offset2 = 0.0
-              , offsetIncrement = 0.002
+              , offsetIncrement = 1.0 / 512.0
               }
             ]
     }
@@ -184,8 +176,6 @@ type SettingMsg
 type NoiseMsg
     = SetNoiseScale Float
     | SetNoiseMultiplier Float
-    | SetNoiseOffset1 Float
-    | SetNoiseOffset2 Float
     | SetNoiseOffsetIncrement Float
 
 
@@ -246,12 +236,6 @@ updateNoise msg noise =
 
         SetNoiseMultiplier newMultiplier ->
             { noise | multiplier = newMultiplier }
-
-        SetNoiseOffset1 newOffset ->
-            { noise | offset1 = newOffset }
-
-        SetNoiseOffset2 newOffset ->
-            { noise | offset2 = newOffset }
 
         SetNoiseOffsetIncrement newOffsetIncrement ->
             { noise | offsetIncrement = newOffsetIncrement }
@@ -567,7 +551,17 @@ viewSettings settings =
             [ HA.class "col-span-2-md" ]
             [ Html.text "Noise" ]
         ]
-            ++ Array.toList (Array.indexedMap (\index channel -> viewNoiseChannel ("Channel " ++ String.fromInt (index + 1)) (SetNoiseChannel index) channel) settings.noiseChannels)
+            ++ (Array.toList <|
+                    Array.indexedMap
+                        (\index channel ->
+                            let
+                                title =
+                                    "Channel " ++ String.fromInt (index + 1)
+                            in
+                            viewNoiseChannel title (SetNoiseChannel index) channel
+                        )
+                        settings.noiseChannels
+               )
 
 
 viewButtonGroup : (value -> msg) -> value -> List ( String, value ) -> Html msg
@@ -605,7 +599,7 @@ viewNoiseChannel title setNoiseChannel noiseChannel =
         , viewControl <|
             Control
                 "Scale"
-                ""
+                "The amount of detail in the noise. Larger values create more intricate patterns."
                 (Slider
                     { min = 0.1
                     , max = 30.0
@@ -624,7 +618,7 @@ viewNoiseChannel title setNoiseChannel noiseChannel =
         , viewControl <|
             Control
                 "Strength"
-                ""
+                "The amount of force applied by the noise."
                 (Slider
                     { min = 0.0
                     , max = 1.0
@@ -641,60 +635,47 @@ viewNoiseChannel title setNoiseChannel noiseChannel =
                     }
                 )
         , viewControl <|
+            let
+                -- Use this to stretch out the log scale a bit
+                scale : Float
+                scale =
+                    7.0
+
+                toSpeed : Int -> Float
+                toSpeed n =
+                    if n == 0 then
+                        0.0
+
+                    else
+                        2 ^ (toFloat (n - 100) / scale)
+
+                fromSpeed : Float -> Int
+                fromSpeed n =
+                    if n == 0.0 then
+                        0
+
+                    else
+                        100 + round (scale * logBase 2 n)
+            in
+            -- This scale is logarithmic. I should probably refactor the other
+            -- sliders to 0-100 as well.
             Control
-                "Offset 1"
-                ""
+                "Speed"
+                "How quickly the noise pattern changes."
                 (Slider
-                    { min = 0.0
-                    , max = 100.0
-                    , step = 1.0
-                    , value = noiseChannel.offset1
+                    { min = 0
+                    , max = 100
+                    , step = 1
+                    , value = fromSpeed noiseChannel.offsetIncrement
                     , onInput =
                         \value ->
-                            String.toFloat value
-                                |> Maybe.withDefault 0.0
-                                |> SetNoiseOffset1
-                                |> setNoiseChannel
-                                |> SaveSetting
-                    , toString = formatFloat 1
-                    }
-                )
-        , viewControl <|
-            Control
-                "Offset 2"
-                ""
-                (Slider
-                    { min = 0.0
-                    , max = 100.0
-                    , step = 1.0
-                    , value = noiseChannel.offset2
-                    , onInput =
-                        \value ->
-                            String.toFloat value
-                                |> Maybe.withDefault 0.0
-                                |> SetNoiseOffset2
-                                |> setNoiseChannel
-                                |> SaveSetting
-                    , toString = formatFloat 1
-                    }
-                )
-        , viewControl <|
-            Control
-                "Offset increment"
-                ""
-                (Slider
-                    { min = 0.0
-                    , max = 1.0
-                    , step = 0.01
-                    , value = noiseChannel.offsetIncrement
-                    , onInput =
-                        \value ->
-                            String.toFloat value
-                                |> Maybe.withDefault 0.0
+                            String.toInt value
+                                |> Maybe.withDefault 0
+                                |> toSpeed
                                 |> SetNoiseOffsetIncrement
                                 |> setNoiseChannel
                                 |> SaveSetting
-                    , toString = formatFloat 2
+                    , toString = String.fromInt
                     }
                 )
         ]
@@ -852,7 +833,5 @@ encodeNoise noise =
     Encode.object
         [ ( "scale", Encode.float noise.scale )
         , ( "multiplier", Encode.float noise.multiplier )
-        , ( "offset1", Encode.float noise.offset1 )
-        , ( "offset2", Encode.float noise.offset2 )
         , ( "offsetIncrement", Encode.float noise.offsetIncrement )
         ]
