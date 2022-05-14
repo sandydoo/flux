@@ -58,6 +58,7 @@ pub struct Buffer {
     pub id: glow::Buffer,
     pub size: usize,
     pub type_: u32,
+    pub usage: u32,
 }
 
 impl Drop for Buffer {
@@ -93,6 +94,7 @@ impl Buffer {
             id: buffer,
             size: data.len(),
             type_: buffer_type,
+            usage,
         })
     }
 
@@ -108,6 +110,15 @@ impl Buffer {
         unsafe {
             self.context.bind_buffer(self.type_, Some(self.id));
             self.context.buffer_sub_data_u8_slice(self.type_, 0, data);
+            self.context.bind_buffer(self.type_, None);
+        }
+    }
+
+    pub fn overwrite(&self, data: &[u8]) {
+        unsafe {
+            self.context.bind_buffer(self.type_, Some(self.id));
+            self.context
+                .buffer_data_u8_slice(self.type_, data, self.usage);
             self.context.bind_buffer(self.type_, None);
         }
     }
@@ -457,6 +468,12 @@ impl TransformFeedback {
         })
     }
 
+    pub fn overwrite_buffer(&mut self, data: &[u8]) -> Result<()> {
+        self.buffer.overwrite(data);
+
+        Ok(())
+    }
+
     pub fn draw_to<T>(&self, draw_call: T)
     where
         T: Fn() -> (),
@@ -492,6 +509,12 @@ impl DoubleTransformFeedback {
             active_buffer: 0,
             buffers: [front, back],
         })
+    }
+
+    pub fn overwrite_buffer(&mut self, data: &[u8]) -> Result<()> {
+        self.buffers[0].overwrite_buffer(data)?;
+        self.buffers[1].overwrite_buffer(data)?;
+        Ok(())
     }
 
     pub fn current_buffer(&self) -> &TransformFeedback {
@@ -818,7 +841,7 @@ pub fn compile_shader(context: &Context, shader_type: u32, source: &str) -> Resu
     }
 }
 
-#[derive(Default)]
+#[derive(Clone, Copy, Default)]
 pub struct VertexBufferLayout {
     pub name: &'static str,
     pub size: u32,
