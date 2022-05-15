@@ -17,8 +17,8 @@ fn main() {
         diffusion_iterations: 4,
         pressure_iterations: 20,
         color_scheme: ColorScheme::Peacock,
-        line_length: 300.0,
-        line_width: 5.0,
+        line_length: 400.0,
+        line_width: 7.0,
         line_begin_offset: 0.5,
         line_variance: 0.47,
         grid_spacing: 14,
@@ -27,17 +27,17 @@ fn main() {
             Noise {
                 scale: 2.3,
                 multiplier: 1.0,
-                offset_increment: 0.002,
+                offset_increment: 1.0 / 1024.0,
             },
             Noise {
                 scale: 13.8,
                 multiplier: 0.7,
-                offset_increment: 0.002,
+                offset_increment: 1.0 / 1024.0,
             },
             Noise {
                 scale: 27.6,
                 multiplier: 0.5,
-                offset_increment: 0.002,
+                offset_increment: 1.0 / 1024.0,
             },
         ],
     };
