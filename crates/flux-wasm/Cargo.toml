@@ -15,15 +15,15 @@ crate-type = ["cdylib"]
 default = ["console_error_panic_hook"]
 
 [dependencies]
-console_error_panic_hook = { version = "0.1.1", optional = true }
+console_error_panic_hook = { version = "0.1", optional = true }
 flux = { version = "1", path = "../flux" }
 glow = "0.11.2"
-js-sys = "0.3.55"
+js-sys = "0.3"
 serde = { version = "1", features = ["derive"] }
 wasm-bindgen = { version = "=0.2.78", features = ["serde-serialize"] }
 
 [dependencies.web-sys]
-version = "0.3.4"
+version = "0.3"
 features = [
   "console",
   "Document",

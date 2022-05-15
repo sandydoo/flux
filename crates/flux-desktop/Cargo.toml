@@ -11,5 +11,5 @@ edition = "2021"
 [dependencies]
 flux = { version = "1", path = "../flux" }
 glow = "0.11.2"
-glutin = "0.28.0"
+glutin = "0.28"
 serde_json = "1"

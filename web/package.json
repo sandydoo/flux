@@ -16,14 +16,14 @@
   },
   "devDependencies": {
     "@wasm-tool/wasm-pack-plugin": "1.6.0",
-    "copy-webpack-plugin": "^10.0.0",
-    "elm": "^0.19.1-5",
+    "copy-webpack-plugin": "^10.2.4",
+    "elm": "0.19.1-5",
     "elm-hot": "^1.1.6",
     "elm-webpack-loader": "^8.0.0",
-    "gh-pages": "^3.2.3",
+    "gh-pages": "^4.0.0",
     "html-webpack-plugin": "^5.5.0",
-    "webpack": "^5.62.1",
-    "webpack-cli": "^4.9.1",
-    "webpack-dev-server": "^4.4.0"
+    "webpack": "^5.72.1",
+    "webpack-cli": "^4.9.2",
+    "webpack-dev-server": "^4.9.0"
   }
 }
