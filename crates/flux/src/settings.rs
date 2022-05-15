@@ -38,7 +38,7 @@ pub enum ColorScheme {
     Plasma,
     Peacock,
     Poolside,
-    Pollen,
+    Freedom,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -54,7 +54,7 @@ pub fn color_wheel_from_scheme(color_scheme: &ColorScheme) -> [f32; 24] {
         ColorScheme::Plasma => COLOR_SCHEME_PLASMA,
         ColorScheme::Peacock => COLOR_SCHEME_PEACOCK,
         ColorScheme::Poolside => COLOR_SCHEME_POOLSIDE,
-        ColorScheme::Pollen => COLOR_SCHEME_POLLEN,
+        ColorScheme::Freedom => COLOR_SCHEME_FREEDOM,
     }
 }
 
@@ -86,11 +86,11 @@ pub static COLOR_SCHEME_POOLSIDE: [f32; 24] = [
     156.0 / 255.0, 208.0 / 255.0, 236.0 / 255.0, 1.0,
 ];
 #[rustfmt::skip]
-pub static COLOR_SCHEME_POLLEN: [f32; 24] = [
-    243.0 / 255.0, 206.0 / 255.0, 57.0 / 255.0, 1.0,
-    247.0 / 255.0, 230.0 / 255.0, 13.0 / 255.0, 1.0,
-    248.0 / 255.0, 202.0 / 255.0, 18.0 / 255.0, 1.0,
-    252.0 / 255.0, 235.0 / 255.0, 160.0 / 255.0, 1.0,
-    252.0 / 255.0, 244.0 / 255.0, 236.0 / 255.0, 1.0,
-    211.0 / 255.0, 137.0 / 255.0, 39.0 / 255.0, 1.0,
+pub static COLOR_SCHEME_FREEDOM: [f32; 24] = [
+    0.0 / 255.0,   87.0 / 255.0,  183.0 / 255.0, 1.0, // blue
+    0.0 / 255.0,   87.0 / 255.0,  183.0 / 255.0, 1.0, // blue
+    0.0 / 255.0,   87.0 / 255.0,  183.0 / 255.0, 1.0, // blue
+    255.0 / 255.0, 215.0 / 255.0, 0.0 / 255.0,   1.0, // yellow
+    255.0 / 255.0, 215.0 / 255.0, 0.0 / 255.0,   1.0, // yellow
+    255.0 / 255.0, 215.0 / 255.0, 0.0 / 255.0,   1.0, // yellow
 ];

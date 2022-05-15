@@ -75,7 +75,7 @@ type ColorScheme
     = Plasma
     | Peacock
     | Poolside
-    | Pollen
+    | Freedom
 
 
 type alias Noise =
@@ -358,7 +358,7 @@ viewSettings settings =
             [ ( "Plasma", Plasma )
             , ( "Peacock", Peacock )
             , ( "Poolside", Poolside )
-            , ( "Pollen", Pollen )
+            , ( "🇺🇦", Freedom )
             ]
         , Html.h2
             [ HA.class "col-span-2-md" ]
@@ -840,8 +840,8 @@ colorSchemeToString colorscheme =
         Poolside ->
             "Poolside"
 
-        Pollen ->
-            "Pollen"
+        Freedom ->
+            "Freedom"
 
 
 encodeNoise : Noise -> Encode.Value
