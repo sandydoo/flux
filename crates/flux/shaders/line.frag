@@ -9,7 +9,6 @@ layout(std140) uniform LineUniforms
   mediump float uLineWidth;
   mediump float uLineLength;
   mediump float uLineBeginOffset;
-  mediump float uLineFadeOutLength;
 };
 
 out vec4 fragColor;

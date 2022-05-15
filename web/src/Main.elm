@@ -1,5 +1,6 @@
 port module Main exposing (..)
 
+import Array exposing (Array)
 import Browser
 import Browser.Events as BrowserEvent
 import FormatNumber as F
@@ -43,7 +44,8 @@ type alias Model =
 
 
 type alias Settings =
-    { viscosity : Float
+    { mode : Mode
+    , viscosity : Float
     , velocityDissipation : Float
     , startingPressure : Float
     , fluidSize : Int
@@ -54,98 +56,67 @@ type alias Settings =
     , lineLength : Float
     , lineWidth : Float
     , lineBeginOffset : Float
-    , lineFadeOutLength : Float
-    , springStiffness : Float
-    , springVariance : Float
-    , springMass : Float
-    , springDamping : Float
-    , springRestLength : Float
-    , maxLineVelocity : Float
-    , advectionDirection : AdvectionDirection
-    , adjustAdvection : Float
+    , lineVariance : Float
     , gridSpacing : Int
     , viewScale : Float
-    , noiseChannel1 : Noise
-    , noiseChannel2 : Noise
+    , noiseChannels : Array Noise
     }
 
 
-type AdvectionDirection
-    = Forward
-    | Reverse
+type Mode
+    = Normal
+    | DebugNoise
+    | DebugFluid
+    | DebugPressure
+    | DebugDivergence
 
 
 type ColorScheme
     = Plasma
     | Peacock
     | Poolside
-    | Pollen
+    | Freedom
 
 
 type alias Noise =
     { scale : Float
     , multiplier : Float
-    , offset1 : Float
-    , offset2 : Float
     , offsetIncrement : Float
-    , delay : Float
-    , blendDuration : Float
-    , blendThreshold : Float
-    , blendMethod : BlendMethod
     }
-
-
-type BlendMethod
-    = Curl
-    | Wiggle
 
 
 defaultSettings : Settings
 defaultSettings =
-    { viscosity = 1.0
+    { mode = Normal
+    , viscosity = 5.0
     , velocityDissipation = 0.0
-    , startingPressure = 0.8
+    , startingPressure = 0.0
     , fluidSize = 128
-    , fluidSimulationFrameRate = 30
+    , fluidSimulationFrameRate = 60
     , colorScheme = Peacock
-    , diffusionIterations = 20
-    , pressureIterations = 60
-    , lineLength = 220.0
-    , lineWidth = 5.0
+    , diffusionIterations = 4
+    , pressureIterations = 20
+    , lineLength = 400.0
+    , lineWidth = 7.0
     , lineBeginOffset = 0.5
-    , lineFadeOutLength = 0.005
-    , springVariance = 0.25
-    , springStiffness = 0.35
-    , springMass = 2.0
-    , springDamping = 5.0
-    , springRestLength = 0.0
-    , maxLineVelocity = 1.0
-    , advectionDirection = Forward
-    , viewScale = 1.2
-    , adjustAdvection = 28.0
-    , gridSpacing = 18
-    , noiseChannel1 =
-        { scale = 1.0
-        , multiplier = 0.2
-        , offset1 = 2.0
-        , offset2 = 10.0
-        , offsetIncrement = 0.05
-        , delay = 2.0
-        , blendDuration = 5.0
-        , blendThreshold = 0.4
-        , blendMethod = Curl
-        }
-    , noiseChannel2 =
-        { scale = 25.0
-        , multiplier = 0.02
-        , offset1 = 3.0
-        , offset2 = 2.0
-        , offsetIncrement = 0.02
-        , delay = 0.2
-        , blendDuration = 1.0
-        , blendThreshold = 0.0
-        , blendMethod = Curl
-        }
+    , lineVariance = 0.47
+    , viewScale = 1.6
+    , gridSpacing = 12
+    , noiseChannels =
+        Array.fromList
+            [ { scale = 2.3
+              , multiplier = 1.0
+              , offsetIncrement = 1.0 / 1024.0
+              }
+            , { scale = 13.8
+              , multiplier = 0.7
+              , offsetIncrement = 1.0 / 1024.0
+              }
+            , { scale = 27.6
+              , multiplier = 0.5
+              , offsetIncrement = 1.0 / 1024.0
+              }
+            ]
     }
 
 
@@ -188,7 +159,8 @@ update msg model =
 
 
 type SettingMsg
-    = SetViscosity Float
+    = SetMode Mode
+    | SetViscosity Float
     | SetVelocityDissipation Float
     | SetStartingPressure Float
     | SetDiffusionIterations Int
@@ -197,32 +169,22 @@ type SettingMsg
     | SetLineLength Float
     | SetLineWidth Float
     | SetLineBeginOffset Float
-    | SetLineFadeOutLength Float
-    | SetSpringStiffness Float
-    | SetSpringVariance Float
-    | SetSpringMass Float
-    | SetSpringDamping Float
-    | SetSpringRestLength Float
-    | SetAdvectionDirection AdvectionDirection
-    | SetAdjustAdvection Float
-    | SetNoiseChannel1 NoiseMsg
-    | SetNoiseChannel2 NoiseMsg
+    | SetLineVariance Float
+    | SetNoiseChannel Int NoiseMsg
 
 
 type NoiseMsg
     = SetNoiseScale Float
     | SetNoiseMultiplier Float
-    | SetNoiseOffset1 Float
-    | SetNoiseOffset2 Float
     | SetNoiseOffsetIncrement Float
-    | SetNoiseDelay Float
-    | SetNoiseBlendDuration Float
-    | SetNoiseBlendThreshold Float
 
 
 updateSettings : SettingMsg -> Settings -> Settings
 updateSettings msg settings =
     case msg of
+        SetMode newMode ->
+            { settings | mode = newMode }
+
         SetViscosity newViscosity ->
             { settings | viscosity = newViscosity }
 
@@ -250,35 +212,20 @@ updateSettings msg settings =
         SetLineBeginOffset newLineBeginOffset ->
             { settings | lineBeginOffset = newLineBeginOffset }
 
-        SetLineFadeOutLength newLineFadeOutLength ->
-            { settings | lineFadeOutLength = newLineFadeOutLength / settings.lineLength }
+        SetLineVariance newLineVariance ->
+            { settings | lineVariance = newLineVariance }
 
-        SetSpringStiffness newSpringStiffness ->
-            { settings | springStiffness = newSpringStiffness }
+        SetNoiseChannel channelNumber noiseMsg ->
+            let
+                maybeChannel =
+                    Array.get channelNumber settings.noiseChannels
+            in
+            case maybeChannel of
+                Just channel ->
+                    { settings | noiseChannels = Array.set channelNumber (updateNoise noiseMsg channel) settings.noiseChannels }
 
-        SetSpringVariance newSpringVariance ->
-            { settings | springVariance = newSpringVariance }
-
-        SetSpringMass newSpringMass ->
-            { settings | springMass = newSpringMass }
-
-        SetSpringDamping newSpringDamping ->
-            { settings | springDamping = newSpringDamping }
-
-        SetSpringRestLength newSpringRestLength ->
-            { settings | springRestLength = newSpringRestLength }
-
-        SetAdvectionDirection newDirection ->
-            { settings | advectionDirection = newDirection }
-
-        SetAdjustAdvection newAdjustAdvection ->
-            { settings | adjustAdvection = newAdjustAdvection }
-
-        SetNoiseChannel1 noiseMsg ->
-            { settings | noiseChannel1 = updateNoise noiseMsg settings.noiseChannel1 }
-
-        SetNoiseChannel2 noiseMsg ->
-            { settings | noiseChannel2 = updateNoise noiseMsg settings.noiseChannel2 }
+                Nothing ->
+                    settings
 
 
 updateNoise : NoiseMsg -> Noise -> Noise
@@ -290,23 +237,8 @@ updateNoise msg noise =
         SetNoiseMultiplier newMultiplier ->
             { noise | multiplier = newMultiplier }
 
-        SetNoiseOffset1 newOffset ->
-            { noise | offset1 = newOffset }
-
-        SetNoiseOffset2 newOffset ->
-            { noise | offset2 = newOffset }
-
         SetNoiseOffsetIncrement newOffsetIncrement ->
             { noise | offsetIncrement = newOffsetIncrement }
-
-        SetNoiseDelay newDelay ->
-            { noise | delay = newDelay }
-
-        SetNoiseBlendDuration newBlendDuration ->
-            { noise | blendDuration = newBlendDuration }
-
-        SetNoiseBlendThreshold newBlendThreshold ->
-            { noise | blendThreshold = newBlendThreshold }
 
 
 
@@ -402,6 +334,7 @@ viewSettings : Settings -> Html Msg
 viewSettings settings =
     Html.ul
         [ HA.class "control-list" ]
+    <|
         [ Html.div
             [ HA.class "col-span-2-md" ]
             [ Html.button
@@ -425,24 +358,7 @@ viewSettings settings =
             [ ( "Plasma", Plasma )
             , ( "Peacock", Peacock )
             , ( "Poolside", Poolside )
-            , ( "Pollen", Pollen )
-            ]
-        , Html.div
-            [ HA.class "col-span-2-md" ]
-            [ Html.h2 [] [ Html.text "Advection" ]
-            , Html.p
-                [ HA.class "control-description" ]
-                [ Html.text
-                    """
-                    Advection is the transport of some substance by motion of a fluid, and that substance is the field of lines.
-                    In “forward” mode, the lines point in the direction of fluid movement and tend to curl outwards. And in “reverse”, the lines create whirlpools as they spiral inwards.
-                    """
-                ]
-            ]
-        , viewButtonGroup (SetAdvectionDirection >> SaveSetting)
-            settings.advectionDirection
-            [ ( "Forward", Forward )
-            , ( "Reverse", Reverse )
+            , ( "🇺🇦", Freedom )
             ]
         , Html.h2
             [ HA.class "col-span-2-md" ]
@@ -508,91 +424,6 @@ viewSettings settings =
                     }
                 )
         , viewControl <|
-            let
-                toAbsoluteLength : Float -> Float
-                toAbsoluteLength offset =
-                    settings.lineLength * offset
-            in
-            Control
-                "Fog level"
-                """
-                Adjust the height of the fog which consumes shorter lines.
-                """
-                (Slider
-                    { min = 0.0
-                    , max = toAbsoluteLength 0.5
-                    , step = 0.1
-                    , value = toAbsoluteLength settings.lineFadeOutLength
-                    , onInput =
-                        \value ->
-                            String.toFloat value
-                                |> Maybe.withDefault 0.0
-                                |> SetLineFadeOutLength
-                                |> SaveSetting
-                    , toString = formatFloat 1
-                    }
-                )
-        , viewControl <|
-            Control
-                "Stiffness"
-                """
-                The stiffness of the line determines the amount of force needed to extend it.
-                """
-                (Slider
-                    { min = 0.0
-                    , max = 1.0
-                    , step = 0.01
-                    , value = settings.springStiffness
-                    , onInput =
-                        \value ->
-                            String.toFloat value
-                                |> Maybe.withDefault 0.0
-                                |> SetSpringStiffness
-                                |> SaveSetting
-                    , toString = formatFloat 2
-                    }
-                )
-        , viewControl <|
-            Control
-                "Mass"
-                """
-                Adjust the weight of each line. More mass means more momentum and more sluggish movement.
-                """
-                (Slider
-                    { min = 1.0
-                    , max = 20.0
-                    , step = 0.1
-                    , value = settings.springMass
-                    , onInput =
-                        \value ->
-                            String.toFloat value
-                                |> Maybe.withDefault 0.0
-                                |> SetSpringMass
-                                |> SaveSetting
-                    , toString = formatFloat 1
-                    }
-                )
-        , viewControl <|
-            Control
-                "Damping"
-                """
-                Dampen line oscillations.
-                """
-                (Slider
-                    { min = 0.0
-                    , max = 20.0
-                    , step = 0.1
-                    , value = settings.springDamping
-                    , onInput =
-                        \value ->
-                            String.toFloat value
-                                |> Maybe.withDefault 0.0
-                                |> SetSpringDamping
-                                |> SaveSetting
-                    , toString = formatFloat 1
-                    }
-                )
-        , viewControl <|
             Control
                 "Variance"
                 """
@@ -602,54 +433,14 @@ viewSettings settings =
                     { min = 0.0
                     , max = 1.0
                     , step = 0.01
-                    , value = settings.springVariance
+                    , value = settings.lineVariance
                     , onInput =
                         \value ->
                             String.toFloat value
                                 |> Maybe.withDefault 0.0
-                                |> SetSpringVariance
+                                |> SetLineVariance
                                 |> SaveSetting
                     , toString = formatFloat 2
-                    }
-                )
-        , viewControl <|
-            Control
-                "Resting length"
-                """
-                The length of a line at rest, when no forces are applied to it.
-                """
-                (Slider
-                    { min = 0.0
-                    , max = 1.0
-                    , step = 0.01
-                    , value = settings.springRestLength
-                    , onInput =
-                        \value ->
-                            String.toFloat value
-                                |> Maybe.withDefault 0.0
-                                |> SetSpringRestLength
-                                |> SaveSetting
-                    , toString = formatFloat 2
-                    }
-                )
-        , viewControl <|
-            Control
-                "Advection speed"
-                """
-                Adjust how quickly the lines respond to changes in the fluid.
-                """
-                (Slider
-                    { min = 0.1
-                    , max = 50.0
-                    , step = 0.1
-                    , value = settings.adjustAdvection
-                    , onInput =
-                        \value ->
-                            String.toFloat value
-                                |> Maybe.withDefault 0.0
-                                |> SetAdjustAdvection
-                                |> SaveSetting
-                    , toString = formatFloat 1
                     }
                 )
         , Html.h2 [ HA.class "col-span-2-md" ] [ Html.text "Fluid simulation" ]
@@ -759,9 +550,19 @@ viewSettings settings =
         , Html.h2
             [ HA.class "col-span-2-md" ]
             [ Html.text "Noise" ]
-        , viewNoiseChannel "Channel 1" SetNoiseChannel1 settings.noiseChannel1
-        , viewNoiseChannel "Channel 2" SetNoiseChannel2 settings.noiseChannel2
         ]
+            ++ (Array.toList <|
+                    Array.indexedMap
+                        (\index channel ->
+                            let
+                                title =
+                                    "Channel " ++ String.fromInt (index + 1)
+                            in
+                            viewNoiseChannel title (SetNoiseChannel index) channel
+                        )
+                        settings.noiseChannels
+               )
+            ++ viewDebug settings.mode
 
 
 viewButtonGroup : (value -> msg) -> value -> List ( String, value ) -> Html msg
@@ -789,17 +590,17 @@ viewButtonGroup onClick active options =
             options
 
 
+viewNoiseChannel : String -> (NoiseMsg -> SettingMsg) -> Noise -> Html Msg
 viewNoiseChannel title setNoiseChannel noiseChannel =
     Html.div
         [ HA.class "control-list-single" ]
         [ Html.div []
             [ Html.h4 [] [ Html.text title ]
-            , Html.p [ HA.class "control-description" ] [ Html.text "Simplex noise" ]
             ]
         , viewControl <|
             Control
                 "Scale"
-                ""
+                "The amount of detail in the noise. Larger values create more intricate patterns."
                 (Slider
                     { min = 0.1
                     , max = 30.0
@@ -818,7 +619,7 @@ viewNoiseChannel title setNoiseChannel noiseChannel =
         , viewControl <|
             Control
                 "Strength"
-                ""
+                "The amount of force applied by the noise."
                 (Slider
                     { min = 0.0
                     , max = 1.0
@@ -835,120 +636,65 @@ viewNoiseChannel title setNoiseChannel noiseChannel =
                     }
                 )
         , viewControl <|
+            let
+                -- Use this to stretch out the log scale a bit
+                scale : Float
+                scale =
+                    7.0
+
+                toSpeed : Int -> Float
+                toSpeed n =
+                    if n == 0 then
+                        0.0
+
+                    else
+                        2 ^ (toFloat (n - 100) / scale)
+
+                fromSpeed : Float -> Int
+                fromSpeed n =
+                    if n == 0.0 then
+                        0
+
+                    else
+                        100 + round (scale * logBase 2 n)
+            in
+            -- This scale is logarithmic. I should probably refactor the other
+            -- sliders to 0-100 as well.
             Control
-                "Offset 1"
-                ""
+                "Speed"
+                "How quickly the noise pattern changes."
                 (Slider
-                    { min = 0.0
-                    , max = 100.0
-                    , step = 1.0
-                    , value = noiseChannel.offset1
+                    { min = 0
+                    , max = 100
+                    , step = 1
+                    , value = fromSpeed noiseChannel.offsetIncrement
                     , onInput =
                         \value ->
-                            String.toFloat value
-                                |> Maybe.withDefault 0.0
-                                |> SetNoiseOffset1
-                                |> setNoiseChannel
-                                |> SaveSetting
-                    , toString = formatFloat 1
-                    }
-                )
-        , viewControl <|
-            Control
-                "Offset 2"
-                ""
-                (Slider
-                    { min = 0.0
-                    , max = 100.0
-                    , step = 1.0
-                    , value = noiseChannel.offset2
-                    , onInput =
-                        \value ->
-                            String.toFloat value
-                                |> Maybe.withDefault 0.0
-                                |> SetNoiseOffset2
-                                |> setNoiseChannel
-                                |> SaveSetting
-                    , toString = formatFloat 1
-                    }
-                )
-        , viewControl <|
-            Control
-                "Offset increment"
-                ""
-                (Slider
-                    { min = 0.0
-                    , max = 1.0
-                    , step = 0.01
-                    , value = noiseChannel.offsetIncrement
-                    , onInput =
-                        \value ->
-                            String.toFloat value
-                                |> Maybe.withDefault 0.0
+                            String.toInt value
+                                |> Maybe.withDefault 0
+                                |> toSpeed
                                 |> SetNoiseOffsetIncrement
                                 |> setNoiseChannel
                                 |> SaveSetting
-                    , toString = formatFloat 2
-                    }
-                )
-        , viewControl <|
-            Control
-                "Delay"
-                ""
-                (Slider
-                    { min = 0.0
-                    , max = 10.0
-                    , step = 0.1
-                    , value = noiseChannel.delay
-                    , onInput =
-                        \value ->
-                            String.toFloat value
-                                |> Maybe.withDefault 1.0
-                                |> SetNoiseDelay
-                                |> setNoiseChannel
-                                |> SaveSetting
-                    , toString = formatFloat 1
-                    }
-                )
-        , viewControl <|
-            Control
-                "Blend duration"
-                ""
-                (Slider
-                    { min = 0.1
-                    , max = 10.0
-                    , step = 0.1
-                    , value = noiseChannel.blendDuration
-                    , onInput =
-                        \value ->
-                            String.toFloat value
-                                |> Maybe.withDefault 0.0
-                                |> SetNoiseBlendDuration
-                                |> setNoiseChannel
-                                |> SaveSetting
-                    , toString = formatFloat 1
-                    }
-                )
-        , viewControl <|
-            Control
-                "Blend threshold"
-                ""
-                (Slider
-                    { min = 0.0
-                    , max = 0.6
-                    , step = 0.01
-                    , value = noiseChannel.blendThreshold
-                    , onInput =
-                        \value ->
-                            String.toFloat value
-                                |> Maybe.withDefault 0.0
-                                |> SetNoiseBlendThreshold
-                                |> setNoiseChannel
-                                |> SaveSetting
-                    , toString = formatFloat 2
+                    , toString = String.fromInt
                     }
                 )
         ]
+
+
+viewDebug : Mode -> List (Html Msg)
+viewDebug mode =
+    [ Html.h2 [ HA.class "col-span-2-md" ] [ Html.text "Debugging" ]
+    , viewButtonGroup (SetMode >> SaveSetting)
+        mode
+        [ ( "Normal", Normal )
+        , ( "Noise", DebugNoise )
+        , ( "Fluid", DebugFluid )
+
+        --, ( "Pressure", DebugPressure )
+        --, ( "Divergence", DebugDivergence )
+        ]
+    ]
 
 
 viewControl : Control number -> Html Msg
@@ -1038,7 +784,8 @@ decodeKeyCode key msg =
 encodeSettings : Settings -> Encode.Value
 encodeSettings settings =
     Encode.object
-        [ ( "viscosity", Encode.float settings.viscosity )
+        [ ( "mode", encodeMode settings.mode )
+        , ( "viscosity", Encode.float settings.viscosity )
         , ( "velocityDissipation", Encode.float settings.velocityDissipation )
         , ( "startingPressure", Encode.float settings.startingPressure )
         , ( "fluidSize", Encode.int settings.fluidSize )
@@ -1049,35 +796,31 @@ encodeSettings settings =
         , ( "lineLength", Encode.float settings.lineLength )
         , ( "lineWidth", Encode.float settings.lineWidth )
         , ( "lineBeginOffset", Encode.float settings.lineBeginOffset )
-        , ( "lineFadeOutLength", Encode.float settings.lineFadeOutLength )
-        , ( "springStiffness", Encode.float settings.springStiffness )
-        , ( "springVariance", Encode.float settings.springVariance )
-        , ( "springMass", Encode.float settings.springMass )
-        , ( "springDamping", Encode.float settings.springDamping )
-        , ( "springRestLength", Encode.float settings.springRestLength )
-        , ( "maxLineVelocity", Encode.float settings.maxLineVelocity )
-        , ( "advectionDirection", encodeAdvectionDirection settings.advectionDirection )
-        , ( "adjustAdvection", Encode.float settings.adjustAdvection )
+        , ( "lineVariance", Encode.float settings.lineVariance )
         , ( "gridSpacing", Encode.int settings.gridSpacing )
         , ( "viewScale", Encode.float settings.viewScale )
-        , ( "noiseChannel1", encodeNoise settings.noiseChannel1 )
-        , ( "noiseChannel2", encodeNoise settings.noiseChannel2 )
+        , ( "noiseChannels", Encode.array encodeNoise settings.noiseChannels )
         ]
 
 
-encodeAdvectionDirection : AdvectionDirection -> Encode.Value
-encodeAdvectionDirection =
-    advectionDirectionToInt >> Encode.int
+encodeMode : Mode -> Encode.Value
+encodeMode mode =
+    Encode.string <|
+        case mode of
+            Normal ->
+                "Normal"
 
+            DebugNoise ->
+                "DebugNoise"
 
-advectionDirectionToInt : AdvectionDirection -> Int
-advectionDirectionToInt direction =
-    case direction of
-        Forward ->
-            1
+            DebugFluid ->
+                "DebugFluid"
 
-        Reverse ->
-            -1
+            DebugPressure ->
+                "DebugPressure"
+
+            DebugDivergence ->
+                "DebugDivergence"
 
 
 encodeColorScheme : ColorScheme -> Encode.Value
@@ -1097,23 +840,8 @@ colorSchemeToString colorscheme =
         Poolside ->
             "Poolside"
 
-        Pollen ->
-            "Pollen"
-
-
-encodeBlendMethod : BlendMethod -> Encode.Value
-encodeBlendMethod =
-    blendMethodToString >> Encode.string
-
-
-blendMethodToString : BlendMethod -> String
-blendMethodToString blendMethod =
-    case blendMethod of
-        Curl ->
-            "Curl"
-
-        Wiggle ->
-            "Wiggle"
+        Freedom ->
+            "Freedom"
 
 
 encodeNoise : Noise -> Encode.Value
@@ -1121,11 +849,5 @@ encodeNoise noise =
     Encode.object
         [ ( "scale", Encode.float noise.scale )
         , ( "multiplier", Encode.float noise.multiplier )
-        , ( "offset1", Encode.float noise.offset1 )
-        , ( "offset2", Encode.float noise.offset2 )
         , ( "offsetIncrement", Encode.float noise.offsetIncrement )
-        , ( "delay", Encode.float noise.delay )
-        , ( "blendDuration", Encode.float noise.blendDuration )
-        , ( "blendThreshold", Encode.float noise.blendThreshold )
-        , ( "blendMethod", encodeBlendMethod noise.blendMethod )
         ]

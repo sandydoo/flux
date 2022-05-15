@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
+    pub mode: Mode,
     pub viscosity: f32,
     pub velocity_dissipation: f32,
     pub starting_pressure: f32,
@@ -16,22 +17,20 @@ pub struct Settings {
     pub line_length: f32,
     pub line_width: f32,
     pub line_begin_offset: f32,
-    pub line_fade_out_length: f32,
-
-    pub spring_stiffness: f32,
-    pub spring_variance: f32,
-    pub spring_mass: f32,
-    pub spring_damping: f32,
-    pub spring_rest_length: f32,
-
-    pub advection_direction: f32,
-    pub adjust_advection: f32,
-    pub max_line_velocity: f32,
+    pub line_variance: f32,
     pub grid_spacing: u32,
     pub view_scale: f32,
 
-    pub noise_channel_1: Noise,
-    pub noise_channel_2: Noise,
+    pub noise_channels: Vec<Noise>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub enum Mode {
+    Normal,
+    DebugNoise,
+    DebugFluid,
+    DebugPressure,
+    DebugDivergence,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -39,13 +38,7 @@ pub enum ColorScheme {
     Plasma,
     Peacock,
     Poolside,
-    Pollen,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub enum BlendMethod {
-    Curl,
-    Wiggle,
+    Freedom,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -53,13 +46,7 @@ pub enum BlendMethod {
 pub struct Noise {
     pub scale: f32,
     pub multiplier: f32,
-    pub offset_1: f32,
-    pub offset_2: f32,
     pub offset_increment: f32,
-    pub delay: f32,
-    pub blend_duration: f32,
-    pub blend_threshold: f32,
-    pub blend_method: BlendMethod,
 }
 
 pub fn color_wheel_from_scheme(color_scheme: &ColorScheme) -> [f32; 24] {
@@ -67,7 +54,7 @@ pub fn color_wheel_from_scheme(color_scheme: &ColorScheme) -> [f32; 24] {
         ColorScheme::Plasma => COLOR_SCHEME_PLASMA,
         ColorScheme::Peacock => COLOR_SCHEME_PEACOCK,
         ColorScheme::Poolside => COLOR_SCHEME_POOLSIDE,
-        ColorScheme::Pollen => COLOR_SCHEME_POLLEN,
+        ColorScheme::Freedom => COLOR_SCHEME_FREEDOM,
     }
 }
 
@@ -99,11 +86,11 @@ pub static COLOR_SCHEME_POOLSIDE: [f32; 24] = [
     156.0 / 255.0, 208.0 / 255.0, 236.0 / 255.0, 1.0,
 ];
 #[rustfmt::skip]
-pub static COLOR_SCHEME_POLLEN: [f32; 24] = [
-    243.0 / 255.0, 206.0 / 255.0, 57.0 / 255.0, 1.0,
-    247.0 / 255.0, 230.0 / 255.0, 13.0 / 255.0, 1.0,
-    248.0 / 255.0, 202.0 / 255.0, 18.0 / 255.0, 1.0,
-    252.0 / 255.0, 235.0 / 255.0, 160.0 / 255.0, 1.0,
-    252.0 / 255.0, 244.0 / 255.0, 236.0 / 255.0, 1.0,
-    211.0 / 255.0, 137.0 / 255.0, 39.0 / 255.0, 1.0,
+pub static COLOR_SCHEME_FREEDOM: [f32; 24] = [
+    0.0 / 255.0,   87.0 / 255.0,  183.0 / 255.0, 1.0, // blue
+    0.0 / 255.0,   87.0 / 255.0,  183.0 / 255.0, 1.0, // blue
+    0.0 / 255.0,   87.0 / 255.0,  183.0 / 255.0, 1.0, // blue
+    255.0 / 255.0, 215.0 / 255.0, 0.0 / 255.0,   1.0, // yellow
+    255.0 / 255.0, 215.0 / 255.0, 0.0 / 255.0,   1.0, // yellow
+    255.0 / 255.0, 215.0 / 255.0, 0.0 / 255.0,   1.0, // yellow
 ];

@@ -1,4 +1,4 @@
-use flux::settings::{BlendMethod, ColorScheme, Noise, Settings};
+use flux::settings::{ColorScheme, Mode, Noise, Settings};
 use flux::Flux;
 use glutin::event::{Event, WindowEvent};
 use glutin::event_loop::{ControlFlow, EventLoop};
@@ -6,54 +6,42 @@ use glutin::window::Window;
 use glutin::PossiblyCurrent;
 use std::rc::Rc;
 
-const settings: Settings = Settings {
-    viscosity: 1.0,
-    velocity_dissipation: 0.0,
-    starting_pressure: 0.8,
-    fluid_size: 128,
-    fluid_simulation_frame_rate: 30.0,
-    diffusion_iterations: 20,
-    pressure_iterations: 60,
-    color_scheme: ColorScheme::Plasma,
-    line_length: 180.0,
-    line_width: 6.0,
-    line_begin_offset: 0.5,
-    line_fade_out_length: 0.005,
-    spring_stiffness: 0.2,
-    spring_variance: 0.25,
-    spring_mass: 2.0,
-    spring_damping: 2.0,
-    spring_rest_length: 0.0,
-    advection_direction: 1.0,
-    adjust_advection: 22.0,
-    max_line_velocity: 0.02,
-    grid_spacing: 20,
-    view_scale: 1.2,
-    noise_channel_1: Noise {
-        scale: 0.9,
-        multiplier: 0.20,
-        offset_1: 2.0,
-        offset_2: 8.0,
-        offset_increment: 0.01,
-        delay: 0.5,
-        blend_duration: 3.5,
-        blend_threshold: 0.4,
-        blend_method: BlendMethod::Curl,
-    },
-    noise_channel_2: Noise {
-        scale: 25.0,
-        multiplier: 0.08,
-        offset_1: 3.0,
-        offset_2: 2.0,
-        offset_increment: 0.02,
-        delay: 0.15,
-        blend_duration: 1.0,
-        blend_threshold: 0.0,
-        blend_method: BlendMethod::Curl,
-    },
-};
-
 fn main() {
+    let settings = Settings {
+        mode: Mode::Normal,
+        viscosity: 5.0,
+        velocity_dissipation: 0.0,
+        starting_pressure: 0.0,
+        fluid_size: 128,
+        fluid_simulation_frame_rate: 60.0,
+        diffusion_iterations: 4,
+        pressure_iterations: 20,
+        color_scheme: ColorScheme::Peacock,
+        line_length: 300.0,
+        line_width: 5.0,
+        line_begin_offset: 0.5,
+        line_variance: 0.47,
+        grid_spacing: 14,
+        view_scale: 1.6,
+        noise_channels: vec![
+            Noise {
+                scale: 2.3,
+                multiplier: 1.0,
+                offset_increment: 0.002,
+            },
+            Noise {
+                scale: 13.8,
+                multiplier: 0.7,
+                offset_increment: 0.002,
+            },
+            Noise {
+                scale: 27.6,
+                multiplier: 0.5,
+                offset_increment: 0.002,
+            },
+        ],
+    };
+
     let logical_size = glutin::dpi::LogicalSize::new(1200, 900);
     let (context, window, event_loop) =
         get_rendering_context(logical_size.width, logical_size.height);

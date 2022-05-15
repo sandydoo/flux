@@ -1,5 +1,5 @@
 in vec3 position;
-out vec2 textureCoord;
+out vec2 texturePosition;
 
 layout(std140) uniform Projection
 {
@@ -10,5 +10,5 @@ layout(std140) uniform Projection
 void main() {
   vec4 newPosition = uView * vec4(position, 1.0);
   gl_Position = newPosition;
-  textureCoord = newPosition.xy * 0.5 + 0.5;
+  texturePosition = newPosition.xy * 0.5 + 0.5;
 }

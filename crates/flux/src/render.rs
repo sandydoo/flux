@@ -1,6 +1,8 @@
 use glow::HasContext;
 use rustc_hash::FxHashMap;
+use std::borrow::Cow;
 use std::cell::{Ref, RefCell};
+use std::fmt::Write;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -56,89 +58,32 @@ pub struct Buffer {
     pub id: glow::Buffer,
     pub size: usize,
     pub type_: u32,
+    pub usage: u32,
+}
+
+impl Drop for Buffer {
+    fn drop(&mut self) {
+        unsafe {
+            self.context.delete_buffer(self.id);
+        }
+    }
 }
 
 #[allow(dead_code)]
 impl Buffer {
-    pub fn from_f32(context: &Context, data: &[f32], buffer_type: u32, usage: u32) -> Result<Self> {
-        // let memory_buffer = wasm_bindgen::memory()
-        //     .dyn_into::<WebAssembly::Memory>()
-        //     .unwrap() // fix
-        //     .buffer();
-        // let arr_location = data.as_ptr() as u32 / 4;
-        // let data_array = js_sys::Float32Array::new(&memory_buffer)
-        //     .subarray(arr_location, arr_location + data.len() as u32);
-
-        let buffer = unsafe {
-            let buffer = context
-                .create_buffer()
-                .map_err(|_| Problem::CannotCreateBuffer)?;
-
-            context.bind_buffer(buffer_type, Some(buffer));
-            context.buffer_data_u8_slice(buffer_type, &bytemuck::cast_slice(&data), usage);
-            context.bind_buffer(buffer_type, None);
-
-            buffer
-        };
-
-        Ok(Self {
-            context: Rc::clone(context),
-            id: buffer,
-            size: data.len(),
-            type_: buffer_type,
-        })
-    }
-
-    pub fn from_u16(context: &Context, data: &[u16], buffer_type: u32, usage: u32) -> Result<Self> {
-        // let memory_buffer = wasm_bindgen::memory()
-        //     .dyn_into::<WebAssembly::Memory>()
-        //     .unwrap() // fix
-        //     .buffer();
-        // let data_location = data.as_ptr() as u32 / 2;
-        // let data_array = js_sys::Uint16Array::new(&memory_buffer)
-        //     .subarray(data_location, data_location + data.len() as u32);
-
-        let buffer = unsafe {
-            let buffer = context
-                .create_buffer()
-                .map_err(|_| Problem::CannotCreateBuffer)?;
-
-            context.bind_buffer(buffer_type, Some(buffer));
-            context.buffer_data_u8_slice(buffer_type, &bytemuck::cast_slice(&data), usage);
-            context.bind_buffer(buffer_type, None);
-
-            buffer
-        };
-
-        Ok(Self {
-            context: Rc::clone(context),
-            id: buffer,
-            size: data.len(),
-            type_: buffer_type,
-        })
-    }
-
-    pub fn from_u32(
+    pub fn from_bytes(
         context: &Context,
-        data: &Vec<u32>,
+        data: &[u8],
         buffer_type: u32,
         usage: u32,
     ) -> Result<Self> {
-        // let memory_buffer = wasm_bindgen::memory()
-        //     .dyn_into::<WebAssembly::Memory>()
-        //     .unwrap() // fix
-        //     .buffer();
-        // let data_location = data.as_ptr() as u32 / 4;
-        // let data_array = js_sys::Uint16Array::new(&memory_buffer)
-        //     .subarray(data_location, data_location + data.len() as u32);
-
         let buffer = unsafe {
             let buffer = context
                 .create_buffer()
                 .map_err(|_| Problem::CannotCreateBuffer)?;
 
             context.bind_buffer(buffer_type, Some(buffer));
-            context.buffer_data_u8_slice(buffer_type, &bytemuck::cast_slice(&data), usage);
+            context.buffer_data_u8_slice(buffer_type, data, usage);
             context.bind_buffer(buffer_type, None);
 
             buffer
@@ -149,7 +94,33 @@ impl Buffer {
             id: buffer,
             size: data.len(),
             type_: buffer_type,
+            usage,
         })
+    }
+
+    pub fn from_f32(context: &Context, data: &[f32], buffer_type: u32, usage: u32) -> Result<Self> {
+        Self::from_bytes(context, bytemuck::cast_slice(data), buffer_type, usage)
+    }
+
+    pub fn from_u16(context: &Context, data: &[u16], buffer_type: u32, usage: u32) -> Result<Self> {
+        Self::from_bytes(context, bytemuck::cast_slice(data), buffer_type, usage)
+    }
+
+    pub fn update(&self, data: &[u8]) {
+        unsafe {
+            self.context.bind_buffer(self.type_, Some(self.id));
+            self.context.buffer_sub_data_u8_slice(self.type_, 0, data);
+            self.context.bind_buffer(self.type_, None);
+        }
+    }
+
+    pub fn overwrite(&self, data: &[u8]) {
+        unsafe {
+            self.context.bind_buffer(self.type_, Some(self.id));
+            self.context
+                .buffer_data_u8_slice(self.type_, data, self.usage);
+            self.context.bind_buffer(self.type_, None);
+        }
     }
 }
 
@@ -182,6 +153,25 @@ pub struct Framebuffer {
     pub height: u32,
     pub texture: glow::Texture,
     pub options: TextureOptions,
+}
+
+impl Drop for Framebuffer {
+    fn drop(&mut self) {
+        unsafe {
+            self.context
+                .bind_framebuffer(glow::FRAMEBUFFER, Some(self.id));
+            self.context.framebuffer_texture_2d(
+                glow::FRAMEBUFFER,
+                glow::COLOR_ATTACHMENT0,
+                glow::TEXTURE_2D,
+                None,
+                0,
+            );
+            self.context.bind_framebuffer(glow::FRAMEBUFFER, None);
+            self.context.delete_framebuffer(self.id);
+            self.context.delete_texture(self.texture);
+        }
+    }
 }
 
 impl Framebuffer {
@@ -245,11 +235,7 @@ impl Framebuffer {
         })
     }
 
-    pub fn with_f32_data(self, data: &[f32]) -> Result<Self> {
-        self.with_data(Some(&data))
-    }
-
-    pub fn with_data<T: bytemuck::Pod>(self, data: Option<&[T]>) -> Result<Self> {
+    pub fn with_data<T: bytemuck::Pod>(&self, data: Option<&[T]>) -> Result<()> {
         let TextureFormat {
             internal_format,
             format,
@@ -299,7 +285,7 @@ impl Framebuffer {
             self.context.bind_framebuffer(glow::FRAMEBUFFER, None);
         }
 
-        Ok(self)
+        Ok(())
     }
 
     pub fn zero_out(&self) -> Result<()> {
@@ -382,20 +368,14 @@ impl DoubleFramebuffer {
         })
     }
 
-    pub fn with_data<T: bytemuck::Pod>(self, data: Option<&[T]>) -> Result<Self> {
-        // TODO: are these clones okay? The problem is that the builder pattern
-        // doesn’t work well with RefCell in the DoubleBuffer. Another option is
-        // to build with references and call a `finalize` method at the end.
-        self.front
-            .replace_with(|buffer| buffer.clone().with_data(data).unwrap());
-        // TODO: should we copy the data to the second buffer/texture, or just init with the right size?
-        self.back
-            .replace_with(|buffer| buffer.clone().with_data(data).unwrap());
+    pub fn with_data<T: bytemuck::Pod>(&self, data: Option<&[T]>) -> Result<()> {
+        self.front.borrow().with_data(data)?;
+        self.back.borrow().with_data(data)?;
 
-        Ok(self)
+        Ok(())
     }
 
-    pub fn with_f32_data(self, data: &[f32]) -> Result<Self> {
+    pub fn with_f32_data(&self, data: &[f32]) -> Result<()> {
         self.with_data(Some(&data))
     }
 
@@ -446,6 +426,118 @@ impl DoubleFramebuffer {
     }
 }
 
+pub struct TransformFeedback {
+    context: Context,
+    pub feedback: glow::TransformFeedback,
+    pub buffer: Buffer,
+}
+
+impl Drop for TransformFeedback {
+    fn drop(&mut self) {
+        unsafe {
+            self.context
+                .bind_transform_feedback(glow::TRANSFORM_FEEDBACK, Some(self.feedback));
+            self.context
+                .bind_buffer_base(glow::TRANSFORM_FEEDBACK_BUFFER, 0, None);
+            self.context
+                .bind_transform_feedback(glow::TRANSFORM_FEEDBACK, None);
+            self.context.delete_transform_feedback(self.feedback);
+        }
+    }
+}
+
+impl TransformFeedback {
+    pub fn new(context: &Context, data: &[u8]) -> Result<Self> {
+        let feedback = unsafe {
+            context
+                .create_transform_feedback()
+                .map_err(|_| Problem::OutOfMemory)?
+        };
+        let buffer = Buffer::from_bytes(context, data, glow::ARRAY_BUFFER, glow::DYNAMIC_DRAW)?;
+
+        unsafe {
+            context.bind_transform_feedback(glow::TRANSFORM_FEEDBACK, Some(feedback));
+            context.bind_buffer_base(glow::TRANSFORM_FEEDBACK_BUFFER, 0, Some(buffer.id));
+            context.bind_transform_feedback(glow::TRANSFORM_FEEDBACK, None);
+        }
+
+        Ok(Self {
+            context: Rc::clone(context),
+            feedback,
+            buffer,
+        })
+    }
+
+    pub fn overwrite_buffer(&mut self, data: &[u8]) -> Result<()> {
+        self.buffer.overwrite(data);
+
+        Ok(())
+    }
+
+    pub fn draw_to<T>(&self, draw_call: T)
+    where
+        T: Fn() -> (),
+    {
+        unsafe {
+            self.context
+                .bind_transform_feedback(glow::TRANSFORM_FEEDBACK, Some(self.feedback));
+
+            self.context.enable(glow::RASTERIZER_DISCARD);
+            self.context.begin_transform_feedback(glow::POINTS);
+
+            draw_call();
+
+            self.context.end_transform_feedback();
+            self.context
+                .bind_transform_feedback(glow::TRANSFORM_FEEDBACK, None);
+            self.context.disable(glow::RASTERIZER_DISCARD);
+        }
+    }
+}
+
+pub struct DoubleTransformFeedback {
+    pub active_buffer: usize,
+    buffers: [TransformFeedback; 2],
+}
+
+impl DoubleTransformFeedback {
+    pub fn new(context: &Context, data: &[u8]) -> Result<Self> {
+        let front = TransformFeedback::new(context, data)?;
+        let back = TransformFeedback::new(context, data)?;
+
+        Ok(Self {
+            active_buffer: 0,
+            buffers: [front, back],
+        })
+    }
+
+    pub fn overwrite_buffer(&mut self, data: &[u8]) -> Result<()> {
+        self.buffers[0].overwrite_buffer(data)?;
+        self.buffers[1].overwrite_buffer(data)?;
+        Ok(())
+    }
+
+    pub fn current_buffer(&self) -> &TransformFeedback {
+        &self.buffers[self.active_buffer]
+    }
+
+    pub fn next_buffer(&self) -> &TransformFeedback {
+        &self.buffers[1 - self.active_buffer]
+    }
+
+    pub fn swap(&mut self) {
+        self.active_buffer = 1 - self.active_buffer;
+    }
+
+    pub fn draw_to<T>(&mut self, draw_call: T)
+    where
+        T: Fn() -> (),
+    {
+        self.next_buffer().draw_to(draw_call);
+        self.swap();
+    }
+}
+
 #[derive(Clone)]
 pub struct Program {
     context: Context,
@@ -454,26 +546,51 @@ pub struct Program {
     uniforms: FxHashMap<String, UniformInfo>,
 }
 
+impl Drop for Program {
+    fn drop(&mut self) {
+        unsafe {
+            self.context.delete_program(self.program);
+        }
+    }
+}
+
 impl Program {
     pub fn new(context: &Context, shaders: (&str, &str)) -> Result<Self> {
-        Self::new_impl(&context, shaders, None)
+        Self::new_impl(&context, shaders, None, None)
     }
 
     pub fn new_with_transform_feedback(
         context: &Context,
         shaders: (&str, &str),
-        transform_feedback: &TransformFeedback,
+        transform_feedback: &TransformFeedbackInfo,
     ) -> Result<Self> {
-        Self::new_impl(&context, shaders, Some(&transform_feedback))
+        Self::new_impl(&context, shaders, None, Some(&transform_feedback))
+    }
+
+    pub fn new_with_variables(
+        context: &Context,
+        shaders: (&str, &str),
+        variables: &[(&'static str, &str)],
+    ) -> Result<Self> {
+        Self::new_impl(&context, shaders, Some(&variables), None)
     }
 
     pub fn new_impl(
         context: &Context,
         shaders: (&str, &str),
-        transform_feedback: Option<&TransformFeedback>,
+        optional_variables: Option<&[(&'static str, &str)]>,
+        transform_feedback: Option<&TransformFeedbackInfo>,
     ) -> Result<Self> {
-        let vertex_shader = compile_shader(&context, glow::VERTEX_SHADER, shaders.0)?;
-        let fragment_shader = compile_shader(&context, glow::FRAGMENT_SHADER, shaders.1)?;
+        let vertex_shader = compile_shader(
+            &context,
+            glow::VERTEX_SHADER,
+            &preprocess_shader(shaders.0, optional_variables),
+        )?;
+        let fragment_shader = compile_shader(
+            &context,
+            glow::FRAGMENT_SHADER,
+            &preprocess_shader(shaders.1, optional_variables),
+        )?;
 
         let program = unsafe {
             let program = context
@@ -482,7 +599,7 @@ impl Program {
             context.attach_shader(program, vertex_shader);
             context.attach_shader(program, fragment_shader);
 
-            if let Some(TransformFeedback { names, mode }) = transform_feedback {
+            if let Some(TransformFeedbackInfo { names, mode }) = transform_feedback {
                 context.transform_feedback_varyings(program, names, *mode);
             }
 
@@ -639,6 +756,27 @@ impl Program {
     }
 }
 
+fn preprocess_shader<'a>(
+    source: &'a str,
+    optional_variables: Option<&[(&'static str, &str)]>,
+) -> Cow<'a, str> {
+    if let Some(variables) = optional_variables {
+        let mut preamble = String::new();
+        for (name, value) in variables.iter() {
+            write!(&mut preamble, "#define {} {}\n", name, value).unwrap();
+        }
+
+        if source.starts_with("#version") {
+            let (version, source_rest) = source.split_once('\n').unwrap();
+            format!("{}\n{}{}", version, preamble, source_rest).into()
+        } else {
+            (preamble + source).into()
+        }
+    } else {
+        source.into()
+    }
+}
+
 #[derive(Clone)]
 struct AttributeInfo {
     type_: u32,
@@ -660,7 +798,7 @@ pub struct Attribute {
     pub divisor: u32,
 }
 
-pub struct TransformFeedback<'a> {
+pub struct TransformFeedbackInfo<'a> {
     pub names: &'a [&'static str],
     pub mode: u32,
 }
@@ -703,7 +841,7 @@ pub fn compile_shader(context: &Context, shader_type: u32, source: &str) -> Resu
     }
 }
 
-#[derive(Default)]
+#[derive(Clone, Copy, Default)]
 pub struct VertexBufferLayout {
     pub name: &'static str,
     pub size: u32,
@@ -720,6 +858,15 @@ pub struct MsaaPass {
     pub samples: u32,
     framebuffer: glow::Framebuffer,
     renderbuffer: glow::Renderbuffer,
+}
+
+impl Drop for MsaaPass {
+    fn drop(&mut self) {
+        unsafe {
+            self.context.delete_framebuffer(self.framebuffer);
+            self.context.delete_renderbuffer(self.renderbuffer);
+        }
+    }
 }
 
 impl MsaaPass {
@@ -830,11 +977,23 @@ struct TextureFormat {
 // https://www.khronos.org/registry/webgl/specs/latest/2.0/#TEXTURE_TYPES_FORMATS_FROM_DOM_ELEMENTS_TABLE
 fn detect_texture_format(internal_format: GlDataType) -> Result<TextureFormat> {
     match internal_format {
+        glow::R16F => Ok(TextureFormat {
+            internal_format,
+            format: glow::RED,
+            type_: glow::HALF_FLOAT,
+            size: 1,
+        }),
         glow::R32F => Ok(TextureFormat {
             internal_format,
             format: glow::RED,
             type_: glow::FLOAT,
             size: 1,
+        }),
+        glow::RG16F => Ok(TextureFormat {
+            internal_format,
+            format: glow::RG,
+            type_: glow::HALF_FLOAT,
+            size: 2,
         }),
         glow::RG32F => Ok(TextureFormat {
             internal_format,
@@ -863,6 +1022,14 @@ pub struct VertexArrayObject {
     pub id: glow::VertexArray,
 }
 
+impl Drop for VertexArrayObject {
+    fn drop(&mut self) {
+        unsafe {
+            self.context.delete_vertex_array(self.id);
+        }
+    }
+}
+
 impl VertexArrayObject {
     pub fn empty(context: &Context) -> Result<Self> {
         let id = unsafe {
@@ -884,19 +1051,7 @@ impl VertexArrayObject {
         indices: Option<&Buffer>,
     ) -> Result<Self> {
         let vao = Self::empty(context)?;
-
-        unsafe {
-            context.bind_vertex_array(Some(vao.id));
-
-            for (vertex, attribute) in vertices.iter() {
-                bind_attributes(&context, &program, vertex, attribute)?;
-            }
-
-            context.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, indices.map(|buffer| buffer.id));
-
-            context.bind_vertex_array(None);
-        }
-
+        vao.update(program, vertices, indices)?;
         Ok(vao)
     }
 
@@ -959,6 +1114,8 @@ pub fn bind_attributes(
 
             context.vertex_attrib_divisor(location, buffer_layout.divisor);
         }
+
+        context.bind_buffer(glow::ARRAY_BUFFER, None);
     }
 
     Ok(())

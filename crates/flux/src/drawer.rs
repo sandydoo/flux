@@ -4,8 +4,8 @@ use render::{
 };
 use settings::Settings;
 
-extern crate nalgebra_glm as glm;
 use bytemuck::{Pod, Zeroable};
+use crevice::std140::{AsStd140, Std140};
 use glow::HasContext;
 use std::f32::consts::PI;
 use std::rc::Rc;
@@ -29,39 +29,39 @@ static PLACE_LINES_FRAG_SHADER: &'static str =
 
 #[rustfmt::skip]
 const LINE_VERTICES: [f32; 12] = [
-    0.0, -0.3,
+    0.0, -0.5,
     1.0, -0.5,
     1.0, 0.5,
-    0.0, -0.3,
+    0.0, -0.5,
     1.0, 0.5,
-    0.0, 0.3,
+    0.0, 0.5,
 ];
 
 #[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable)]
+#[derive(Clone, Copy)]
 struct LineState {
-    endpoint: [f32; 2],
-    velocity: [f32; 2],
-    color: [f32; 4],
+    endpoint: mint::Vector2<f32>,
+    velocity: mint::Vector2<f32>,
+    color: mint::Vector4<f32>,
     width: f32,
     line_opacity: f32,
     endpoint_opacity: f32,
 }
 
-#[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable)]
+unsafe impl Zeroable for LineState {}
+unsafe impl Pod for LineState {}
+
+#[derive(AsStd140)]
 struct Projection {
-    projection: [f32; 16],
-    view: [f32; 16],
+    projection_matrix: mint::ColumnMatrix4<f32>,
+    view_matrix: mint::ColumnMatrix4<f32>,
 }
 
-#[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable)]
+#[derive(AsStd140)]
 struct LineUniforms {
     line_width: f32,
     line_length: f32,
     line_begin_offset: f32,
-    line_fade_out_length: f32,
 }
 
 impl LineUniforms {
@@ -70,7 +70,6 @@ impl LineUniforms {
             line_width: settings.line_width,
             line_length: settings.line_length,
             line_begin_offset: settings.line_begin_offset,
-            line_fade_out_length: settings.line_fade_out_length,
         }
     }
 }
@@ -86,19 +85,20 @@ pub struct Drawer {
     pub grid_height: u32,
     pub line_count: u32,
 
-    basepoint_buffer: Buffer,
-    line_state_buffer: Buffer,
-    transform_feedback_buffer: glow::TransformFeedback,
-    // A dedicated buffer to write out the data from the transform feedback pass
-    line_state_feedback_buffer: Buffer,
+    //TODO
+    spring_noise_offset: f32,
 
-    place_lines_buffer: VertexArrayObject,
-    draw_lines_buffer: VertexArrayObject,
-    draw_endpoints_buffer: VertexArrayObject,
+    basepoint_buffer: Buffer,
+    line_state_buffers: render::DoubleTransformFeedback,
+
+    place_lines_buffers: Vec<VertexArrayObject>,
+    draw_lines_buffers: Vec<VertexArrayObject>,
+    draw_endpoints_buffers: Vec<VertexArrayObject>,
     draw_texture_buffer: VertexArrayObject,
 
     view_buffer: Buffer,
     line_uniforms: Buffer,
+    projection: Projection,
 
     place_lines_pass: render::Program,
     draw_lines_pass: render::Program,
@@ -118,36 +118,20 @@ impl Drawer {
     ) -> Result<Self, render::Problem> {
         let (grid_width, grid_height) = compute_grid_size(logical_width, logical_height);
 
-        let line_count =
-            (grid_width / settings.grid_spacing) * (grid_height / settings.grid_spacing);
+        let basepoints = &new_basepoints(grid_width, grid_height, settings.grid_spacing);
+        let line_count = (basepoints.len() / 2) as u32;
+        let basepoint_buffer =
+            Buffer::from_f32(&context, &basepoints, glow::ARRAY_BUFFER, glow::STATIC_DRAW)?;
         let line_state = new_line_state(grid_width, grid_height, settings.grid_spacing);
-        let line_state_buffer = Buffer::from_f32(
-            &context,
-            &bytemuck::cast_slice(&line_state),
-            glow::ARRAY_BUFFER,
-            glow::DYNAMIC_COPY,
-        )?;
-        let transform_feedback_buffer = unsafe {
-            context
-                .create_transform_feedback()
-                .map_err(|_| render::Problem::OutOfMemory)?
-        };
-
         let line_vertices = Buffer::from_f32(
             &context,
             &bytemuck::cast_slice(&LINE_VERTICES),
             glow::ARRAY_BUFFER,
             glow::STATIC_DRAW,
         )?;
-        let basepoint_buffer = Buffer::from_f32(
-            &context,
-            &new_basepoints(grid_width, grid_height, settings.grid_spacing),
-            glow::ARRAY_BUFFER,
-            glow::STATIC_DRAW,
-        )?;
         let endpoint_vertices = Buffer::from_f32(
             &context,
-            &new_endpoint(6),
+            &new_endpoint(8),
             glow::ARRAY_BUFFER,
             glow::STATIC_DRAW,
         )?;
@@ -169,7 +153,7 @@ impl Drawer {
         let place_lines_program = render::Program::new_with_transform_feedback(
             &context,
             (PLACE_LINES_VERT_SHADER, PLACE_LINES_FRAG_SHADER),
-            &render::TransformFeedback {
+            &render::TransformFeedbackInfo {
                 // The order here must match the order in the buffer!
                 names: &[
                     "vEndpointVector",
@@ -191,11 +175,105 @@ impl Drawer {
 
         // Vertex buffers
 
-        let place_lines_buffer = VertexArrayObject::empty(context)?;
-        let draw_lines_buffer = VertexArrayObject::new(
-            context,
-            &draw_lines_program,
-            &[(
+        let mut line_state_buffers =
+            render::DoubleTransformFeedback::new(context, bytemuck::cast_slice(&line_state))?;
+        let mut place_lines_buffers = Vec::with_capacity(2);
+        let mut draw_lines_buffers = Vec::with_capacity(2);
+        let mut draw_endpoints_buffers = Vec::with_capacity(2);
+
+        for _ in 0..2 {
+            let line_state_buffer = &line_state_buffers.current_buffer().buffer;
+
+            let common_attributes_with_divisor = |divisor| {
+                vec![
+                    (
+                        &basepoint_buffer,
+                        VertexBufferLayout {
+                            name: "basepoint",
+                            size: 2,
+                            type_: glow::FLOAT,
+                            divisor,
+                            ..Default::default()
+                        },
+                    ),
+                    (
+                        line_state_buffer,
+                        VertexBufferLayout {
+                            name: "iEndpointVector",
+                            size: 2,
+                            type_: glow::FLOAT,
+                            stride: 11 * 4,
+                            offset: 0 * 4,
+                            divisor,
+                        },
+                    ),
+                    (
+                        line_state_buffer,
+                        VertexBufferLayout {
+                            name: "iVelocityVector",
+                            size: 2,
+                            type_: glow::FLOAT,
+                            stride: 11 * 4,
+                            offset: 2 * 4,
+                            divisor,
+                        },
+                    ),
+                    (
+                        line_state_buffer,
+                        VertexBufferLayout {
+                            name: "iColor",
+                            size: 4,
+                            type_: glow::FLOAT,
+                            stride: 11 * 4,
+                            offset: 4 * 4,
+                            divisor,
+                        },
+                    ),
+                    (
+                        line_state_buffer,
+                        VertexBufferLayout {
+                            name: "iLineWidth",
+                            size: 1,
+                            type_: glow::FLOAT,
+                            stride: 11 * 4,
+                            offset: 8 * 4,
+                            divisor,
+                        },
+                    ),
+                    (
+                        line_state_buffer,
+                        VertexBufferLayout {
+                            name: "iLineOpacity",
+                            size: 1,
+                            type_: glow::FLOAT,
+                            stride: 11 * 4,
+                            offset: 9 * 4,
+                            divisor,
+                        },
+                    ),
+                    (
+                        line_state_buffer,
+                        VertexBufferLayout {
+                            name: "iEndpointOpacity",
+                            size: 1,
+                            type_: glow::FLOAT,
+                            stride: 11 * 4,
+                            offset: 10 * 4,
+                            divisor,
+                        },
+                    ),
+                ]
+            };
+
+            place_lines_buffers.push(VertexArrayObject::new(
+                context,
+                &place_lines_program,
+                &common_attributes_with_divisor(0),
+                None,
+            )?);
+
+            let mut line_attributes = common_attributes_with_divisor(1);
+            line_attributes.push((
                 &line_vertices,
                 VertexBufferLayout {
                     name: "lineVertex",
@@ -203,13 +281,16 @@ impl Drawer {
                     type_: glow::FLOAT,
                     ..Default::default()
                 },
-            )],
-            None,
-        )?;
-        let draw_endpoints_buffer = VertexArrayObject::new(
-            context,
-            &draw_endpoints_program,
-            &[(
+            ));
+            draw_lines_buffers.push(VertexArrayObject::new(
+                context,
+                &draw_lines_program,
+                &line_attributes,
+                None,
+            )?);
+
+            let mut endpoint_attributes = common_attributes_with_divisor(1);
+            endpoint_attributes.push((
                 &endpoint_vertices,
                 VertexBufferLayout {
                     name: "vertex",
@@ -217,9 +298,17 @@ impl Drawer {
                     type_: glow::FLOAT,
                     ..Default::default()
                 },
-            )],
-            None,
-        )?;
+            ));
+            draw_endpoints_buffers.push(VertexArrayObject::new(
+                context,
+                &draw_endpoints_program,
+                &endpoint_attributes,
+                None,
+            )?);
+
+            line_state_buffers.swap();
+        }
+
         let draw_texture_buffer = VertexArrayObject::new(
             &context,
             &draw_texture_program,
@@ -244,93 +333,54 @@ impl Drawer {
             physical_height as f32,
         );
 
-        let view_matrix = glm::scale(
-            &glm::identity(),
-            &glm::vec3(settings.view_scale, settings.view_scale, 1.0),
-        );
+        let view_matrix = nalgebra::Matrix4::new_scaling(settings.view_scale);
 
         let projection = Projection {
-            projection: projection_matrix.as_slice().try_into().unwrap(),
-            view: view_matrix.as_slice().try_into().unwrap(),
+            projection_matrix: projection_matrix.into(),
+            view_matrix: view_matrix.into(),
         };
-        let view_buffer = Buffer::from_f32(
+        let view_buffer = Buffer::from_bytes(
             &context,
-            &bytemuck::cast_slice(&[projection]),
+            projection.as_std140().as_bytes(),
             glow::ARRAY_BUFFER,
             glow::STATIC_DRAW,
         )?;
 
-        let uniforms = LineUniforms::new(&settings);
-        let line_uniforms = Buffer::from_f32(
-            &context,
-            &bytemuck::cast_slice(&[uniforms]),
-            glow::ARRAY_BUFFER,
-            glow::STATIC_DRAW,
-        )?;
-
-        // Workaround for iOS
-        //
-        // Safari on iOS crashes if you use a uniform block buffer together with
-        // transform feedback.
-        let color_wheel = settings::color_wheel_from_scheme(&settings.color_scheme);
         place_lines_program.set_uniforms(&[
             &Uniform {
                 name: "velocityTexture",
                 value: UniformValue::Texture2D(0),
             },
-            &Uniform {
-                name: "uLineFadeOutLength",
-                value: UniformValue::Float(settings.line_fade_out_length),
-            },
-            &Uniform {
-                name: "uSpringStiffness",
-                value: UniformValue::Float(settings.spring_stiffness),
-            },
+            // FIX: move into uniform buffer
             &Uniform {
                 name: "uSpringVariance",
-                value: UniformValue::Float(settings.spring_variance),
-            },
-            &Uniform {
-                name: "uSpringMass",
-                value: UniformValue::Float(settings.spring_mass),
-            },
-            &Uniform {
-                name: "uSpringDamping",
-                value: UniformValue::Float(settings.spring_damping),
-            },
-            &Uniform {
-                name: "uSpringRestLength",
-                value: UniformValue::Float(settings.spring_rest_length),
-            },
-            &Uniform {
-                name: "uMaxLineVelocity",
-                value: UniformValue::Float(settings.max_line_velocity),
-            },
-            &Uniform {
-                name: "uAdvectionDirection",
-                value: UniformValue::Float(settings.advection_direction),
-            },
-            &Uniform {
-                name: "uAdjustAdvection",
-                value: UniformValue::Float(settings.adjust_advection),
+                value: UniformValue::Float(settings.line_variance),
             },
             &Uniform {
                 name: "uColorWheel[0]",
-                value: UniformValue::Vec4Array(&color_wheel),
-            },
-            &Uniform {
-                name: "uProjection",
-                value: UniformValue::Mat4(&projection_matrix.as_slice()),
+                value: UniformValue::Vec4Array(&settings::color_wheel_from_scheme(
+                    &settings.color_scheme,
+                )),
             },
         ]);
 
+        let uniforms = LineUniforms::new(&settings);
+        let line_uniforms = Buffer::from_bytes(
+            &context,
+            &uniforms.as_std140().as_bytes(),
+            glow::ARRAY_BUFFER,
+            glow::STATIC_DRAW,
+        )?;
+
+        place_lines_program.set_uniform_block("Projection", 0);
+        place_lines_program.set_uniform_block("LineUniforms", 1);
         draw_lines_program.set_uniform_block("Projection", 0);
         draw_lines_program.set_uniform_block("LineUniforms", 1);
         draw_endpoints_program.set_uniform_block("Projection", 0);
         draw_endpoints_program.set_uniform_block("LineUniforms", 1);
         draw_texture_program.set_uniform_block("Projection", 0);
 
-        let antialiasing_samples = 0;
+        let antialiasing_samples = 2;
         let antialiasing_pass = render::MsaaPass::new(
             context,
             physical_width,
@@ -338,7 +388,7 @@ impl Drawer {
             antialiasing_samples,
         )?;
 
-        let drawer = Self {
+        Ok(Self {
             context: Rc::clone(context),
             settings: Rc::clone(settings),
 
@@ -349,93 +399,43 @@ impl Drawer {
             grid_height,
             line_count,
 
-            basepoint_buffer,
-            line_state_buffer,
-            line_state_feedback_buffer: Buffer::from_f32(
-                &context,
-                &bytemuck::cast_slice(&line_state),
-                glow::ARRAY_BUFFER,
-                glow::DYNAMIC_READ,
-            )?,
-            transform_feedback_buffer,
+            spring_noise_offset: 0.0,
 
-            place_lines_buffer,
-            draw_lines_buffer,
-            draw_endpoints_buffer,
+            basepoint_buffer,
+            line_state_buffers,
+
+            place_lines_buffers,
+            draw_lines_buffers,
+            draw_endpoints_buffers,
             draw_texture_buffer,
 
             view_buffer,
             line_uniforms,
+            projection,
 
             place_lines_pass: place_lines_program,
             draw_lines_pass: draw_lines_program,
             draw_endpoints_pass: draw_endpoints_program,
             draw_texture_pass: draw_texture_program,
             antialiasing_pass,
-        };
-
-        drawer.update_line_buffers()?;
-
-        Ok(drawer)
+        })
     }
 
-    pub fn update(&mut self, settings: &Rc<Settings>) -> () {
-        unsafe {
-            self.context
-                .bind_buffer(glow::UNIFORM_BUFFER, Some(self.line_uniforms.id));
+    pub fn update(&mut self, new_settings: &Rc<Settings>) -> () {
+        let uniforms = LineUniforms::new(new_settings);
+        self.line_uniforms.update(uniforms.as_std140().as_bytes());
 
-            let uniforms = LineUniforms::new(settings);
-            self.context.buffer_sub_data_u8_slice(
-                glow::UNIFORM_BUFFER,
-                0,
-                &bytemuck::bytes_of(&uniforms),
-            );
-
-            self.context.bind_buffer(glow::UNIFORM_BUFFER, None);
-        }
-
-        // Workaround for iOS
-        let color_wheel = settings::color_wheel_from_scheme(&settings.color_scheme);
+        // FIX: move into uniform buffer
         self.place_lines_pass.set_uniforms(&[
             &Uniform {
-                name: "uLineFadeOutLength",
-                value: UniformValue::Float(settings.line_fade_out_length),
-            },
-            &Uniform {
-                name: "uSpringStiffness",
-                value: UniformValue::Float(settings.spring_stiffness),
-            },
-            &Uniform {
                 name: "uSpringVariance",
-                value: UniformValue::Float(settings.spring_variance),
-            },
-            &Uniform {
-                name: "uSpringMass",
-                value: UniformValue::Float(settings.spring_mass),
-            },
-            &Uniform {
-                name: "uSpringDamping",
-                value: UniformValue::Float(settings.spring_damping),
-            },
-            &Uniform {
-                name: "uSpringRestLength",
-                value: UniformValue::Float(settings.spring_rest_length),
-            },
-            &Uniform {
-                name: "uMaxLineVelocity",
-                value: UniformValue::Float(settings.max_line_velocity),
-            },
-            &Uniform {
-                name: "uAdvectionDirection",
-                value: UniformValue::Float(settings.advection_direction),
-            },
-            &Uniform {
-                name: "uAdjustAdvection",
-                value: UniformValue::Float(settings.adjust_advection),
+                value: UniformValue::Float(new_settings.line_variance),
             },
             &Uniform {
                 name: "uColorWheel[0]",
-                value: UniformValue::Vec4Array(&color_wheel),
+                value: UniformValue::Vec4Array(&settings::color_wheel_from_scheme(
+                    &new_settings.color_scheme,
+                )),
             },
         ]);
     }
@@ -454,236 +454,34 @@ impl Drawer {
         self.grid_width = grid_width;
         self.grid_height = grid_height;
 
-        self.update_projection(&new_projection_matrix(
+        self.projection.projection_matrix = new_projection_matrix(
             grid_width as f32,
             grid_height as f32,
             physical_width as f32,
             physical_height as f32,
-        ));
+        )
+        .into();
+        self.view_buffer
+            .update(self.projection.as_std140().as_bytes());
+
         self.antialiasing_pass
             .resize(physical_width, physical_height);
 
-        self.line_count =
-            (grid_width / self.settings.grid_spacing) * (grid_height / self.settings.grid_spacing);
         let basepoints = new_basepoints(grid_width, grid_height, self.settings.grid_spacing);
-        self.basepoint_buffer = Buffer::from_f32(
-            &self.context,
-            &basepoints,
-            glow::ARRAY_BUFFER,
-            glow::STATIC_DRAW,
-        )?;
+        self.basepoint_buffer
+            .overwrite(bytemuck::cast_slice(&basepoints));
 
+        self.line_count = (basepoints.len() / 2) as u32;
         let line_state = new_line_state(grid_width, grid_height, self.settings.grid_spacing);
-        self.line_state_buffer = Buffer::from_f32(
-            &self.context,
-            &bytemuck::cast_slice(&line_state),
-            glow::ARRAY_BUFFER,
-            glow::STATIC_DRAW,
-        )?;
-
-        self.line_state_feedback_buffer = Buffer::from_f32(
-            &self.context,
-            &bytemuck::cast_slice(&line_state),
-            glow::ARRAY_BUFFER,
-            glow::DYNAMIC_READ,
-        )?;
-
-        self.update_line_buffers()?;
+        self.line_state_buffers
+            .overwrite_buffer(bytemuck::cast_slice(&line_state))?;
 
         Ok(())
     }
 
-    fn update_line_buffers(&self) -> Result<(), render::Problem> {
-        self.place_lines_buffer.update(
-            &self.place_lines_pass,
-            &[
-                (
-                    &self.basepoint_buffer,
-                    VertexBufferLayout {
-                        name: "basepoint",
-                        size: 2,
-                        type_: glow::FLOAT,
-                        ..Default::default()
-                    },
-                ),
-                (
-                    &self.line_state_buffer,
-                    VertexBufferLayout {
-                        name: "iEndpointVector",
-                        size: 2,
-                        type_: glow::FLOAT,
-                        stride: 11 * 4,
-                        offset: 0 * 4,
-                        divisor: 0,
-                    },
-                ),
-                (
-                    &self.line_state_buffer,
-                    VertexBufferLayout {
-                        name: "iVelocityVector",
-                        size: 2,
-                        type_: glow::FLOAT,
-                        stride: 11 * 4,
-                        offset: 2 * 4,
-                        divisor: 0,
-                    },
-                ),
-                (
-                    &self.line_state_buffer,
-                    VertexBufferLayout {
-                        name: "iColor",
-                        size: 4,
-                        type_: glow::FLOAT,
-                        stride: 11 * 4,
-                        offset: 4 * 4,
-                        divisor: 0,
-                    },
-                ),
-                (
-                    &self.line_state_buffer,
-                    VertexBufferLayout {
-                        name: "iLineWidth",
-                        size: 1,
-                        type_: glow::FLOAT,
-                        stride: 11 * 4,
-                        offset: 8 * 4,
-                        divisor: 0,
-                    },
-                ),
-                (
-                    &self.line_state_buffer,
-                    VertexBufferLayout {
-                        name: "iLineOpacity",
-                        size: 1,
-                        type_: glow::FLOAT,
-                        stride: 11 * 4,
-                        offset: 9 * 4,
-                        divisor: 0,
-                    },
-                ),
-                (
-                    &self.line_state_buffer,
-                    VertexBufferLayout {
-                        name: "iEndpointOpacity",
-                        size: 1,
-                        type_: glow::FLOAT,
-                        stride: 11 * 4,
-                        offset: 10 * 4,
-                        divisor: 0,
-                    },
-                ),
-            ],
-            None,
-        )?;
+    pub fn place_lines(&mut self, velocity_texture: &Framebuffer, timestep: f32) -> () {
+        self.spring_noise_offset += timestep;
 
-        let line_state_attribs = [
-            (
-                &self.basepoint_buffer,
-                VertexBufferLayout {
-                    name: "basepoint",
-                    size: 2,
-                    type_: glow::FLOAT,
-                    divisor: 1,
-                    ..Default::default()
-                },
-            ),
-            (
-                &self.line_state_buffer,
-                VertexBufferLayout {
-                    name: "iEndpointVector",
-                    size: 2,
-                    type_: glow::FLOAT,
-                    stride: 11 * 4,
-                    offset: 0 * 4,
-                    divisor: 1,
-                },
-            ),
-            (
-                &self.line_state_buffer,
-                VertexBufferLayout {
-                    name: "iVelocityVector",
-                    size: 2,
-                    type_: glow::FLOAT,
-                    stride: 11 * 4,
-                    offset: 2 * 4,
-                    divisor: 1,
-                },
-            ),
-            (
-                &self.line_state_buffer,
-                VertexBufferLayout {
-                    name: "iColor",
-                    size: 4,
-                    type_: glow::FLOAT,
-                    stride: 11 * 4,
-                    offset: 4 * 4,
-                    divisor: 1,
-                },
-            ),
-            (
-                &self.line_state_buffer,
-                VertexBufferLayout {
-                    name: "iLineWidth",
-                    size: 1,
-                    type_: glow::FLOAT,
-                    stride: 11 * 4,
-                    offset: 8 * 4,
-                    divisor: 1,
-                },
-            ),
-            (
-                &self.line_state_buffer,
-                VertexBufferLayout {
-                    name: "iLineOpacity",
-                    size: 1,
-                    type_: glow::FLOAT,
-                    stride: 11 * 4,
-                    offset: 9 * 4,
-                    divisor: 1,
-                },
-            ),
-            (
-                &self.line_state_buffer,
-                VertexBufferLayout {
-                    name: "iEndpointOpacity",
-                    size: 1,
-                    type_: glow::FLOAT,
-                    stride: 11 * 4,
-                    offset: 10 * 4,
-                    divisor: 1,
-                },
-            ),
-        ];
-        self.draw_lines_buffer
-            .update(&self.draw_lines_pass, &line_state_attribs, None)?;
-        self.draw_endpoints_buffer
-            .update(&self.draw_endpoints_pass, &line_state_attribs, None)?;
-
-        Ok(())
-    }
-
-    fn update_projection(&self, projection: &glm::TMat4<f32>) {
-        let projection: [f32; 16] = projection.as_slice().try_into().unwrap();
-
-        unsafe {
-            self.context
-                .bind_buffer(glow::UNIFORM_BUFFER, Some(self.view_buffer.id));
-            self.context.buffer_sub_data_u8_slice(
-                glow::UNIFORM_BUFFER,
-                0,
-                &bytemuck::cast_slice(&projection),
-            );
-            self.context.bind_buffer(glow::UNIFORM_BUFFER, None);
-        }
-
-        // Workaround for iOS
-        self.place_lines_pass.set_uniform(&Uniform {
-            name: "uProjection",
-            value: UniformValue::Mat4(&projection),
-        });
-    }
-
-    pub fn place_lines(&self, timestep: f32, texture: &Framebuffer) -> () {
         unsafe {
             self.context.viewport(
                 0,
@@ -695,57 +493,31 @@ impl Drawer {
 
             self.place_lines_pass.use_program();
 
+            self.context.bind_vertex_array(Some(
+                self.place_lines_buffers[self.line_state_buffers.active_buffer].id,
+            ));
             self.context
-                .bind_vertex_array(Some(self.place_lines_buffer.id));
+                .bind_buffer_base(glow::UNIFORM_BUFFER, 0, Some(self.view_buffer.id));
+            self.context
+                .bind_buffer_base(glow::UNIFORM_BUFFER, 1, Some(self.line_uniforms.id));
 
             self.place_lines_pass.set_uniform(&Uniform {
-                name: "deltaT",
+                name: "deltaTime",
                 value: UniformValue::Float(timestep),
+            });
+            self.place_lines_pass.set_uniform(&Uniform {
+                name: "springNoiseOffset1",
+                value: UniformValue::Float(self.spring_noise_offset),
             });
 
             self.context.active_texture(glow::TEXTURE0);
             self.context
-                .bind_texture(glow::TEXTURE_2D, Some(texture.texture));
+                .bind_texture(glow::TEXTURE_2D, Some(velocity_texture.texture));
 
-            self.context.bind_transform_feedback(
-                glow::TRANSFORM_FEEDBACK,
-                Some(self.transform_feedback_buffer),
-            );
-            self.context.bind_buffer_base(
-                glow::TRANSFORM_FEEDBACK_BUFFER,
-                0,
-                Some(self.line_state_feedback_buffer.id),
-            );
-
-            self.context.enable(glow::RASTERIZER_DISCARD);
-            self.context.begin_transform_feedback(glow::POINTS);
-
-            self.context
-                .draw_arrays(glow::POINTS, 0, self.line_count as i32);
-
-            self.context.end_transform_feedback();
-            self.context
-                .bind_buffer_base(glow::TRANSFORM_FEEDBACK_BUFFER, 0, None);
-            self.context
-                .bind_transform_feedback(glow::TRANSFORM_FEEDBACK, None);
-            self.context.disable(glow::RASTERIZER_DISCARD);
-
-            self.context
-                .bind_buffer(glow::COPY_WRITE_BUFFER, Some(self.line_state_buffer.id));
-            self.context.bind_buffer(
-                glow::COPY_READ_BUFFER,
-                Some(self.line_state_feedback_buffer.id),
-            );
-            // Copy new line state
-            self.context.copy_buffer_sub_data(
-                glow::COPY_READ_BUFFER,
-                glow::COPY_WRITE_BUFFER,
-                0,
-                0,
-                (std::mem::size_of::<LineState>() as i32) * (self.line_count as i32),
-            );
-            self.context.bind_buffer(glow::COPY_READ_BUFFER, None);
-            self.context.bind_buffer(glow::COPY_WRITE_BUFFER, None);
+            self.line_state_buffers.draw_to(|| {
+                self.context
+                    .draw_arrays(glow::POINTS, 0, self.line_count as i32);
+            });
         }
     }
 
@@ -762,8 +534,9 @@ impl Drawer {
             self.context.blend_func(glow::SRC_ALPHA, glow::ONE);
 
             self.draw_lines_pass.use_program();
-            self.context
-                .bind_vertex_array(Some(self.draw_lines_buffer.id));
+            self.context.bind_vertex_array(Some(
+                self.draw_lines_buffers[self.line_state_buffers.active_buffer].id,
+            ));
 
             self.context
                 .bind_buffer_base(glow::UNIFORM_BUFFER, 0, Some(self.view_buffer.id));
@@ -790,8 +563,9 @@ impl Drawer {
             self.context.blend_func(glow::SRC_ALPHA, glow::ONE);
 
             self.draw_endpoints_pass.use_program();
-            self.context
-                .bind_vertex_array(Some(self.draw_endpoints_buffer.id));
+            self.context.bind_vertex_array(Some(
+                self.draw_endpoints_buffers[self.line_state_buffers.active_buffer].id,
+            ));
 
             self.context
                 .bind_buffer_base(glow::UNIFORM_BUFFER, 0, Some(self.view_buffer.id));
@@ -804,7 +578,7 @@ impl Drawer {
             });
 
             self.context
-                .draw_arrays_instanced(glow::TRIANGLE_FAN, 0, 8, self.line_count as i32);
+                .draw_arrays_instanced(glow::TRIANGLE_FAN, 0, 10, self.line_count as i32);
 
             self.draw_endpoints_pass.set_uniform(&Uniform {
                 name: "uOrientation",
@@ -812,7 +586,7 @@ impl Drawer {
             });
 
             self.context
-                .draw_arrays_instanced(glow::TRIANGLE_FAN, 0, 8, self.line_count as i32);
+                .draw_arrays_instanced(glow::TRIANGLE_FAN, 0, 10, self.line_count as i32);
 
             self.context.disable(glow::BLEND);
         }
@@ -870,7 +644,7 @@ fn new_projection_matrix(
     grid_height: f32,
     physical_width: f32,
     physical_height: f32,
-) -> glm::TMat4<f32> {
+) -> nalgebra::Matrix4<f32> {
     let grid_ratio = grid_width / grid_height;
     let physical_ratio = physical_width / physical_height;
 
@@ -883,7 +657,7 @@ fn new_projection_matrix(
     let half_width = width / 2.0;
     let half_height = height / 2.0;
 
-    glm::ortho(
+    nalgebra::Matrix4::new_orthographic(
         -half_width,
         half_width,
         -half_height,
@@ -904,7 +678,7 @@ fn new_basepoints(width: u32, height: u32, grid_spacing: u32) -> Vec<f32> {
 
     for v in 0..rows {
         // Horizontal offset every other row
-        let offset_u = if v % 2 == 0 { 0.5 } else { 0.0 };
+        let offset_u = if v % 2 == 0 { 0.0 } else { 0.0 };
 
         for u in 0..cols {
             let x: f32 = (offset_u * grid_spacing as f32) + (u * grid_spacing) as f32;
@@ -928,11 +702,11 @@ fn new_line_state(width: u32, height: u32, grid_spacing: u32) -> Vec<LineState> 
     for _ in 0..rows {
         for _ in 0..cols {
             data.push(LineState {
-                endpoint: [0.0, 0.0],
-                velocity: [0.0, 0.0],
-                color: [0.0, 0.0, 0.0, 0.0],
+                endpoint: [0.0, 0.0].into(),
+                velocity: [0.0, 0.0].into(),
+                color: [0.0, 0.0, 0.0, 0.0].into(),
                 width: 0.0,
-                line_opacity: 1.0,
+                line_opacity: 0.0,
                 endpoint_opacity: 0.0,
             });
         }
