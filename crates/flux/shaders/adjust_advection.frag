@@ -1,5 +1,7 @@
+#ifdef GL_ES
 precision mediump float;
 precision highp sampler2D;
+#endif
 
 in vec2 texturePosition;
 

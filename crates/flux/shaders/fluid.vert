@@ -1,4 +1,6 @@
+#ifdef GL_ES
 precision highp float;
+#endif
 
 layout(std140) uniform FluidUniforms
 {
