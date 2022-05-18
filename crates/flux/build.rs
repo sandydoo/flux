@@ -11,8 +11,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // whichever target we need.
     let version = match target.as_str() {
         "wasm32-unknown-unknown" => "300 es",
-        "aarch64-apple-darwin" | "x86_64-apple-darwin" => "330",
-        _ => "460", // `precision sampler2D` was added to core much later
+        _ => "330 core",
     };
 
     for shader_file in shaders_files {
