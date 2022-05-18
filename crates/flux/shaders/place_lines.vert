@@ -1,7 +1,9 @@
 #define TAU 6.283185307179586
 
+#ifdef GL_ES
 precision highp float;
 precision highp sampler2D;
+#endif
 
 // static input
 in vec2 basepoint;

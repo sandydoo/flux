@@ -1,4 +1,6 @@
+#ifdef GL_ES
 precision mediump float;
+#endif
 
 in vec2 vVertex;
 in vec3 vColor;

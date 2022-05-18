@@ -1,4 +1,6 @@
+#ifdef GL_ES
 precision mediump float;
+#endif
 
 // Defined at compile-time
 // #define CHANNEL_COUNT 3
