@@ -90,6 +90,14 @@ pub struct Drawer {
 
     basepoint_buffer: Buffer,
     line_state_buffers: render::DoubleTransformFeedback,
+    #[allow(unused)]
+    line_vertices: Buffer,
+    #[allow(unused)]
+    endpoint_vertices: Buffer,
+    #[allow(unused)]
+    plane_vertices: Buffer,
+    #[allow(unused)]
+    plane_indices: Buffer,
 
     place_lines_buffers: Vec<VertexArrayObject>,
     draw_lines_buffers: Vec<VertexArrayObject>,
@@ -403,6 +411,10 @@ impl Drawer {
 
             basepoint_buffer,
             line_state_buffers,
+            line_vertices,
+            endpoint_vertices,
+            plane_vertices,
+            plane_indices,
 
             place_lines_buffers,
             draw_lines_buffers,
@@ -592,7 +604,6 @@ impl Drawer {
         }
     }
 
-    #[allow(dead_code)]
     pub fn draw_texture(&self, texture: &Framebuffer) -> () {
         unsafe {
             self.context.viewport(

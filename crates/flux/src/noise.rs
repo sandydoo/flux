@@ -51,6 +51,10 @@ pub struct NoiseGenerator {
 
     noise_buffer: VertexArrayObject,
     uniforms: Buffer,
+    #[allow(unused)]
+    plane_vertices: Buffer,
+    #[allow(unused)]
+    plane_indices: Buffer,
 }
 
 impl NoiseGenerator {
@@ -228,6 +232,8 @@ impl NoiseGeneratorBuilder {
 
             noise_buffer,
             uniforms,
+            plane_vertices,
+            plane_indices,
         })
     }
 }

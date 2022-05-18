@@ -44,6 +44,10 @@ pub struct Fluid {
 
     uniform_buffer: Buffer,
     vertex_buffer: VertexArrayObject,
+    #[allow(unused)]
+    plane_vertices: Buffer,
+    #[allow(unused)]
+    plane_indices: Buffer,
 
     velocity_textures: DoubleFramebuffer,
     advection_forward_texture: Framebuffer,
@@ -267,6 +271,8 @@ impl Fluid {
 
             uniform_buffer,
             vertex_buffer,
+            plane_vertices,
+            plane_indices,
 
             velocity_textures,
             advection_forward_texture,
