@@ -51,6 +51,11 @@ pub struct Fluid {
     divergence_texture: Framebuffer,
     pressure_textures: DoubleFramebuffer,
 
+    #[allow(unused)]
+    plane_vertices: Buffer,
+    #[allow(unused)]
+    plane_indices: Buffer,
+
     advection_pass: render::Program,
     adjust_advection_pass: render::Program,
     diffusion_pass: render::Program,
@@ -273,6 +278,9 @@ impl Fluid {
             advection_reverse_texture,
             divergence_texture,
             pressure_textures,
+
+            plane_vertices,
+            plane_indices,
 
             advection_pass: advection_program,
             adjust_advection_pass,
