@@ -51,6 +51,10 @@ pub struct NoiseGenerator {
 
     noise_buffer: VertexArrayObject,
     uniforms: Buffer,
+    #[allow(unused)]
+    plane_vertices: Buffer,
+    #[allow(unused)]
+    plane_indices: Buffer,
 }
 
 impl NoiseGenerator {
@@ -203,7 +207,7 @@ impl NoiseGeneratorBuilder {
             &self.context,
             &build_noise_uniforms(&self.channels),
             glow::ARRAY_BUFFER,
-            glow::STATIC_DRAW,
+            glow::DYNAMIC_DRAW,
         )?;
 
         generate_noise_pass.set_uniform_block("Channels", 0);
@@ -228,6 +232,8 @@ impl NoiseGeneratorBuilder {
 
             noise_buffer,
             uniforms,
+            plane_vertices,
+            plane_indices,
         })
     }
 }

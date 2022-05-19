@@ -74,7 +74,10 @@ fn main() {
                 window.window().request_redraw();
             }
 
-            Event::RedrawRequested(_) => {}
+            Event::RedrawRequested(_) => {
+                flux.animate(start.elapsed().as_millis() as f32);
+                window.swap_buffers().unwrap();
+            }
 
             Event::WindowEvent { ref event, .. } => match event {
                 WindowEvent::Resized(physical_size) => {
@@ -92,9 +95,6 @@ fn main() {
             },
             _ => (),
         }
-
-        flux.animate(start.elapsed().as_millis() as f32);
-        window.swap_buffers().unwrap();
     });
 }
 
@@ -109,15 +109,15 @@ pub fn get_rendering_context(
     let event_loop = glutin::event_loop::EventLoop::new();
     let window_builder = glutin::window::WindowBuilder::new()
         .with_title("Flux")
+        .with_decorations(true)
+        .with_resizable(true)
         .with_inner_size(glutin::dpi::LogicalSize::new(width, height));
-    let window = unsafe {
-        glutin::ContextBuilder::new()
-            .with_vsync(true)
-            .build_windowed(window_builder, &event_loop)
-            .unwrap()
-            .make_current()
-            .unwrap()
-    };
+    let window = glutin::ContextBuilder::new()
+        .with_vsync(true)
+        .build_windowed(window_builder, &event_loop)
+        .unwrap();
+    let window = unsafe { window.make_current().unwrap() };
+
     let gl =
         unsafe { glow::Context::from_loader_function(|s| window.get_proc_address(s) as *const _) };
 
