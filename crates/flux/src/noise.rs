@@ -207,7 +207,7 @@ impl NoiseGeneratorBuilder {
             &self.context,
             &build_noise_uniforms(&self.channels),
             glow::ARRAY_BUFFER,
-            glow::STATIC_DRAW,
+            glow::DYNAMIC_DRAW,
         )?;
 
         generate_noise_pass.set_uniform_block("Channels", 0);

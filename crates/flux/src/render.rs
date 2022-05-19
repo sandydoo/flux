@@ -453,7 +453,7 @@ impl TransformFeedback {
                 .create_transform_feedback()
                 .map_err(|_| Problem::OutOfMemory)?
         };
-        let buffer = Buffer::from_bytes(context, data, glow::ARRAY_BUFFER, glow::DYNAMIC_DRAW)?;
+        let buffer = Buffer::from_bytes(context, data, glow::ARRAY_BUFFER, glow::DYNAMIC_COPY)?;
 
         unsafe {
             context.bind_transform_feedback(glow::TRANSFORM_FEEDBACK, Some(feedback));

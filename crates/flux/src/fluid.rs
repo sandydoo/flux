@@ -176,7 +176,7 @@ impl Fluid {
             &context,
             uniforms.as_std140().as_bytes(),
             glow::ARRAY_BUFFER,
-            glow::STATIC_DRAW,
+            glow::DYNAMIC_DRAW,
         )?;
 
         advection_program.set_uniform_block("FluidUniforms", 0);
