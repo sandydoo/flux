@@ -119,9 +119,11 @@ impl Flux {
         self.drawer
             .place_lines(&self.fluid.get_velocity(), timestep);
 
-        self.drawer.with_antialiasing(|| unsafe {
-            self.context.clear_color(0.0, 0.0, 0.0, 1.0);
-            self.context.clear(glow::COLOR_BUFFER_BIT);
+        self.drawer.with_antialiasing(|| {
+            unsafe {
+                self.context.clear_color(0.0, 0.0, 0.0, 1.0);
+                self.context.clear(glow::COLOR_BUFFER_BIT);
+            }
 
             use settings::Mode::*;
             match &self.settings.mode {
