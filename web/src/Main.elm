@@ -784,22 +784,27 @@ decodeKeyCode key msg =
 encodeSettings : Settings -> Encode.Value
 encodeSettings settings =
     Encode.object
-        [ ( "mode", encodeMode settings.mode )
-        , ( "viscosity", Encode.float settings.viscosity )
-        , ( "velocityDissipation", Encode.float settings.velocityDissipation )
-        , ( "startingPressure", Encode.float settings.startingPressure )
-        , ( "fluidSize", Encode.int settings.fluidSize )
-        , ( "fluidSimulationFrameRate", Encode.int settings.fluidSimulationFrameRate )
-        , ( "diffusionIterations", Encode.int settings.diffusionIterations )
-        , ( "pressureIterations", Encode.int settings.pressureIterations )
-        , ( "colorScheme", encodeColorScheme settings.colorScheme )
-        , ( "lineLength", Encode.float settings.lineLength )
-        , ( "lineWidth", Encode.float settings.lineWidth )
-        , ( "lineBeginOffset", Encode.float settings.lineBeginOffset )
-        , ( "lineVariance", Encode.float settings.lineVariance )
-        , ( "gridSpacing", Encode.int settings.gridSpacing )
-        , ( "viewScale", Encode.float settings.viewScale )
-        , ( "noiseChannels", Encode.array encodeNoise settings.noiseChannels )
+        [ ( "version", Encode.string "2.0.0" )
+        , ( "settings"
+          , Encode.object
+                [ ( "mode", encodeMode settings.mode )
+                , ( "viscosity", Encode.float settings.viscosity )
+                , ( "velocityDissipation", Encode.float settings.velocityDissipation )
+                , ( "startingPressure", Encode.float settings.startingPressure )
+                , ( "fluidSize", Encode.int settings.fluidSize )
+                , ( "fluidSimulationFrameRate", Encode.int settings.fluidSimulationFrameRate )
+                , ( "diffusionIterations", Encode.int settings.diffusionIterations )
+                , ( "pressureIterations", Encode.int settings.pressureIterations )
+                , ( "colorScheme", encodeColorScheme settings.colorScheme )
+                , ( "lineLength", Encode.float settings.lineLength )
+                , ( "lineWidth", Encode.float settings.lineWidth )
+                , ( "lineBeginOffset", Encode.float settings.lineBeginOffset )
+                , ( "lineVariance", Encode.float settings.lineVariance )
+                , ( "gridSpacing", Encode.int settings.gridSpacing )
+                , ( "viewScale", Encode.float settings.viewScale )
+                , ( "noiseChannels", Encode.array encodeNoise settings.noiseChannels )
+                ]
+          )
         ]
 
 

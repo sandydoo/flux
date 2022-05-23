@@ -4,10 +4,12 @@ use glutin::event::{Event, WindowEvent};
 use glutin::event_loop::{ControlFlow, EventLoop};
 use glutin::window::Window;
 use glutin::PossiblyCurrent;
+use semver::Version;
 use std::rc::Rc;
 
 fn main() {
     let settings = Settings {
+        version: Version::new(2, 0, 0),
         mode: Mode::Normal,
         viscosity: 5.0,
         velocity_dissipation: 0.0,

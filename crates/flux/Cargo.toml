@@ -18,5 +18,6 @@ half = { version = "1.8", features = ["bytemuck"] }
 nalgebra = { version = "0.31", features = [ "mint" ] }
 mint = "0.5"
 rustc-hash = "1.1"
+semver = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 thiserror = "1"
