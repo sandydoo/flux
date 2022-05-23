@@ -114,6 +114,8 @@ pub fn get_rendering_context(
         .with_inner_size(glutin::dpi::LogicalSize::new(width, height));
     let window = glutin::ContextBuilder::new()
         .with_vsync(true)
+        .with_multisampling(0)
+        .with_double_buffer(Some(true))
         .build_windowed(window_builder, &event_loop)
         .unwrap();
     let window = unsafe { window.make_current().unwrap() };
