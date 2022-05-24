@@ -11,6 +11,10 @@ use half::f16;
 use std::cell::Ref;
 use std::rc::Rc;
 
+static CLEAR_TO_ZERO_VERT_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/clear_to_zero.vert"));
+static CLEAR_TO_ZERO_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/clear_to_zero.frag"));
 static FLUID_VERT_SHADER: &'static str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/fluid.vert"));
 static ADVECTION_FRAG_SHADER: &'static str =
@@ -55,6 +59,7 @@ pub struct Fluid {
     divergence_texture: Framebuffer,
     pressure_textures: DoubleFramebuffer,
 
+    clear_to_zero_pass: render::Program,
     advection_pass: render::Program,
     adjust_advection_pass: render::Program,
     diffusion_pass: render::Program,
@@ -153,6 +158,10 @@ impl Fluid {
             glow::STATIC_DRAW,
         )?;
 
+        let clear_to_zero_program = render::Program::new(
+            &context,
+            (CLEAR_TO_ZERO_VERT_SHADER, CLEAR_TO_ZERO_FRAG_SHADER),
+        )?;
         let advection_program =
             render::Program::new(&context, (FLUID_VERT_SHADER, ADVECTION_FRAG_SHADER))?;
         let adjust_advection_pass =
@@ -280,6 +289,7 @@ impl Fluid {
             divergence_texture,
             pressure_textures,
 
+            clear_to_zero_pass: clear_to_zero_program,
             advection_pass: advection_program,
             adjust_advection_pass,
             diffusion_pass: diffusion_program,
@@ -482,9 +492,21 @@ impl Fluid {
     }
 
     pub fn solve_pressure(&self) -> () {
+        self.clear_to_zero_pass.use_program();
+        let draw_quad = || unsafe {
+            self.context
+                .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
+        };
         self.pressure_textures
-            .clear_color_with(&[self.settings.starting_pressure, 0.0, 0.0, 1.0])
-            .unwrap();
+            .current()
+            .draw_to(&self.context, draw_quad);
+        self.pressure_textures
+            .next()
+            .draw_to(&self.context, draw_quad);
+
+        // self.pressure_textures
+        //     .clear_color_with(&[self.settings.starting_pressure, 0.0, 0.0, 1.0])
+        //     .unwrap();
 
         self.pressure_pass.use_program();
         unsafe {
