@@ -356,7 +356,7 @@ impl Fluid {
         Ok(())
     }
 
-    pub fn advect_forward(&self) -> () {
+    pub fn advect_forward(&self, timestep: f32) -> () {
         self.advection_forward_texture
             .draw_to(&self.context, || unsafe {
                 self.advection_pass.use_program();
@@ -369,7 +369,7 @@ impl Fluid {
 
                 self.advection_pass.set_uniform(&Uniform {
                     name: "amount",
-                    value: UniformValue::Float(0.017), // fix
+                    value: UniformValue::Float(timestep),
                 });
 
                 self.context.active_texture(glow::TEXTURE0);
@@ -383,7 +383,7 @@ impl Fluid {
             });
     }
 
-    pub fn advect_reverse(&self) -> () {
+    pub fn advect_reverse(&self, timestep: f32) -> () {
         self.advection_reverse_texture
             .draw_to(&self.context, || unsafe {
                 self.advection_pass.use_program();
@@ -396,7 +396,7 @@ impl Fluid {
 
                 self.advection_pass.set_uniform(&Uniform {
                     name: "amount",
-                    value: UniformValue::Float(-0.017), // fix
+                    value: UniformValue::Float(-timestep),
                 });
 
                 self.context.active_texture(glow::TEXTURE0);
@@ -410,15 +410,15 @@ impl Fluid {
             });
     }
 
-    pub fn adjust_advection(&self) -> () {
+    pub fn adjust_advection(&self, timestep: f32) -> () {
         self.velocity_textures
             .draw_to(&self.context, |velocity_texture| unsafe {
                 self.adjust_advection_pass.use_program();
                 self.context.bind_vertex_array(Some(self.vertex_buffer.id));
 
-                self.adjust_advection_pass.set_uniform(&&Uniform {
+                self.adjust_advection_pass.set_uniform(&Uniform {
                     name: "deltaTime",
-                    value: UniformValue::Float(0.017), // fix
+                    value: UniformValue::Float(timestep),
                 });
 
                 self.context.active_texture(glow::TEXTURE0);
@@ -446,7 +446,8 @@ impl Fluid {
         self.diffusion_pass.use_program();
         unsafe { self.context.bind_vertex_array(Some(self.vertex_buffer.id)) };
 
-        let center_factor = self.grid_size * self.grid_size / (self.settings.viscosity * timestep);
+        // grid_size^2 / (rho * dt)
+        let center_factor = 1.0 / (self.settings.viscosity * timestep);
         let stencil_factor = 1.0 / (4.0 + center_factor);
 
         self.diffusion_pass.set_uniforms(&[

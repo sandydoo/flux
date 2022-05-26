@@ -45,11 +45,6 @@ out float vLineWidth;
 out float vLineOpacity;
 out float vEndpointOpacity;
 
-float clampTo(float value, float max) {
-  float current = value + 0.0001;
-  return min(current, max) / current;
-}
-
 vec4 getColor(vec4 wheel[6], float angle) {
   float slice = TAU / 6.0;
   float rawIndex = mod(angle, TAU) / slice;
@@ -155,7 +150,7 @@ void main() {
 
   vec2 basepointInClipSpace = 0.5 + 0.5 * (uProjection * vec4(basepoint, 0.0, 1.0)).xy;
   vec2 velocity = texture(velocityTexture, basepointInClipSpace).xy;
-  float noise = snoise(vec3(basepointInClipSpace * springNoiseScale, springNoiseOffset1));
+  float noise = snoise(vec3(springNoiseScale * basepointInClipSpace, springNoiseOffset1));
 
   // Blend noise
 

@@ -134,20 +134,16 @@ void main() {
   // Safari and OpenGL on macOS aren’t happy with “dynamic indexing” inside a
   // for-loop, so we unwrap the loop.
   #if CHANNEL_COUNT > 0
-    Channel channel0 = uChannels[0];
-    noise += makeNoise(channel0);
+    noise += makeNoise(uChannels[0]);
   #endif
   #if CHANNEL_COUNT > 1
-    Channel channel1 = uChannels[1];
-    noise += makeNoise(channel1);
+    noise += makeNoise(uChannels[1]);
   #endif
   #if CHANNEL_COUNT > 2
-    Channel channel2 = uChannels[2];
-    noise += makeNoise(channel2);
+    noise += makeNoise(uChannels[2]);
   #endif
   #if CHANNEL_COUNT > 3
-    Channel channel2 = uChannels[3];
-    noise += makeNoise(channel2);
+    noise += makeNoise(uChannels[3]);
   #endif
 
   noise *= 0.45;

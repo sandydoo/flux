@@ -17,7 +17,7 @@ pub struct Flux {
     context: render::Context,
     elapsed_time: f32,
     frame_time: f32,
-    fluid_frame_time: f32,
+    fluid_timestep: f32,
     max_frame_time: f32,
 }
 
@@ -66,7 +66,7 @@ impl Flux {
             context: Rc::clone(context),
             elapsed_time: 0.0,
             frame_time: 0.0,
-            fluid_frame_time: 1.0 / settings.fluid_simulation_frame_rate,
+            fluid_timestep: 1.0 / settings.fluid_simulation_frame_rate,
             max_frame_time: 1.0 / 10.0,
         })
     }
@@ -95,23 +95,22 @@ impl Flux {
         self.elapsed_time = timestamp;
         self.frame_time += timestep;
 
-        // TODO: move frame times to fluid
-        while self.frame_time >= self.fluid_frame_time {
+        while self.frame_time >= self.fluid_timestep {
             self.noise_generator.generate(self.elapsed_time);
 
-            self.fluid.advect_forward();
-            self.fluid.advect_reverse();
-            self.fluid.adjust_advection();
-            self.fluid.diffuse(self.fluid_frame_time); // <- Convection
+            self.fluid.advect_forward(self.fluid_timestep);
+            self.fluid.advect_reverse(self.fluid_timestep);
+            self.fluid.adjust_advection(self.fluid_timestep);
+            self.fluid.diffuse(self.fluid_timestep); // <- Convection
 
             self.noise_generator
-                .blend_noise_into(&self.fluid.get_velocity_textures(), self.fluid_frame_time);
+                .blend_noise_into(&self.fluid.get_velocity_textures(), self.fluid_timestep);
 
             self.fluid.calculate_divergence();
             self.fluid.solve_pressure();
             self.fluid.subtract_gradient();
 
-            self.frame_time -= self.fluid_frame_time;
+            self.frame_time -= self.fluid_timestep;
         }
 
         // TODO: the line animation is still dependent on the client’s fps. Is

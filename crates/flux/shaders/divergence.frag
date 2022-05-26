@@ -31,5 +31,5 @@ void main() {
   if (vT.y > 1.0) { T = -velocity.y; }
   if (vB.y < 0.0) { B = -velocity.y; }
 
-  newDivergence = 0.5 * (R - L + T - B);
+  newDivergence = 0.5 * ((R - L) + (T - B));
 }
