@@ -44,7 +44,6 @@ pub struct Fluid {
     pub width: u32,
     pub height: u32,
     texel_size: [f32; 2],
-    grid_size: f32,
 
     uniform_buffer: Buffer,
     vertex_buffer: VertexArrayObject,
@@ -72,7 +71,6 @@ impl Fluid {
     pub fn new(context: &Context, settings: &Rc<Settings>) -> Result<Self, render::Problem> {
         let (width, height) = (settings.fluid_size, settings.fluid_size);
         let texel_size = [1.0 / width as f32, 1.0 / height as f32];
-        let grid_size: f32 = 1.0;
 
         // Framebuffers
         let half_float_zero = f16::from_f32(0.0);
@@ -222,7 +220,8 @@ impl Fluid {
             value: UniformValue::Texture2D(0),
         });
 
-        let alpha = -grid_size * grid_size;
+        // a = dx^2
+        let alpha = -1.0;
         let r_beta = 0.25;
         pressure_program.set_uniforms(&[
             &Uniform {
@@ -276,7 +275,6 @@ impl Fluid {
             width,
             height,
             texel_size,
-            grid_size,
 
             uniform_buffer,
             vertex_buffer,
@@ -446,7 +444,7 @@ impl Fluid {
         self.diffusion_pass.use_program();
         unsafe { self.context.bind_vertex_array(Some(self.vertex_buffer.id)) };
 
-        // grid_size^2 / (rho * dt)
+        // dx^2 / (rho * dt)
         let center_factor = 1.0 / (self.settings.viscosity * timestep);
         let stencil_factor = 1.0 / (4.0 + center_factor);
 
