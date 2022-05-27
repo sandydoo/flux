@@ -16,11 +16,17 @@ in vec2 vB;
 out float outPressure;
 
 void main() {
+  float pressure = texture(pressureTexture, texturePosition).x;
   float L = texture(pressureTexture, vL).x;
   float R = texture(pressureTexture, vR).x;
   float T = texture(pressureTexture, vT).x;
   float B = texture(pressureTexture, vB).x;
-  float divergence = texture(divergenceTexture, texturePosition).x;
 
+  if (texturePosition.x == 0.0) { L = pressure; }
+  if (texturePosition.x == 1.0) { R = pressure; }
+  if (texturePosition.y == 0.0) { B = pressure; }
+  if (texturePosition.y == 1.0) { T = pressure; }
+
+  float divergence = texture(divergenceTexture, texturePosition).x;
   outPressure = rBeta * (L + R + B + T + alpha * divergence);
 }

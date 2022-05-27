@@ -21,12 +21,30 @@ in vec2 vB;
 out vec2 newVelocity;
 
 void main() {
-  vec2 velocity = texture(velocityTexture, texturePosition).xy;
-
+  float pressure = texture(pressureTexture, texturePosition).x;
   float L = texture(pressureTexture, vL).x;
   float R = texture(pressureTexture, vR).x;
   float T = texture(pressureTexture, vT).x;
   float B = texture(pressureTexture, vB).x;
 
-  newVelocity = velocity - 0.5 * vec2(R - L, T - B);
+  vec2 adjustment = vec2(1.0);
+  if (texturePosition.x == 0.0) {
+    adjustment.x = 0.0;
+    L = pressure;
+  }
+  if (texturePosition.x == 1.0) {
+    adjustment.x = 0.0;
+    R = pressure;
+  }
+  if (texturePosition.y == 0.0) {
+    adjustment.y = 0.0;
+    B = pressure;
+  }
+  if (texturePosition.y == 1.0) {
+    adjustment.y = 0.0;
+    T = pressure;
+  }
+
+  vec2 velocity = texture(velocityTexture, texturePosition).xy;
+  newVelocity = adjustment * (velocity - 0.5 * vec2(R - L, T - B));
 }
