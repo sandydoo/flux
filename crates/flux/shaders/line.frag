@@ -3,8 +3,7 @@ precision mediump float;
 #endif
 
 in vec2 vVertex;
-in vec3 vColor;
-in float vOpacity;
+in vec4 vColor;
 
 layout(std140) uniform LineUniforms
 {
@@ -16,6 +15,6 @@ layout(std140) uniform LineUniforms
 out vec4 fragColor;
 
 void main() {
-  float opacity = vOpacity * smoothstep(uLineBeginOffset, 1.0, vVertex.x);
-  fragColor = vec4(vColor, opacity);
+  float opacity = vColor.a * smoothstep(uLineBeginOffset, 1.0, vVertex.x);
+  fragColor = vec4(vColor.rgb, opacity);
 }

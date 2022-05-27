@@ -13,8 +13,6 @@ in vec2 iEndpointVector;
 in vec2 iVelocityVector;
 in vec4 iColor;
 in float iLineWidth;
-in float iLineOpacity;
-in float iEndpointOpacity;
 
 layout(std140) uniform Projection
 {
@@ -42,8 +40,6 @@ out vec2 vEndpointVector;
 out vec2 vVelocityVector;
 out vec4 vColor;
 out float vLineWidth;
-out float vLineOpacity;
-out float vEndpointOpacity;
 
 vec4 getColor(vec4 wheel[6], float angle) {
   float slice = TAU / 6.0;
@@ -167,9 +163,7 @@ void main() {
   vLineWidth = widthBoost * widthBoost * (3.0 - widthBoost * 2.0);
 
   float angle = atan(velocity.x, velocity.y);
-  vColor = getColor(uColorWheel, angle);
-  vLineOpacity = widthBoost;
+  vec4 newColor = getColor(uColorWheel, angle);
+  vColor = vec4(newColor.rgb,  widthBoost) ;
 
-  // TODO: check this
-  vEndpointOpacity = max(0.7, vLineOpacity);
 }

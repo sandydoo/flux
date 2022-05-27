@@ -25,8 +25,6 @@ in vec2 iEndpointVector;
 in vec2 iVelocityVector;
 in mediump vec4 iColor;
 in mediump float iLineWidth;
-in mediump float iLineOpacity;
-in mediump float iEndpointOpacity;
 
 out vec4 vColor;
 
@@ -62,8 +60,9 @@ void main() {
 
   gl_Position = uProjection * uView * translate(endpoint) * rotationMatrix * modelMatrix * vec4(vertex, 0.0, 1.0);
 
+  float endpointOpacity = clamp(iColor.a + 0.7 * (1.0 - smoothstep(0.0, 0.75, iLineWidth)), 0.0, 1.0);
   if (uOrientation > 0.0) {
-    vColor = vec4(iColor.rgb, iEndpointOpacity);
+    vColor = vec4(iColor.rgb, endpointOpacity);
   } else {
     // The color of the lower half of the endpoint is less obvious. We’re
     // drawing over part of the line, so to match the color of the upper
@@ -76,7 +75,7 @@ void main() {
     //
     // Remember, we’ve already premultiplied our colors! The opacity should be
     // 1.0 to disable more opacity blending!
-    vec3 premultipliedLineColor = iColor.rgb * iLineOpacity;
-    vColor = vec4(iColor.rgb * iEndpointOpacity - premultipliedLineColor, 1.0);
+    vec3 premultipliedLineColor = iColor.rgb * iColor.a;
+    vColor = vec4(iColor.rgb * endpointOpacity - premultipliedLineColor, 1.0);
   }
 }

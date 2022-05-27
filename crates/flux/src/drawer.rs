@@ -44,8 +44,6 @@ struct LineState {
     velocity: mint::Vector2<f32>,
     color: mint::Vector4<f32>,
     width: f32,
-    line_opacity: f32,
-    endpoint_opacity: f32,
 }
 
 unsafe impl Zeroable for LineState {}
@@ -163,14 +161,7 @@ impl Drawer {
             (PLACE_LINES_VERT_SHADER, PLACE_LINES_FRAG_SHADER),
             &render::TransformFeedbackInfo {
                 // The order here must match the order in the buffer!
-                names: &[
-                    "vEndpointVector",
-                    "vVelocityVector",
-                    "vColor",
-                    "vLineWidth",
-                    "vLineOpacity",
-                    "vEndpointOpacity",
-                ],
+                names: &["vEndpointVector", "vVelocityVector", "vColor", "vLineWidth"],
                 mode: glow::INTERLEAVED_ATTRIBS,
             },
         )?;
@@ -191,7 +182,7 @@ impl Drawer {
 
         for _ in 0..2 {
             let line_state_buffer = &line_state_buffers.current_buffer().buffer;
-
+            let stride = std::mem::size_of::<LineState>() as u32;
             let common_attributes_with_divisor = |divisor| {
                 vec![
                     (
@@ -210,7 +201,7 @@ impl Drawer {
                             name: "iEndpointVector",
                             size: 2,
                             type_: glow::FLOAT,
-                            stride: 11 * 4,
+                            stride,
                             offset: 0 * 4,
                             divisor,
                         },
@@ -221,7 +212,7 @@ impl Drawer {
                             name: "iVelocityVector",
                             size: 2,
                             type_: glow::FLOAT,
-                            stride: 11 * 4,
+                            stride,
                             offset: 2 * 4,
                             divisor,
                         },
@@ -232,7 +223,7 @@ impl Drawer {
                             name: "iColor",
                             size: 4,
                             type_: glow::FLOAT,
-                            stride: 11 * 4,
+                            stride,
                             offset: 4 * 4,
                             divisor,
                         },
@@ -243,30 +234,8 @@ impl Drawer {
                             name: "iLineWidth",
                             size: 1,
                             type_: glow::FLOAT,
-                            stride: 11 * 4,
+                            stride,
                             offset: 8 * 4,
-                            divisor,
-                        },
-                    ),
-                    (
-                        line_state_buffer,
-                        VertexBufferLayout {
-                            name: "iLineOpacity",
-                            size: 1,
-                            type_: glow::FLOAT,
-                            stride: 11 * 4,
-                            offset: 9 * 4,
-                            divisor,
-                        },
-                    ),
-                    (
-                        line_state_buffer,
-                        VertexBufferLayout {
-                            name: "iEndpointOpacity",
-                            size: 1,
-                            type_: glow::FLOAT,
-                            stride: 11 * 4,
-                            offset: 10 * 4,
                             divisor,
                         },
                     ),
@@ -717,8 +686,6 @@ fn new_line_state(width: u32, height: u32, grid_spacing: u32) -> Vec<LineState> 
                 velocity: [0.0, 0.0].into(),
                 color: [0.0, 0.0, 0.0, 0.0].into(),
                 width: 0.0,
-                line_opacity: 0.0,
-                endpoint_opacity: 0.0,
             });
         }
     }

@@ -10,8 +10,6 @@ in vec2 iEndpointVector;
 in vec2 iVelocityVector;
 in mediump vec4 iColor;
 in mediump float iLineWidth;
-in mediump float iLineOpacity;
-in mediump float iEndpointOpacity;
 
 layout(std140) uniform Projection
 {
@@ -27,8 +25,7 @@ layout(std140) uniform LineUniforms
 };
 
 out vec2 vVertex;
-out vec3 vColor;
-out float vOpacity;
+out vec4 vColor;
 
 void main() {
   vec2 endpoint = basepoint + iEndpointVector * uLineLength;
@@ -40,6 +37,5 @@ void main() {
   gl_Position = uProjection * uView * vec4(point, 0.0, 1.0);
 
   vVertex = lineVertex;
-  vColor = iColor.rgb;
-  vOpacity = iLineOpacity;
+  vColor = iColor;
 }
