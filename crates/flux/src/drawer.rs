@@ -82,9 +82,10 @@ pub struct Drawer {
     pub grid_width: u32,
     pub grid_height: u32,
     pub line_count: u32,
+    elapsed_time: f32,
 
-    //TODO
-    spring_noise_offset: f32,
+    // TODO: move to uniform buffer
+    line_noise_offset: f32,
 
     basepoint_buffer: Buffer,
     line_state_buffers: render::DoubleTransformFeedback,
@@ -320,9 +321,8 @@ impl Drawer {
                 name: "velocityTexture",
                 value: UniformValue::Texture2D(0),
             },
-            // FIX: move into uniform buffer
             &Uniform {
-                name: "uSpringVariance",
+                name: "uLineVariance",
                 value: UniformValue::Float(settings.line_variance),
             },
             &Uniform {
@@ -367,8 +367,9 @@ impl Drawer {
             grid_width,
             grid_height,
             line_count,
+            elapsed_time: 0.0,
 
-            spring_noise_offset: 0.0,
+            line_noise_offset: 0.0,
 
             basepoint_buffer,
             line_state_buffers,
@@ -400,7 +401,7 @@ impl Drawer {
         // FIX: move into uniform buffer
         self.place_lines_pass.set_uniforms(&[
             &Uniform {
-                name: "uSpringVariance",
+                name: "uLineVariance",
                 value: UniformValue::Float(new_settings.line_variance),
             },
             &Uniform {
@@ -452,7 +453,10 @@ impl Drawer {
     }
 
     pub fn place_lines(&mut self, velocity_texture: &Framebuffer, timestep: f32) -> () {
-        self.spring_noise_offset += timestep;
+        self.elapsed_time += timestep;
+
+        let perturb = 0.001 * (self.elapsed_time.to_radians() - std::f32::consts::PI).sin();
+        self.line_noise_offset += 0.0015 + perturb;
 
         unsafe {
             self.context.viewport(
@@ -476,8 +480,8 @@ impl Drawer {
                 value: UniformValue::Float(timestep),
             });
             self.place_lines_pass.set_uniform(&Uniform {
-                name: "springNoiseOffset1",
-                value: UniformValue::Float(self.spring_noise_offset),
+                name: "lineNoiseOffset1",
+                value: UniformValue::Float(self.line_noise_offset),
             });
 
             self.context.active_texture(glow::TEXTURE0);

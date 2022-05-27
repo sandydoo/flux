@@ -28,10 +28,10 @@ layout(std140) uniform LineUniforms
 };
 
 uniform float deltaTime;
-uniform float uSpringVariance;
+uniform float uLineVariance;
 uniform mediump vec4 uColorWheel[6];
 
-uniform float springNoiseOffset1;
+uniform float lineNoiseOffset1;
 
 uniform sampler2D velocityTexture;
 
@@ -142,15 +142,15 @@ float snoise(vec3 v) {
 }
 
 void main() {
-  float springNoiseScale = 64.0;
+  float lineNoiseScale = 64.0;
 
   vec2 basepointInClipSpace = 0.5 + 0.5 * (uProjection * vec4(basepoint, 0.0, 1.0)).xy;
   vec2 velocity = texture(velocityTexture, basepointInClipSpace).xy;
-  float noise = snoise(vec3(springNoiseScale * basepointInClipSpace, springNoiseOffset1));
+  float noise = snoise(vec3(lineNoiseScale * basepointInClipSpace, lineNoiseOffset1));
 
   // Blend noise
 
-  float variance = mix(1.0 - uSpringVariance, 1.0, 0.5 + 0.5 * noise);
+  float variance = mix(1.0 - uLineVariance, 1.0, 0.5 + 0.5 * noise);
   float inverseVariance = 1.0 - variance;
   float velocityDeltaVariance = mix(3.0, 25.0, inverseVariance);
   float momentumVariance = mix(3.0, 5.0, variance);

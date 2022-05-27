@@ -13,10 +13,12 @@ build = "build.rs"
 [dependencies]
 bytemuck = { version = "1.4", features = ["derive"] }
 crevice = { version  = "0.8", features = [ "std", "nalgebra" ] }
+getrandom = { version = "0.2", features = ["js"] }
 glow = "0.11.2"
 half = { version = "1.8", features = ["bytemuck"] }
 nalgebra = { version = "0.31", features = [ "mint" ] }
 mint = "0.5"
+rand = { version = "0.8.5", features = ["getrandom"] }
 rustc-hash = "1.1"
 serde = { version = "1", features = ["derive"] }
 thiserror = "1"

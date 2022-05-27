@@ -37,7 +37,9 @@ impl NoiseChannel {
     pub fn tick(&mut self, elapsed_time: f32) -> () {
         self.blend_begin_time = elapsed_time;
         self.last_blend_progress = 0.0;
-        self.offset_1 += self.settings.offset_increment;
+
+        let perturb = 0.6 + 0.4 * (elapsed_time.to_radians()).sin();
+        self.offset_1 += perturb * self.settings.offset_increment;
     }
 }
 
@@ -140,7 +142,7 @@ impl NoiseGeneratorBuilder {
     pub fn add_channel(&mut self, channel: &settings::Noise) -> &Self {
         self.channels.push(NoiseChannel {
             settings: channel.clone(),
-            offset_1: 0.0,
+            offset_1: 100.0 * rand::random::<f32>(),
             offset_2: 0.0,
             blend_begin_time: 0.0,
             last_blend_progress: 0.0,
