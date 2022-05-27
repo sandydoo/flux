@@ -474,9 +474,7 @@ impl Drawer {
 
             self.place_lines_pass.use_program();
 
-            self.context.bind_vertex_array(Some(
-                self.place_lines_buffers[self.line_state_buffers.active_buffer].id,
-            ));
+            self.place_lines_buffers[self.line_state_buffers.active_buffer].bind();
             self.context
                 .bind_buffer_base(glow::UNIFORM_BUFFER, 0, Some(self.view_buffer.id));
             self.context
@@ -515,9 +513,7 @@ impl Drawer {
             self.context.blend_func(glow::SRC_ALPHA, glow::ONE);
 
             self.draw_lines_pass.use_program();
-            self.context.bind_vertex_array(Some(
-                self.draw_lines_buffers[self.line_state_buffers.active_buffer].id,
-            ));
+            self.draw_lines_buffers[self.line_state_buffers.active_buffer].bind();
 
             self.context
                 .bind_buffer_base(glow::UNIFORM_BUFFER, 0, Some(self.view_buffer.id));
@@ -544,9 +540,7 @@ impl Drawer {
             self.context.blend_func(glow::SRC_ALPHA, glow::ONE);
 
             self.draw_endpoints_pass.use_program();
-            self.context.bind_vertex_array(Some(
-                self.draw_endpoints_buffers[self.line_state_buffers.active_buffer].id,
-            ));
+            self.draw_endpoints_buffers[self.line_state_buffers.active_buffer].bind();
 
             self.context
                 .bind_buffer_base(glow::UNIFORM_BUFFER, 0, Some(self.view_buffer.id));
@@ -586,9 +580,7 @@ impl Drawer {
 
             self.context
                 .bind_buffer_base(glow::UNIFORM_BUFFER, 0, Some(self.view_buffer.id));
-
-            self.context
-                .bind_vertex_array(Some(self.draw_texture_buffer.id));
+            self.draw_texture_buffer.bind();
 
             self.context.active_texture(glow::TEXTURE0);
             self.context

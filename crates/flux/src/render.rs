@@ -1078,6 +1078,12 @@ impl VertexArrayObject {
 
         Ok(())
     }
+
+    pub fn bind(&self) {
+        unsafe {
+            self.context.bind_vertex_array(Some(self.id));
+        }
+    }
 }
 
 pub fn bind_attributes(

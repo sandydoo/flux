@@ -75,7 +75,7 @@ impl NoiseGenerator {
         self.generate_noise_pass.use_program();
 
         unsafe {
-            self.context.bind_vertex_array(Some(self.noise_buffer.id));
+            self.noise_buffer.bind();
 
             self.context
                 .bind_buffer_base(glow::UNIFORM_BUFFER, 0, Some(self.uniforms.id));
@@ -97,7 +97,7 @@ impl NoiseGenerator {
 
             unsafe {
                 self.context.disable(glow::BLEND);
-                self.context.bind_vertex_array(Some(self.noise_buffer.id));
+                self.noise_buffer.bind();
 
                 self.inject_noise_pass.set_uniform(&Uniform {
                     name: "deltaTime",
