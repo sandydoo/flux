@@ -47,7 +47,7 @@ type alias Settings =
     { mode : Mode
     , viscosity : Float
     , velocityDissipation : Float
-    , startingPressure : Float
+    , startingPressure : StartingPressure
     , fluidSize : Int
     , fluidSimulationFrameRate : Int
     , diffusionIterations : Int
@@ -71,6 +71,11 @@ type Mode
     | DebugDivergence
 
 
+type StartingPressure
+    = Inherit
+    | Fixed Float
+
+
 type ColorScheme
     = Plasma
     | Peacock
@@ -90,7 +95,7 @@ defaultSettings =
     { mode = Normal
     , viscosity = 5.0
     , velocityDissipation = 0.0
-    , startingPressure = 0.0
+    , startingPressure = Inherit
     , fluidSize = 128
     , fluidSimulationFrameRate = 60
     , colorScheme = Peacock
@@ -192,7 +197,7 @@ updateSettings msg settings =
             { settings | velocityDissipation = newVelocityDissipation }
 
         SetStartingPressure newPressure ->
-            { settings | startingPressure = newPressure }
+            { settings | startingPressure = Fixed newPressure }
 
         SetDiffusionIterations newDiffusionIterations ->
             { settings | diffusionIterations = newDiffusionIterations }
@@ -485,26 +490,32 @@ viewSettings settings =
                     , toString = formatFloat 1
                     }
                 )
-        , viewControl <|
-            Control
-                "Starting pressure"
-                """
-                The amount of fluid pressure we assume before actually calculating pressure.
-                """
-                (Slider
-                    { min = 0.0
-                    , max = 1.0
-                    , step = 0.1
-                    , value = settings.startingPressure
-                    , onInput =
-                        \value ->
-                            String.toFloat value
-                                |> Maybe.withDefault 0.0
-                                |> SetStartingPressure
-                                |> SaveSetting
-                    , toString = formatFloat 1
-                    }
-                )
+
+        --, viewControl <|
+        --    let
+        --        pressureFromSetting = case settings.startingPressure of
+        --            Fixed pressure -> pressure
+        --            _ -> 0.0
+        --    in
+        --    Control
+        --        "Starting pressure"
+        --        """
+        --        The amount of fluid pressure we assume before actually calculating pressure.
+        --        """
+        --        (Slider
+        --            { min = 0.0
+        --            , max = 1.0
+        --            , step = 0.1
+        --            , value = pressureFromSetting
+        --            , onInput =
+        --                \value ->
+        --                    String.toFloat value
+        --                        |> Maybe.withDefault 0.0
+        --                        |> SetStartingPressure
+        --                        |> SaveSetting
+        --            , toString = formatFloat 1
+        --            }
+        --        )
         , viewControl <|
             Control
                 "Diffusion iterations"
@@ -787,7 +798,7 @@ encodeSettings settings =
         [ ( "mode", encodeMode settings.mode )
         , ( "viscosity", Encode.float settings.viscosity )
         , ( "velocityDissipation", Encode.float settings.velocityDissipation )
-        , ( "startingPressure", Encode.float settings.startingPressure )
+        , ( "startingPressure", encodeStartingPressure settings.startingPressure )
         , ( "fluidSize", Encode.int settings.fluidSize )
         , ( "fluidSimulationFrameRate", Encode.int settings.fluidSimulationFrameRate )
         , ( "diffusionIterations", Encode.int settings.diffusionIterations )
@@ -821,6 +832,16 @@ encodeMode mode =
 
             DebugDivergence ->
                 "DebugDivergence"
+
+
+encodeStartingPressure : StartingPressure -> Encode.Value
+encodeStartingPressure startingPressure =
+    case startingPressure of
+        Inherit ->
+            Encode.string "Inherit"
+
+        Fixed pressure ->
+            Encode.object [ ( "Fixed", Encode.float pressure ) ]
 
 
 encodeColorScheme : ColorScheme -> Encode.Value
