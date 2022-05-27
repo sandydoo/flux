@@ -94,8 +94,6 @@ pub struct Drawer {
     endpoint_vertices: Buffer,
     #[allow(unused)]
     plane_vertices: Buffer,
-    #[allow(unused)]
-    plane_indices: Buffer,
 
     place_lines_buffers: Vec<VertexArrayObject>,
     draw_lines_buffers: Vec<VertexArrayObject>,
@@ -145,12 +143,6 @@ impl Drawer {
             &context,
             &data::PLANE_VERTICES,
             glow::ARRAY_BUFFER,
-            glow::STATIC_DRAW,
-        )?;
-        let plane_indices = Buffer::from_u16(
-            &context,
-            &data::PLANE_INDICES,
-            glow::ELEMENT_ARRAY_BUFFER,
             glow::STATIC_DRAW,
         )?;
 
@@ -293,12 +285,12 @@ impl Drawer {
                 &plane_vertices,
                 VertexBufferLayout {
                     name: "position",
-                    size: 3,
+                    size: 2,
                     type_: glow::FLOAT,
                     ..Default::default()
                 },
             )],
-            Some(&plane_indices),
+            None,
         )?;
 
         // Uniforms
@@ -383,7 +375,6 @@ impl Drawer {
             line_vertices,
             endpoint_vertices,
             plane_vertices,
-            plane_indices,
 
             place_lines_buffers,
             draw_lines_buffers,
@@ -586,8 +577,7 @@ impl Drawer {
             self.context
                 .bind_texture(glow::TEXTURE_2D, Some(texture.texture));
 
-            self.context
-                .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
+            self.context.draw_arrays(glow::TRIANGLES, 0, 6);
         }
     }
 

@@ -49,8 +49,6 @@ pub struct Fluid {
     vertex_buffer: VertexArrayObject,
     #[allow(unused)]
     plane_vertices: Buffer,
-    #[allow(unused)]
-    plane_indices: Buffer,
 
     velocity_textures: DoubleFramebuffer,
     advection_forward_texture: Framebuffer,
@@ -147,12 +145,6 @@ impl Fluid {
             &context,
             &data::PLANE_VERTICES,
             glow::ARRAY_BUFFER,
-            glow::STATIC_DRAW,
-        )?;
-        let plane_indices = Buffer::from_u16(
-            &context,
-            &data::PLANE_INDICES,
-            glow::ELEMENT_ARRAY_BUFFER,
             glow::STATIC_DRAW,
         )?;
 
@@ -260,12 +252,12 @@ impl Fluid {
                 &plane_vertices,
                 render::VertexBufferLayout {
                     name: "position",
-                    size: 3,
+                    size: 2,
                     type_: glow::FLOAT,
                     ..Default::default()
                 },
             )],
-            Some(&plane_indices),
+            None,
         )?;
 
         Ok(Self {
@@ -279,7 +271,6 @@ impl Fluid {
             uniform_buffer,
             vertex_buffer,
             plane_vertices,
-            plane_indices,
 
             velocity_textures,
             advection_forward_texture,
@@ -376,8 +367,7 @@ impl Fluid {
                     Some(self.velocity_textures.current().texture),
                 );
 
-                self.context
-                    .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
+                self.context.draw_arrays(glow::TRIANGLES, 0, 6);
             });
     }
 
@@ -403,8 +393,7 @@ impl Fluid {
                     Some(self.velocity_textures.current().texture),
                 );
 
-                self.context
-                    .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
+                self.context.draw_arrays(glow::TRIANGLES, 0, 6);
             });
     }
 
@@ -435,8 +424,7 @@ impl Fluid {
                     Some(self.advection_reverse_texture.texture),
                 );
 
-                self.context
-                    .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
+                self.context.draw_arrays(glow::TRIANGLES, 0, 6);
             });
     }
 
@@ -466,8 +454,7 @@ impl Fluid {
                     self.context
                         .bind_texture(glow::TEXTURE_2D, Some(velocity_texture.texture));
 
-                    self.context
-                        .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
+                    self.context.draw_arrays(glow::TRIANGLES, 0, 6);
                 });
         }
     }
@@ -485,16 +472,14 @@ impl Fluid {
                 Some(self.velocity_textures.current().texture),
             );
 
-            self.context
-                .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
+            self.context.draw_arrays(glow::TRIANGLES, 0, 6);
         });
     }
 
     pub fn solve_pressure(&self) -> () {
         self.clear_to_zero_pass.use_program();
         let draw_quad = || unsafe {
-            self.context
-                .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
+            self.context.draw_arrays(glow::TRIANGLES, 0, 6);
         };
         self.pressure_textures
             .current()
@@ -522,8 +507,7 @@ impl Fluid {
                     self.context
                         .bind_texture(glow::TEXTURE_2D, Some(pressure_texture.texture));
 
-                    self.context
-                        .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
+                    self.context.draw_arrays(glow::TRIANGLES, 0, 6);
                 });
         }
     }
@@ -548,8 +532,7 @@ impl Fluid {
                     Some(self.pressure_textures.current().texture),
                 );
 
-                self.context
-                    .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
+                self.context.draw_arrays(glow::TRIANGLES, 0, 6);
             });
     }
 

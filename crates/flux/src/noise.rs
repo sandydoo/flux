@@ -53,8 +53,6 @@ pub struct NoiseGenerator {
     uniforms: Buffer,
     #[allow(unused)]
     plane_vertices: Buffer,
-    #[allow(unused)]
-    plane_indices: Buffer,
 }
 
 impl NoiseGenerator {
@@ -81,8 +79,7 @@ impl NoiseGenerator {
                 .bind_buffer_base(glow::UNIFORM_BUFFER, 0, Some(self.uniforms.id));
 
             self.texture.draw_to(&self.context, || {
-                self.context
-                    .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
+                self.context.draw_arrays(glow::TRIANGLES, 0, 6);
             });
         }
 
@@ -112,8 +109,7 @@ impl NoiseGenerator {
                 self.context
                     .bind_texture(glow::TEXTURE_2D, Some(self.texture.texture));
 
-                self.context
-                    .draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
+                self.context.draw_arrays(glow::TRIANGLES, 0, 6);
             }
         });
     }
@@ -161,12 +157,6 @@ impl NoiseGeneratorBuilder {
             glow::ARRAY_BUFFER,
             glow::STATIC_DRAW,
         )?;
-        let plane_indices = Buffer::from_u16(
-            &self.context,
-            &data::PLANE_INDICES,
-            glow::ELEMENT_ARRAY_BUFFER,
-            glow::STATIC_DRAW,
-        )?;
         let texture = Framebuffer::new(
             &self.context,
             self.width,
@@ -195,12 +185,12 @@ impl NoiseGeneratorBuilder {
                 &plane_vertices,
                 VertexBufferLayout {
                     name: "position",
-                    size: 3,
+                    size: 2,
                     type_: glow::FLOAT,
                     ..Default::default()
                 },
             )],
-            Some(&plane_indices),
+            None,
         )?;
 
         let uniforms = Buffer::from_bytes(
@@ -233,7 +223,6 @@ impl NoiseGeneratorBuilder {
             noise_buffer,
             uniforms,
             plane_vertices,
-            plane_indices,
         })
     }
 }
