@@ -123,11 +123,10 @@ impl Drawer {
     ) -> Result<Self, render::Problem> {
         let (grid_width, grid_height) = compute_grid_size(logical_width, logical_height);
 
-        let basepoints = &new_basepoints(grid_width, grid_height, settings.grid_spacing);
-        let line_count = (basepoints.len() / 2) as u32;
+        let (basepoints, line_state, line_count) =
+            new_line_grid(grid_width, grid_height, settings.grid_spacing);
         let basepoint_buffer =
             Buffer::from_f32(&context, &basepoints, glow::ARRAY_BUFFER, glow::STATIC_DRAW)?;
-        let line_state = new_line_state(grid_width, grid_height, settings.grid_spacing);
         let line_vertices = Buffer::from_f32(
             &context,
             &bytemuck::cast_slice(&LINE_VERTICES),
@@ -440,12 +439,11 @@ impl Drawer {
         self.antialiasing_pass
             .resize(physical_width, physical_height);
 
-        let basepoints = new_basepoints(grid_width, grid_height, self.settings.grid_spacing);
+        let (basepoints, line_state, line_count) =
+            new_line_grid(grid_width, grid_height, self.settings.grid_spacing);
+        self.line_count = line_count;
         self.basepoint_buffer
             .overwrite(bytemuck::cast_slice(&basepoints));
-
-        self.line_count = (basepoints.len() / 2) as u32;
-        let line_state = new_line_state(grid_width, grid_height, self.settings.grid_spacing);
         self.line_state_buffers
             .overwrite_buffer(bytemuck::cast_slice(&line_state))?;
 
@@ -633,41 +631,37 @@ fn new_projection_matrix(
     )
 }
 
-// World space coordinates: zero-centered, width x height
-fn new_basepoints(width: u32, height: u32, grid_spacing: u32) -> Vec<f32> {
-    let half_width = (width as f32) / 2.0;
-    let half_height = (height as f32) / 2.0;
+fn new_line_grid(width: u32, height: u32, grid_spacing: u32) -> (Vec<f32>, Vec<LineState>, u32) {
+    let height = height as f32;
+    let width = width as f32;
+    let grid_spacing = grid_spacing as f32;
 
-    let rows = height / grid_spacing;
-    let cols = width / grid_spacing;
-    let mut data = Vec::with_capacity((rows * cols * 2) as usize);
+    let half_width = width / 2.0;
+    let half_height = height / 2.0;
 
+    let aspect = width / height;
+    let inverse_aspect = 1.0 / aspect;
+    let rows = (height / grid_spacing).ceil() as u32;
+    let cols = ((aspect * width) / grid_spacing).ceil() as u32;
+    let line_count = rows * cols;
+
+    // World space coordinates: zero-centered, width x height
+    let mut basepoints = Vec::with_capacity((line_count * 2) as usize);
     for v in 0..rows {
-        // Horizontal offset every other row
-        let offset_u = if v % 2 == 0 { 0.0 } else { 0.0 };
-
         for u in 0..cols {
-            let x: f32 = (offset_u * grid_spacing as f32) + (u * grid_spacing) as f32;
-            let y: f32 = (v * grid_spacing) as f32;
+            let x: f32 = (u as f32) * grid_spacing * inverse_aspect;
+            let y: f32 = (v as f32) * grid_spacing;
 
-            data.push(x - half_width);
-            data.push(y - half_height);
+            basepoints.push(x - half_width);
+            basepoints.push(y - half_height);
         }
     }
 
-    data
-}
-
-// World space coordinates: zero-centered, width x height
-fn new_line_state(width: u32, height: u32, grid_spacing: u32) -> Vec<LineState> {
-    let rows = height / grid_spacing;
-    let cols = width / grid_spacing;
-    let mut data =
-        Vec::with_capacity(std::mem::size_of::<LineState>() / 4 * (rows * cols) as usize);
-
+    let mut line_state =
+        Vec::with_capacity(std::mem::size_of::<LineState>() / 4 * line_count as usize);
     for _ in 0..rows {
         for _ in 0..cols {
-            data.push(LineState {
+            line_state.push(LineState {
                 endpoint: [0.0, 0.0].into(),
                 velocity: [0.0, 0.0].into(),
                 color: [0.0, 0.0, 0.0, 0.0].into(),
@@ -676,7 +670,7 @@ fn new_line_state(width: u32, height: u32, grid_spacing: u32) -> Vec<LineState> 
         }
     }
 
-    data
+    (basepoints, line_state, line_count)
 }
 
 fn new_endpoint(resolution: u32) -> Vec<f32> {
