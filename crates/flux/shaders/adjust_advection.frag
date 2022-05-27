@@ -14,10 +14,11 @@ out vec2 outVelocity;
 
 void main() {
   vec2 size = vec2(textureSize(velocityTexture, 0));
-  ivec2 position = ivec2(texturePosition * size);
+  ivec2 position = ivec2(floor(texturePosition * size));
   vec2 velocity = texelFetch(velocityTexture, position, 0).xy;
 
-  vec2 newCoord = (0.5 + floor((vec2(position) + 1.0) - deltaTime * velocity)) / size;
+  // Sample velocities on the stagged grid
+  vec2 newCoord = (0.5 + floor(vec2(position + 1) - deltaTime * velocity)) / size;
   vec2 L = textureOffset(velocityTexture, newCoord, ivec2(-1, 0)).xy;
   vec2 R = textureOffset(velocityTexture, newCoord, ivec2(1, 0)).xy;
   vec2 T = textureOffset(velocityTexture, newCoord, ivec2(0, 1)).xy;

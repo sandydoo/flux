@@ -16,9 +16,10 @@ uniform float amount;
 in vec2 texturePosition;
 out vec2 outVelocity;
 
+// Velocity is sampled on a staggered grid.
 void main() {
   vec2 velocity = texture(velocityTexture, texturePosition).xy;
-  vec2 advectedCoord = texturePosition - amount * velocity;
+  vec2 advectedPosition = (texturePosition + 0.5 * uTexelSize) - amount * velocity;
   float decay = 1.0 + dissipation * amount;
-  outVelocity = texture(velocityTexture, advectedCoord).xy / decay;
+  outVelocity = texture(velocityTexture, advectedPosition).xy / decay;
 }
