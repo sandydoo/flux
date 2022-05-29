@@ -27,6 +27,7 @@ pub struct NoiseUniforms {
 
 pub struct NoiseChannel {
     settings: settings::Noise,
+    scale: f32,
     offset_1: f32,
     offset_2: f32,
     blend_begin_time: f32,
@@ -38,8 +39,8 @@ impl NoiseChannel {
         self.blend_begin_time = elapsed_time;
         self.last_blend_progress = 0.0;
 
-        let perturb = 0.6 + 0.4 * (elapsed_time.to_radians()).sin();
-        self.offset_1 += perturb * self.settings.offset_increment;
+        self.scale = self.settings.scale + 0.3 * (0.001 * elapsed_time.to_radians()).sin();
+        self.offset_1 += self.settings.offset_increment;
     }
 }
 
@@ -142,6 +143,7 @@ impl NoiseGeneratorBuilder {
     pub fn add_channel(&mut self, channel: &settings::Noise) -> &Self {
         self.channels.push(NoiseChannel {
             settings: channel.clone(),
+            scale: channel.scale,
             offset_1: 100.0 * rand::random::<f32>(),
             offset_2: 0.0,
             blend_begin_time: 0.0,
@@ -233,7 +235,7 @@ fn build_noise_uniforms(channels: &[NoiseChannel]) -> Vec<u8> {
     let noise_uniforms: Vec<NoiseUniforms> = channels
         .iter()
         .map(|channel| NoiseUniforms {
-            scale: channel.settings.scale,
+            scale: channel.scale,
             offset_1: channel.offset_1,
             offset_2: channel.offset_2,
             multiplier: channel.settings.multiplier,

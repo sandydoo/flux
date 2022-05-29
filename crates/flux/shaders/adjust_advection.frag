@@ -13,8 +13,8 @@ uniform float deltaTime;
 out vec2 outVelocity;
 
 void main() {
-  vec2 size = vec2(textureSize(velocityTexture, 0));
-  ivec2 position = ivec2(floor(texturePosition * size));
+  float size = float(textureSize(velocityTexture, 0));
+  ivec2 position = ivec2(texturePosition * size);
   vec2 velocity = texelFetch(velocityTexture, position, 0).xy;
 
   // Sample velocities on the stagged grid

@@ -147,6 +147,7 @@ void main() {
     noise += makeNoise(uChannels[3]);
   #endif
 
-  noise *= 0.45;
+  // TODO: make this configurable
+  noise *= 0.36;
 }
 

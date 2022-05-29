@@ -390,7 +390,7 @@ impl Fluid {
                 self.context.active_texture(glow::TEXTURE0);
                 self.context.bind_texture(
                     glow::TEXTURE_2D,
-                    Some(self.velocity_textures.current().texture),
+                    Some(self.advection_forward_texture.texture),
                 );
 
                 self.context.draw_arrays(glow::TRIANGLES, 0, 6);
