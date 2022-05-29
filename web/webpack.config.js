@@ -46,9 +46,9 @@ module.exports = (env, argv) => {
   if (!skipWasmPack) {
     config.plugins.push(
       new WasmPackPlugin({
-        crateDirectory: path.resolve(__dirname, '../crates/flux-wasm'),
+        crateDirectory: path.resolve(__dirname, '../flux-wasm'),
         watchDirectories: [
-          path.resolve(__dirname, '../crates/flux')
+          path.resolve(__dirname, '../flux')
         ],
         outDir: path.join(__dirname, 'flux'),
       }),

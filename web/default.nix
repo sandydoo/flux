@@ -11,7 +11,7 @@ let
       filter = name: type:
         builtins.any (x: baseNameOf name == x) [ "package.json" "yarn.lock" ];
     };
-    publishBinsFor = [ "webpack" "gh-pages" ];
+    publishBinsFor = [ "elm" "webpack" "gh-pages" ];
   };
 
   packageJson = ''
