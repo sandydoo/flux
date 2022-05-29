@@ -99,25 +99,25 @@ defaultSettings =
     , fluidSize = 128
     , fluidSimulationFrameRate = 60
     , colorScheme = Peacock
-    , diffusionIterations = 4
+    , diffusionIterations = 5
     , pressureIterations = 20
-    , lineLength = 400.0
-    , lineWidth = 7.0
+    , lineLength = 300.0
+    , lineWidth = 5.0
     , lineBeginOffset = 0.5
-    , lineVariance = 0.47
+    , lineVariance = 0.4
     , viewScale = 1.6
-    , gridSpacing = 12
+    , gridSpacing = 21
     , noiseChannels =
         Array.fromList
-            [ { scale = 2.3
+            [ { scale = 2.5
               , multiplier = 1.0
               , offsetIncrement = 0.0015
               }
-            , { scale = 13.8
+            , { scale = 15.0
               , multiplier = 0.7
               , offsetIncrement = 0.0015
               }
-            , { scale = 27.6
+            , { scale = 30.0
               , multiplier = 0.5
               , offsetIncrement = 0.0015
               }
@@ -458,7 +458,7 @@ viewSettings settings =
                 """
                 (Slider
                     { min = 0.1
-                    , max = 4.0
+                    , max = 8.0
                     , step = 0.1
                     , value = settings.viscosity
                     , onInput =

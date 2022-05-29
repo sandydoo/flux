@@ -1,4 +1,4 @@
-use flux::settings::{ColorScheme, Mode, Noise, Settings};
+use flux::settings::{ColorScheme, Mode, Noise, Settings, StartingPressure};
 use flux::Flux;
 use glutin::event::{Event, WindowEvent};
 use glutin::event_loop::{ControlFlow, EventLoop};
@@ -11,33 +11,33 @@ fn main() {
         mode: Mode::Normal,
         viscosity: 5.0,
         velocity_dissipation: 0.0,
-        starting_pressure: 0.0,
+        starting_pressure: StartingPressure::Inherit,
         fluid_size: 128,
         fluid_simulation_frame_rate: 60.0,
-        diffusion_iterations: 4,
+        diffusion_iterations: 5,
         pressure_iterations: 20,
         color_scheme: ColorScheme::Peacock,
-        line_length: 400.0,
-        line_width: 7.0,
+        line_length: 300.0,
+        line_width: 5.0,
         line_begin_offset: 0.5,
         line_variance: 0.47,
-        grid_spacing: 14,
+        grid_spacing: 21,
         view_scale: 1.6,
         noise_channels: vec![
             Noise {
-                scale: 2.3,
+                scale: 2.5,
                 multiplier: 1.0,
-                offset_increment: 1.0 / 1024.0,
+                offset_increment: 0.0015,
             },
             Noise {
-                scale: 13.8,
+                scale: 15.0,
                 multiplier: 0.7,
-                offset_increment: 1.0 / 1024.0,
+                offset_increment: 0.0015,
             },
             Noise {
-                scale: 27.6,
+                scale: 30.0,
                 multiplier: 0.5,
-                offset_increment: 1.0 / 1024.0,
+                offset_increment: 0.0015,
             },
         ],
     };
