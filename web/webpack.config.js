@@ -6,6 +6,8 @@ const CopyPlugin = require('copy-webpack-plugin');
 
 module.exports = (env, argv) => {
   const skipWasmPack = env['skip-wasm-pack'] ?? false;
+  const pathToElm = env['path-to-elm'];
+
   console.log(env);
 
   let config = {
@@ -20,7 +22,12 @@ module.exports = (env, argv) => {
       rules: [{
         test: /\.elm$/,
         exclude: [/elm-stuff/],
-        use: 'elm-webpack-loader',
+        use: {
+          loader: 'elm-webpack-loader',
+          options: {
+            pathToElm,
+          },
+        },
       }],
     },
 

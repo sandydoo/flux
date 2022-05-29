@@ -11,7 +11,7 @@ let
       filter = name: type:
         builtins.any (x: baseNameOf name == x) [ "package.json" "yarn.lock" ];
     };
-    publishBinsFor = [ "elm" "webpack" "gh-pages" ];
+    publishBinsFor = [ "webpack" "gh-pages" ];
   };
 
   packageJson = ''
@@ -47,10 +47,8 @@ in stdenv.mkDerivation rec {
     ln -sf ${nodeDependencies}/libexec/*/node_modules .
   '';
 
-  # Notice that the path here is relative to the toplevel flake. $src does not
-  # work here.
   shellHook = ''
-    ln -sf ${nodeDependencies}/libexec/*/node_modules ./web
+    ln -sf ${nodeDependencies}/libexec/*/node_modules .
   '';
 
   configurePhase = pkgs.elmPackages.fetchElmDeps {
@@ -63,11 +61,19 @@ in stdenv.mkDerivation rec {
     mkdir -p $out
 
     mkdir -p ./flux
-    wasm-bindgen --target bundler --out-dir ./flux ${flux-wasm}/lib/flux_wasm.wasm
+    wasm-bindgen \
+      --target bundler \
+      --out-dir ./flux \
+      ${flux-wasm}/lib/flux_wasm.wasm
+
     mv flux/flux_wasm_bg.wasm flux/flux_wasm_bg_unoptimized.wasm
     wasm-opt -O3 -o flux/flux_wasm_bg.wasm flux/flux_wasm_bg_unoptimized.wasm
     echo '${packageJson}' > ./flux/package.json
 
-    webpack --mode production --output-path=$out --env skip-wasm-pack
+    webpack \
+      --mode production \
+      --output-path=$out \
+      --env skip-wasm-pack \
+      --env path-to-elm=${pkgs.elmPackages.elm}/bin/elm
   '';
 }
