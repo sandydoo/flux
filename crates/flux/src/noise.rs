@@ -117,7 +117,6 @@ impl NoiseGenerator {
         });
     }
 
-    #[allow(dead_code)]
     pub fn get_noise(&self) -> &Framebuffer {
         &self.texture
     }

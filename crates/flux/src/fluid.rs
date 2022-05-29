@@ -545,22 +545,18 @@ impl Fluid {
             });
     }
 
-    #[allow(dead_code)]
     pub fn get_velocity(&self) -> Ref<Framebuffer> {
         self.velocity_textures.current()
     }
 
-    #[allow(dead_code)]
     pub fn get_divergence(&self) -> &Framebuffer {
         &self.divergence_texture
     }
 
-    #[allow(dead_code)]
     pub fn get_pressure(&self) -> Ref<Framebuffer> {
         self.pressure_textures.current()
     }
 
-    #[allow(dead_code)]
     pub fn get_velocity_textures(&self) -> &DoubleFramebuffer {
         &self.velocity_textures
     }
