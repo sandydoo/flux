@@ -40,7 +40,7 @@
             builtins.substring 0 8 self.lastModifiedDate
           }_${self.shortRev or "dirty"}";
 
-        fluxDesktopVersion = readVersionFrom ./crates/flux-desktop/Cargo.toml;
+        fluxDesktopVersion = readVersionFrom ./flux-desktop/Cargo.toml;
 
         flux-desktop-x86_64-pc-windows-gnu = naersk-lib.buildPackage {
           name = "flux-desktop";
@@ -70,14 +70,14 @@
 
         packages.flux = naersk-lib.buildPackage {
           name = "flux";
-          version = readVersionFrom ./crates/flux/Cargo.toml;
+          version = readVersionFrom ./flux/Cargo.toml;
           src = ./.;
           cargoBuildOptions = args: args ++ [ "-p flux" ];
         };
 
         packages.flux-wasm = naersk-lib.buildPackage {
           name = "flux-wasm";
-          version = readVersionFrom ./crates/flux-wasm/Cargo.toml;
+          version = readVersionFrom ./flux-wasm/Cargo.toml;
           src = ./.;
           copyBins = false;
           copyLibs = true;

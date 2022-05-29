@@ -164,6 +164,5 @@ void main() {
 
   float angle = atan(velocity.x, velocity.y);
   vec4 newColor = getColor(uColorWheel, angle);
-  vColor = vec4(newColor.rgb,  widthBoost) ;
-
+  vColor = vec4(newColor.rgb,  widthBoost);
 }

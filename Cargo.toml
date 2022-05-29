@@ -1,9 +1,9 @@
 [workspace]
 
 members = [
-    "crates/flux",
-    "crates/flux-desktop",
-    "crates/flux-wasm"
+    "flux",
+    "flux-desktop",
+    "flux-wasm"
 ]
 
 [profile.release]
