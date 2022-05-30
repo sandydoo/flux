@@ -56,7 +56,7 @@ pub struct Fluid {
     divergence_texture: Framebuffer,
     pressure_textures: DoubleFramebuffer,
 
-    clear_pressure_to: render::Program,
+    clear_pressure_to_pass: render::Program,
     advection_pass: render::Program,
     adjust_advection_pass: render::Program,
     diffusion_pass: render::Program,
@@ -148,21 +148,21 @@ impl Fluid {
             glow::STATIC_DRAW,
         )?;
 
-        let clear_pressure_to_program = render::Program::new(
+        let clear_pressure_to_pass = render::Program::new(
             &context,
             (CLEAR_PRESSURE_TO_VERT_SHADER, CLEAR_PRESSURE_TO_FRAG_SHADER),
         )?;
-        let advection_program =
+        let advection_pass =
             render::Program::new(&context, (FLUID_VERT_SHADER, ADVECTION_FRAG_SHADER))?;
         let adjust_advection_pass =
             render::Program::new(&context, (FLUID_VERT_SHADER, ADJUST_ADVECTION_FRAG_SHADER))?;
-        let diffusion_program =
+        let diffusion_pass =
             render::Program::new(&context, (FLUID_VERT_SHADER, DIFFUSE_FRAG_SHADER))?;
-        let divergence_program =
+        let divergence_pass =
             render::Program::new(&context, (FLUID_VERT_SHADER, DIVERGENCE_FRAG_SHADER))?;
-        let pressure_program =
+        let pressure_pass =
             render::Program::new(&context, (FLUID_VERT_SHADER, SOLVE_PRESSURE_FRAG_SHADER))?;
-        let subtract_gradient_program =
+        let subtract_gradient_pass =
             render::Program::new(&context, (FLUID_VERT_SHADER, SUBTRACT_GRADIENT_FRAG_SHADER))?;
 
         let uniforms = Uniforms {
@@ -178,14 +178,14 @@ impl Fluid {
             glow::DYNAMIC_DRAW,
         )?;
 
-        advection_program.set_uniform_block("FluidUniforms", 0);
+        advection_pass.set_uniform_block("FluidUniforms", 0);
         adjust_advection_pass.set_uniform_block("FluidUniforms", 0);
-        diffusion_program.set_uniform_block("FluidUniforms", 0);
-        divergence_program.set_uniform_block("FluidUniforms", 0);
-        pressure_program.set_uniform_block("FluidUniforms", 0);
-        subtract_gradient_program.set_uniform_block("FluidUniforms", 0);
+        diffusion_pass.set_uniform_block("FluidUniforms", 0);
+        divergence_pass.set_uniform_block("FluidUniforms", 0);
+        pressure_pass.set_uniform_block("FluidUniforms", 0);
+        subtract_gradient_pass.set_uniform_block("FluidUniforms", 0);
 
-        advection_program.set_uniforms(&[&Uniform {
+        advection_pass.set_uniforms(&[&Uniform {
             name: "velocityTexture",
             value: UniformValue::Texture2D(0),
         }]);
@@ -203,11 +203,11 @@ impl Fluid {
                 value: UniformValue::Texture2D(2),
             },
         ]);
-        diffusion_program.set_uniforms(&[&Uniform {
+        diffusion_pass.set_uniforms(&[&Uniform {
             name: "velocityTexture",
             value: UniformValue::Texture2D(0),
         }]);
-        divergence_program.set_uniform(&Uniform {
+        divergence_pass.set_uniform(&Uniform {
             name: "velocityTexture",
             value: UniformValue::Texture2D(0),
         });
@@ -215,7 +215,7 @@ impl Fluid {
         // a = dx^2
         let alpha = -1.0;
         let r_beta = 0.25;
-        pressure_program.set_uniforms(&[
+        pressure_pass.set_uniforms(&[
             &Uniform {
                 name: "divergenceTexture",
                 value: UniformValue::Texture2D(0),
@@ -234,7 +234,7 @@ impl Fluid {
             },
         ]);
 
-        subtract_gradient_program.set_uniforms(&[
+        subtract_gradient_pass.set_uniforms(&[
             &Uniform {
                 name: "velocityTexture",
                 value: UniformValue::Texture2D(0),
@@ -247,7 +247,7 @@ impl Fluid {
 
         let vertex_buffer = VertexArrayObject::new(
             &context,
-            &advection_program,
+            &advection_pass,
             &[(
                 &plane_vertices,
                 render::VertexBufferLayout {
@@ -278,13 +278,13 @@ impl Fluid {
             divergence_texture,
             pressure_textures,
 
-            clear_pressure_to: clear_pressure_to_program,
-            advection_pass: advection_program,
+            clear_pressure_to_pass: clear_pressure_to_pass,
+            advection_pass,
             adjust_advection_pass,
-            diffusion_pass: diffusion_program,
-            divergence_pass: divergence_program,
-            pressure_pass: pressure_program,
-            subtract_gradient_pass: subtract_gradient_program,
+            diffusion_pass,
+            divergence_pass,
+            pressure_pass,
+            subtract_gradient_pass,
         })
     }
 
@@ -477,9 +477,9 @@ impl Fluid {
     }
 
     pub fn clear_pressure(&self, pressure: f32) {
-        self.clear_pressure_to.use_program();
+        self.clear_pressure_to_pass.use_program();
         self.vertex_buffer.bind();
-        self.clear_pressure_to.set_uniform(&Uniform {
+        self.clear_pressure_to_pass.set_uniform(&Uniform {
             name: "uStartingPressure",
             value: UniformValue::Float(pressure),
         });

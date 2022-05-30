@@ -148,7 +148,7 @@ impl Drawer {
 
         // Programs
 
-        let place_lines_program = render::Program::new_with_transform_feedback(
+        let place_lines_pass = render::Program::new_with_transform_feedback(
             &context,
             (PLACE_LINES_VERT_SHADER, PLACE_LINES_FRAG_SHADER),
             &render::TransformFeedbackInfo {
@@ -157,11 +157,10 @@ impl Drawer {
                 mode: glow::INTERLEAVED_ATTRIBS,
             },
         )?;
-        let draw_lines_program =
-            render::Program::new(&context, (LINE_VERT_SHADER, LINE_FRAG_SHADER))?;
-        let draw_endpoints_program =
+        let draw_lines_pass = render::Program::new(&context, (LINE_VERT_SHADER, LINE_FRAG_SHADER))?;
+        let draw_endpoints_pass =
             render::Program::new(&context, (ENDPOINT_VERT_SHADER, ENDPOINT_FRAG_SHADER))?;
-        let draw_texture_program =
+        let draw_texture_pass =
             render::Program::new(&context, (TEXTURE_VERT_SHADER, TEXTURE_FRAG_SHADER))?;
 
         // Vertex buffers
@@ -236,7 +235,7 @@ impl Drawer {
 
             place_lines_buffers.push(VertexArrayObject::new(
                 context,
-                &place_lines_program,
+                &place_lines_pass,
                 &common_attributes_with_divisor(0),
                 None,
             )?);
@@ -253,7 +252,7 @@ impl Drawer {
             ));
             draw_lines_buffers.push(VertexArrayObject::new(
                 context,
-                &draw_lines_program,
+                &draw_lines_pass,
                 &line_attributes,
                 None,
             )?);
@@ -270,7 +269,7 @@ impl Drawer {
             ));
             draw_endpoints_buffers.push(VertexArrayObject::new(
                 context,
-                &draw_endpoints_program,
+                &draw_endpoints_pass,
                 &endpoint_attributes,
                 None,
             )?);
@@ -280,7 +279,7 @@ impl Drawer {
 
         let draw_texture_buffer = VertexArrayObject::new(
             &context,
-            &draw_texture_program,
+            &draw_texture_pass,
             &[(
                 &plane_vertices,
                 VertexBufferLayout {
@@ -315,7 +314,7 @@ impl Drawer {
             glow::STATIC_DRAW,
         )?;
 
-        place_lines_program.set_uniforms(&[
+        place_lines_pass.set_uniforms(&[
             &Uniform {
                 name: "velocityTexture",
                 value: UniformValue::Texture2D(0),
@@ -340,13 +339,13 @@ impl Drawer {
             glow::STATIC_DRAW,
         )?;
 
-        place_lines_program.set_uniform_block("Projection", 0);
-        place_lines_program.set_uniform_block("LineUniforms", 1);
-        draw_lines_program.set_uniform_block("Projection", 0);
-        draw_lines_program.set_uniform_block("LineUniforms", 1);
-        draw_endpoints_program.set_uniform_block("Projection", 0);
-        draw_endpoints_program.set_uniform_block("LineUniforms", 1);
-        draw_texture_program.set_uniform_block("Projection", 0);
+        place_lines_pass.set_uniform_block("Projection", 0);
+        place_lines_pass.set_uniform_block("LineUniforms", 1);
+        draw_lines_pass.set_uniform_block("Projection", 0);
+        draw_lines_pass.set_uniform_block("LineUniforms", 1);
+        draw_endpoints_pass.set_uniform_block("Projection", 0);
+        draw_endpoints_pass.set_uniform_block("LineUniforms", 1);
+        draw_texture_pass.set_uniform_block("Projection", 0);
 
         let antialiasing_samples = 2;
         let antialiasing_pass = render::MsaaPass::new(
@@ -385,10 +384,10 @@ impl Drawer {
             line_uniforms,
             projection,
 
-            place_lines_pass: place_lines_program,
-            draw_lines_pass: draw_lines_program,
-            draw_endpoints_pass: draw_endpoints_program,
-            draw_texture_pass: draw_texture_program,
+            place_lines_pass,
+            draw_lines_pass,
+            draw_endpoints_pass,
+            draw_texture_pass,
             antialiasing_pass,
         })
     }
