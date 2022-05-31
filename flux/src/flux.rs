@@ -118,32 +118,30 @@ impl Flux {
         self.drawer
             .place_lines(&self.fluid.get_velocity(), timestep);
 
-        self.drawer.with_antialiasing(|| {
-            unsafe {
-                self.context.clear_color(0.0, 0.0, 0.0, 1.0);
-                self.context.clear(glow::COLOR_BUFFER_BIT);
-            }
+        unsafe {
+            self.context.clear_color(0.0, 0.0, 0.0, 1.0);
+            self.context.clear(glow::COLOR_BUFFER_BIT);
+        }
 
-            use settings::Mode::*;
-            match &self.settings.mode {
-                Normal => {
-                    self.drawer.draw_lines();
-                    self.drawer.draw_endpoints();
-                }
-                DebugNoise => {
-                    self.drawer.draw_texture(self.noise_generator.get_noise());
-                }
-                DebugFluid => {
-                    self.drawer.draw_texture(&self.fluid.get_velocity());
-                }
-                DebugPressure => {
-                    self.drawer.draw_texture(&self.fluid.get_pressure());
-                }
-                DebugDivergence => {
-                    self.drawer.draw_texture(&self.fluid.get_divergence());
-                }
-            };
-        });
+        use settings::Mode::*;
+        match &self.settings.mode {
+            Normal => {
+                self.drawer.draw_lines();
+                self.drawer.draw_endpoints();
+            }
+            DebugNoise => {
+                self.drawer.draw_texture(self.noise_generator.get_noise());
+            }
+            DebugFluid => {
+                self.drawer.draw_texture(&self.fluid.get_velocity());
+            }
+            DebugPressure => {
+                self.drawer.draw_texture(&self.fluid.get_pressure());
+            }
+            DebugDivergence => {
+                self.drawer.draw_texture(&self.fluid.get_divergence());
+            }
+        };
     }
 }
 

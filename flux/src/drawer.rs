@@ -109,7 +109,6 @@ pub struct Drawer {
     draw_lines_pass: render::Program,
     draw_endpoints_pass: render::Program,
     draw_texture_pass: render::Program,
-    antialiasing_pass: render::MsaaPass,
 }
 
 impl Drawer {
@@ -347,14 +346,6 @@ impl Drawer {
         draw_endpoints_pass.set_uniform_block("LineUniforms", 1);
         draw_texture_pass.set_uniform_block("Projection", 0);
 
-        let antialiasing_samples = 0;
-        let antialiasing_pass = render::MsaaPass::new(
-            context,
-            physical_width,
-            physical_height,
-            antialiasing_samples,
-        )?;
-
         Ok(Self {
             context: Rc::clone(context),
             settings: Rc::clone(settings),
@@ -388,7 +379,6 @@ impl Drawer {
             draw_lines_pass,
             draw_endpoints_pass,
             draw_texture_pass,
-            antialiasing_pass,
         })
     }
 
@@ -434,9 +424,6 @@ impl Drawer {
         .into();
         self.view_buffer
             .update(self.projection.as_std140().as_bytes());
-
-        self.antialiasing_pass
-            .resize(physical_width, physical_height);
 
         let (basepoints, line_state, line_count) =
             new_line_grid(grid_width, grid_height, self.settings.grid_spacing);
@@ -579,17 +566,6 @@ impl Drawer {
                 .bind_texture(glow::TEXTURE_2D, Some(texture.texture));
 
             self.context.draw_arrays(glow::TRIANGLES, 0, 6);
-        }
-    }
-
-    pub fn with_antialiasing<T>(&self, draw_call: T) -> ()
-    where
-        T: Fn() -> (),
-    {
-        if self.antialiasing_pass.samples > 0 {
-            self.antialiasing_pass.draw_to(draw_call)
-        } else {
-            draw_call()
         }
     }
 }

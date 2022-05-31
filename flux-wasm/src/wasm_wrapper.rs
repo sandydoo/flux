@@ -122,14 +122,13 @@ pub fn get_rendering_context(
 
     let options = ContextOptions {
         // Disabling alpha can lead to poor performance on some platforms.
-        // We also need it for MSAA.
         alpha: true,
         depth: false,
         stencil: false,
         desynchronized: false,
         antialias: false,
         fail_if_major_performance_caveat: false,
-        // Revert to high-performance once dual-GPU issues on Chrome are
+        // TODO: Revert to high-performance once dual-GPU issues on Chrome are
         // resolved.
         power_preference: "default",
         premultiplied_alpha: true,
