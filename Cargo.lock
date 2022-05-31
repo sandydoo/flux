@@ -308,7 +308,7 @@ checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 
 [[package]]
 name = "flux"
-version = "2.1.0"
+version = "2.2.0"
 dependencies = [
  "bytemuck",
  "crevice",
