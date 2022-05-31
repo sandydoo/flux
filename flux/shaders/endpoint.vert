@@ -16,8 +16,6 @@ layout(std140) uniform LineUniforms
   mediump float uLineBeginOffset;
 };
 
-uniform float uOrientation;
-
 in vec2 vertex;
 in vec2 basepoint;
 
@@ -28,6 +26,7 @@ in mediump float iLineWidth;
 
 out vec2 vVertex;
 out vec4 vColor;
+out float endpointOpacity;
 
 mat4 translate(vec2 offset) {
   return mat4(
@@ -53,32 +52,15 @@ void main() {
 
   float pointSize = uLineWidth * iLineWidth;
   mat4 modelMatrix = mat4(
-    0.5 * pointSize, 0.0,                            0.0, 0.0,
-    0.0,             uOrientation * 0.5 * pointSize, 0.0, 0.0,
-    0.0,             0.0,                            1.0, 0.0,
-    0.0,             0.0,                            0.0, 1.0
+    0.5 * pointSize, 0.0,                  0.0, 0.0,
+    0.0,             0.5 * pointSize, 0.0, 0.0,
+    0.0,             0.0,                  1.0, 0.0,
+    0.0,             0.0,                  0.0, 1.0
   );
 
   gl_Position = uProjection * uView * translate(endpoint) * rotationMatrix * modelMatrix * vec4(vertex, 0.0, 1.0);
 
   vVertex = vertex;
-
-  float endpointOpacity = clamp(iColor.a + 0.7 * (1.0 - smoothstep(0.0, 0.75, iLineWidth)), 0.0, 1.0);
-  if (uOrientation > 0.0) {
-    vColor = vec4(iColor.rgb, endpointOpacity);
-  } else {
-    // The color of the lower half of the endpoint is less obvious. We’re
-    // drawing over part of the line, so to match the color of the upper
-    // endpoint, we have to do some math. Luckily, we know the premultiplied
-    // color of the line underneath, so we can reverse the blend equation to get
-    // the right color.
-    //
-    // GL_BLEND(SRC_ALPHA, ONE) = srcColor * srcAlpha + dstColor * srcAlpha
-    // = vColor * vEndpointOpacity + vColor * vLineOpacity
-    //
-    // Remember, we’ve already premultiplied our colors! The opacity should be
-    // 1.0 to disable more opacity blending!
-    vec3 premultipliedLineColor = iColor.rgb * iColor.a;
-    vColor = vec4(iColor.rgb * endpointOpacity - premultipliedLineColor, 1.0);
-  }
+  vColor = iColor;
+  endpointOpacity = clamp(iColor.a + 0.7 * (1.0 - smoothstep(0.0, 0.75, iLineWidth)), 0.0, 1.0);
 }

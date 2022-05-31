@@ -526,21 +526,8 @@ impl Drawer {
             self.context
                 .bind_buffer_base(glow::UNIFORM_BUFFER, 1, Some(self.line_uniforms.id));
 
-            self.draw_endpoints_pass.set_uniform(&Uniform {
-                name: "uOrientation",
-                value: UniformValue::Float(1.0),
-            });
-
             self.context
-                .draw_arrays_instanced(glow::TRIANGLE_FAN, 0, 10, self.line_count as i32);
-
-            self.draw_endpoints_pass.set_uniform(&Uniform {
-                name: "uOrientation",
-                value: UniformValue::Float(-1.0),
-            });
-
-            self.context
-                .draw_arrays_instanced(glow::TRIANGLE_FAN, 0, 10, self.line_count as i32);
+                .draw_arrays_instanced(glow::TRIANGLE_STRIP, 0, 6, self.line_count as i32);
 
             self.context.disable(glow::BLEND);
         }
@@ -649,16 +636,19 @@ fn new_line_grid(width: u32, height: u32, grid_spacing: u32) -> (Vec<f32>, Vec<L
 }
 
 fn new_endpoint(resolution: u32) -> Vec<f32> {
-    let mut segments = Vec::with_capacity(((resolution + 1) * 2) as usize);
+    // let mut segments = Vec::with_capacity(((resolution + 1) * 2) as usize);
 
-    segments.push(0.0);
-    segments.push(0.0);
+    // segments.push(0.0);
+    // segments.push(0.0);
 
-    for section in 0..=resolution {
-        let angle = PI * (section as f32) / (resolution as f32);
-        segments.push(angle.cos());
-        segments.push(angle.sin());
-    }
+    // for section in 0..=resolution {
+    //     let angle = 2.0 * PI * (section as f32) / (resolution as f32);
+    //     segments.push(angle.cos());
+    //     segments.push(angle.sin());
+    // }
 
+    // segments
+    let mut segments = Vec::with_capacity(12);
+    segments.extend_from_slice(&data::PLANE_VERTICES);
     segments
 }

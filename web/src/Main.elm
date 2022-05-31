@@ -111,14 +111,14 @@ defaultSettings =
         Array.fromList
             [ { scale = 2.5
               , multiplier = 1.0
-              , offsetIncrement = 0.0015
+              , offsetIncrement = 0.00001
               }
             , { scale = 15.0
-              , multiplier = 0.7
+              , multiplier = 0.0
               , offsetIncrement = 0.0015
               }
             , { scale = 30.0
-              , multiplier = 0.5
+              , multiplier = 0.0
               , offsetIncrement = 0.0015
               }
             ]
