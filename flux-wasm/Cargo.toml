@@ -20,7 +20,7 @@ flux = { version = "2", path = "../flux" }
 glow = "0.11.2"
 js-sys = "0.3"
 serde = { version = "1", features = ["derive"] }
-wasm-bindgen = { version = "=0.2.78", features = ["serde-serialize"] }
+wasm-bindgen = { version = "=0.2.79", features = ["serde-serialize"] }
 
 [dependencies.web-sys]
 version = "0.3"
