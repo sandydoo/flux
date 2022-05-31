@@ -26,6 +26,7 @@ in vec2 iVelocityVector;
 in mediump vec4 iColor;
 in mediump float iLineWidth;
 
+out vec2 vVertex;
 out vec4 vColor;
 
 mat4 translate(vec2 offset) {
@@ -59,6 +60,8 @@ void main() {
   );
 
   gl_Position = uProjection * uView * translate(endpoint) * rotationMatrix * modelMatrix * vec4(vertex, 0.0, 1.0);
+
+  vVertex = vertex;
 
   float endpointOpacity = clamp(iColor.a + 0.7 * (1.0 - smoothstep(0.0, 0.75, iLineWidth)), 0.0, 1.0);
   if (uOrientation > 0.0) {

@@ -15,6 +15,10 @@ layout(std140) uniform LineUniforms
 out vec4 fragColor;
 
 void main() {
-  float opacity = vColor.a * smoothstep(uLineBeginOffset, 1.0, vVertex.x);
-  fragColor = vec4(vColor.rgb, opacity);
+  float fade = smoothstep(uLineBeginOffset, 1.0, vVertex.y);
+
+  float xOffset = abs(vVertex.x);
+  float antialiasing = 1.0 - smoothstep(0.5 - fwidth(xOffset), 0.5, xOffset);
+
+  fragColor = vec4(vColor.rgb, vColor.a * fade * antialiasing);
 }

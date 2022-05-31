@@ -5,7 +5,6 @@ precision highp float;
 in vec2 lineVertex;
 in vec2 basepoint;
 
-
 in vec2 iEndpointVector;
 in vec2 iVelocityVector;
 in mediump vec4 iColor;
@@ -30,9 +29,9 @@ out vec4 vColor;
 void main() {
   vec2 endpoint = basepoint + iEndpointVector * uLineLength;
 
-  vec2 xBasis = endpoint - basepoint;
-  vec2 yBasis = normalize(vec2(-xBasis.y, xBasis.x));
-  vec2 point = basepoint + xBasis * lineVertex.x + yBasis * (iLineWidth * uLineWidth) * lineVertex.y;
+  vec2 yBasis = endpoint - basepoint;
+  vec2 xBasis = normalize(vec2(-yBasis.y, yBasis.x));
+  vec2 point = basepoint + yBasis * lineVertex.y + xBasis * (iLineWidth * uLineWidth) * lineVertex.x;
 
   gl_Position = uProjection * uView * vec4(point, 0.0, 1.0);
 

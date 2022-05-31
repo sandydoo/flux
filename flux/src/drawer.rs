@@ -29,12 +29,12 @@ static PLACE_LINES_FRAG_SHADER: &'static str =
 
 #[rustfmt::skip]
 const LINE_VERTICES: [f32; 12] = [
-    0.0, -0.5,
-    1.0, -0.5,
-    1.0, 0.5,
-    0.0, -0.5,
-    1.0, 0.5,
-    0.0, 0.5,
+    -0.5, 0.0,
+    -0.5, 1.0,
+     0.5, 1.0,
+    -0.5, 0.0,
+     0.5, 1.0,
+     0.5, 0.0,
 ];
 
 #[repr(C)]
@@ -347,7 +347,7 @@ impl Drawer {
         draw_endpoints_pass.set_uniform_block("LineUniforms", 1);
         draw_texture_pass.set_uniform_block("Projection", 0);
 
-        let antialiasing_samples = 2;
+        let antialiasing_samples = 0;
         let antialiasing_pass = render::MsaaPass::new(
             context,
             physical_width,
