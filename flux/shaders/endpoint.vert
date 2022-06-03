@@ -63,7 +63,7 @@ void main() {
 
   vVertex = vertex;
 
-  float endpointOpacity = clamp(iColor.a + 0.7 * (1.0 - smoothstep(0.0, 0.75, iLineWidth)), 0.0, 1.0);
+  float endpointOpacity = clamp(iColor.a + (1.0 - iLineWidth), 0.0, 1.0);
   if (uOrientation > 0.0) {
     vColor = vec4(iColor.rgb, endpointOpacity);
   } else {

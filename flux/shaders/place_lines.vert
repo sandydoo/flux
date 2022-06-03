@@ -151,15 +151,15 @@ void main() {
   // Blend noise
 
   float variance = mix(1.0 - uLineVariance, 1.0, 0.5 + 0.5 * noise);
-  float inverseVariance = 1.0 - variance;
-  float velocityDeltaVariance = mix(3.0, 25.0, inverseVariance);
+  float velocityDeltaVariance = mix(3.0, 25.0, 1.0 - variance);
   float momentumVariance = mix(3.0, 5.0, variance);
 
-  float lineLength = 1.2; //0.6 // 1.4 // Do I need this? will I be changing this value?
+  // TODO: move to uniform buffer
+  float lineLength = 1.2;
   vVelocityVector = (1.0 - deltaTime * momentumVariance) * iVelocityVector + (lineLength * velocity - iEndpointVector) * velocityDeltaVariance * deltaTime;
   vEndpointVector = iEndpointVector + deltaTime * vVelocityVector;
 
-  float widthBoost = clamp(2.5 * length(velocity), 0.0, 1.0);
+  float widthBoost = clamp(3.0 * length(velocity), 0.0, 1.0);
   vLineWidth = widthBoost * widthBoost * (3.0 - widthBoost * 2.0);
 
   float angle = atan(velocity.x, velocity.y);

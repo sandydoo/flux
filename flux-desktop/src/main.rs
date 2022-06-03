@@ -17,9 +17,9 @@ fn main() {
         diffusion_iterations: 5,
         pressure_iterations: 20,
         color_scheme: ColorScheme::Peacock,
-        line_length: 300.0,
-        line_width: 5.0,
-        line_begin_offset: 0.5,
+        line_length: 250.0,
+        line_width: 4.5,
+        line_begin_offset: 0.45,
         line_variance: 0.47,
         grid_spacing: 21,
         view_scale: 1.6,
@@ -116,6 +116,7 @@ pub fn get_rendering_context(
         .with_vsync(true)
         .with_multisampling(0)
         .with_double_buffer(Some(true))
+        .with_gl_profile(glutin::GlProfile::Core)
         .build_windowed(window_builder, &event_loop)
         .unwrap();
     let window = unsafe { window.make_current().unwrap() };
