@@ -65,7 +65,7 @@
 
         devShell = pkgs.mkShell {
           packages = with pkgs; [ nixfmt wasm-pack ];
-          inputsFrom = [ packages.flux-web packages.flux-desktop ];
+          inputsFrom = with packages; [ flux-web flux-desktop ];
         };
 
         packages.flux = naersk-lib.buildPackage {
@@ -88,7 +88,7 @@
 
         packages.flux-web = import ./web/default.nix {
           inherit (pkgs) pkgs lib stdenv;
-          flux-wasm = packages.flux-wasm;
+          inherit (packages) flux-wasm;
         };
 
         packages.flux-desktop = naersk-lib.buildPackage {

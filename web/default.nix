@@ -4,7 +4,7 @@ let
   packageJSON = builtins.fromJSON (builtins.readFile ./package.json);
   version = packageJSON.version;
 
-  nodeDependencies = pkgs.mkYarnPackage {
+  nodeModules = pkgs.mkYarnPackage {
     name = "flux-dependencies";
     src = lib.cleanSourceWith {
       src = ./.;
@@ -35,7 +35,7 @@ in stdenv.mkDerivation rec {
   src = gitignoreSource [ ] ./.;
 
   buildInputs = with pkgs; [
-    nodeDependencies
+    nodeModules
     pkgs.yarn
     elmPackages.elm
     wasm-bindgen-cli
@@ -43,12 +43,19 @@ in stdenv.mkDerivation rec {
     flux-wasm
   ];
 
+  passthru = {
+    inherit nodeModules;
+  };
+
   patchPhase = ''
-    ln -sf ${nodeDependencies}/libexec/*/node_modules .
+    ln -sf ${nodeModules}/libexec/*/node_modules .
   '';
 
+  # This is, rather confusingly, called relative to the current working
+  # directory, not the flake or this file. Make sure to run `nix develop` from
+  # the root directory!
   shellHook = ''
-    ln -sf ${nodeDependencies}/libexec/*/node_modules .
+    ln -sf ${nodeModules}/libexec/*/node_modules ./web
   '';
 
   configurePhase = pkgs.elmPackages.fetchElmDeps {
