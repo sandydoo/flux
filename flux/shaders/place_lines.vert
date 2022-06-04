@@ -26,13 +26,14 @@ layout(std140) uniform LineUniforms
   mediump float uLineWidth;
   mediump float uLineLength;
   mediump float uLineBeginOffset;
+  uniform float lineNoiseOffset1;
+  uniform float lineNoiseOffset2;
+  uniform float lineNoiseBlendFactor;
 };
 
 uniform float deltaTime;
 uniform float uLineVariance;
 uniform mediump vec4 uColorWheel[6];
-
-uniform float lineNoiseOffset1;
 
 uniform sampler2D velocityTexture;
 
