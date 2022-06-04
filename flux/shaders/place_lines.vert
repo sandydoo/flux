@@ -12,6 +12,7 @@ in vec2 basepoint;
 in vec2 iEndpointVector;
 in vec2 iVelocityVector;
 in vec4 iColor;
+in vec3 iColorVelocity;
 in float iLineWidth;
 
 layout(std140) uniform Projection
@@ -39,6 +40,7 @@ uniform sampler2D velocityTexture;
 out vec2 vEndpointVector;
 out vec2 vVelocityVector;
 out vec4 vColor;
+out vec3 vColorVelocity;
 out float vLineWidth;
 
 vec4 getColor(vec4 wheel[6], float angle) {
@@ -151,18 +153,25 @@ void main() {
   // Blend noise
 
   float variance = mix(1.0 - uLineVariance, 1.0, 0.5 + 0.5 * noise);
-  float velocityDeltaVariance = mix(3.0, 25.0, 1.0 - variance);
-  float momentumVariance = mix(3.0, 5.0, variance);
+  float velocityDeltaBoost = mix(3.0, 25.0, 1.0 - variance);
+  float momentumBoost = mix(3.0, 5.0, variance);
 
   // TODO: move to uniform buffer
   float lineLength = 1.2;
-  vVelocityVector = (1.0 - deltaTime * momentumVariance) * iVelocityVector + (lineLength * velocity - iEndpointVector) * velocityDeltaVariance * deltaTime;
+  vVelocityVector
+    = (1.0 - deltaTime * momentumBoost) * iVelocityVector
+    + (lineLength * velocity - iEndpointVector) * velocityDeltaBoost * deltaTime;
   vEndpointVector = iEndpointVector + deltaTime * vVelocityVector;
 
   float widthBoost = clamp(3.0 * length(velocity), 0.0, 1.0);
   vLineWidth = widthBoost * widthBoost * (3.0 - widthBoost * 2.0);
 
   float angle = atan(velocity.x, velocity.y);
-  vec4 newColor = getColor(uColorWheel, angle);
-  vColor = vec4(newColor.rgb,  widthBoost);
+  vec4 color = getColor(uColorWheel, angle);
+  float colorMomentumBoost = 5.0;
+  float colorDeltaBoost = 10.0;
+  vColorVelocity
+    = iColorVelocity * (1.0 - colorMomentumBoost * deltaTime)
+    + (color.rgb - iColor.rgb) * colorDeltaBoost * deltaTime;
+  vColor = vec4(iColor.rgb + deltaTime * vColorVelocity,  widthBoost);
 }

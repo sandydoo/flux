@@ -43,6 +43,7 @@ struct LineState {
     endpoint: mint::Vector2<f32>,
     velocity: mint::Vector2<f32>,
     color: mint::Vector4<f32>,
+    color_velocity: mint::Vector3<f32>,
     width: f32,
 }
 
@@ -152,7 +153,7 @@ impl Drawer {
             (PLACE_LINES_VERT_SHADER, PLACE_LINES_FRAG_SHADER),
             &render::TransformFeedbackInfo {
                 // The order here must match the order in the buffer!
-                names: &["vEndpointVector", "vVelocityVector", "vColor", "vLineWidth"],
+                names: &["vEndpointVector", "vVelocityVector", "vColor", "vColorVelocity", "vLineWidth"],
                 mode: glow::INTERLEAVED_ATTRIBS,
             },
         )?;
@@ -221,11 +222,22 @@ impl Drawer {
                     (
                         line_state_buffer,
                         VertexBufferLayout {
+                            name: "iColorVelocity",
+                            size: 3,
+                            type_: glow::FLOAT,
+                            stride,
+                            offset: 8 * 4,
+                            divisor,
+                        },
+                    ),
+                    (
+                        line_state_buffer,
+                        VertexBufferLayout {
                             name: "iLineWidth",
                             size: 1,
                             type_: glow::FLOAT,
                             stride,
-                            offset: 8 * 4,
+                            offset: 11 * 4,
                             divisor,
                         },
                     ),
@@ -640,6 +652,7 @@ fn new_line_grid(width: u32, height: u32, grid_spacing: u32) -> (Vec<f32>, Vec<L
                 endpoint: [0.0, 0.0].into(),
                 velocity: [0.0, 0.0].into(),
                 color: [0.0, 0.0, 0.0, 0.0].into(),
+                color_velocity: [0.0, 0.0, 0.0].into(),
                 width: 0.0,
             });
         }
