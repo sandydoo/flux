@@ -1,10 +1,10 @@
 use crate::{data, render, settings};
 use render::{
     Buffer, Context, DoubleFramebuffer, Framebuffer, Program, TextureOptions, Uniform,
-    UniformValue, VertexArrayObject, VertexBufferLayout,
+    UniformArray, UniformBlock, UniformValue, VertexArrayObject, VertexBufferLayout,
 };
 
-use crevice::std140::{self, AsStd140};
+use crevice::std140::AsStd140;
 use glow::HasContext;
 use half::f16;
 use std::rc::Rc;
@@ -21,8 +21,8 @@ pub struct NoiseUniforms {
     scale: f32,
     offset_1: f32,
     offset_2: f32,
-    multiplier: f32,
     blend_factor: f32,
+    multiplier: f32,
 }
 
 pub struct NoiseChannel {
@@ -30,17 +30,27 @@ pub struct NoiseChannel {
     scale: f32,
     offset_1: f32,
     offset_2: f32,
-    blend_begin_time: f32,
-    last_blend_progress: f32,
+    blend_factor: f32,
 }
 
 impl NoiseChannel {
     pub fn tick(&mut self, elapsed_time: f32) -> () {
-        self.blend_begin_time = elapsed_time;
-        self.last_blend_progress = 0.0;
+        const BLEND_THRESHOLD: f32 = 20.0;
 
         self.scale = self.settings.scale + 0.3 * (0.001 * elapsed_time.to_radians()).sin();
         self.offset_1 += self.settings.offset_increment;
+
+        if self.offset_1 > BLEND_THRESHOLD {
+            self.blend_factor += self.settings.offset_increment;
+            self.offset_2 += self.settings.offset_increment;
+        }
+
+        // Reset blending
+        if self.blend_factor > 1.0 {
+            self.offset_1 = self.offset_2;
+            self.offset_2 = 0.0;
+            self.blend_factor = 0.0;
+        }
     }
 }
 
@@ -53,7 +63,7 @@ pub struct NoiseGenerator {
     inject_noise_pass: Program,
 
     noise_buffer: VertexArrayObject,
-    uniforms: Buffer,
+    uniforms: UniformBlock<UniformArray<NoiseUniforms>>,
     #[allow(unused)]
     plane_vertices: Buffer,
 }
@@ -70,16 +80,15 @@ impl NoiseGenerator {
     }
 
     pub fn generate(&mut self, elapsed_time: f32) -> () {
-        let uniforms = &build_noise_uniforms(&self.channels);
-        self.uniforms.update(&uniforms);
+        self.uniforms.data = UniformArray(build_noise_uniforms(&self.channels));
+        self.uniforms.update();
 
         self.generate_noise_pass.use_program();
 
         unsafe {
             self.noise_buffer.bind();
 
-            self.context
-                .bind_buffer_base(glow::UNIFORM_BUFFER, 0, Some(self.uniforms.id));
+            self.uniforms.bind();
 
             self.texture.draw_to(&self.context, || {
                 self.context.draw_arrays(glow::TRIANGLES, 0, 6);
@@ -143,10 +152,9 @@ impl NoiseGeneratorBuilder {
         self.channels.push(NoiseChannel {
             settings: channel.clone(),
             scale: channel.scale,
-            offset_1: 100.0 * rand::random::<f32>(),
+            offset_1: 2.0 * rand::random::<f32>(),
             offset_2: 0.0,
-            blend_begin_time: 0.0,
-            last_blend_progress: 0.0,
+            blend_factor: 0.0,
         });
 
         self
@@ -196,14 +204,14 @@ impl NoiseGeneratorBuilder {
             None,
         )?;
 
-        let uniforms = Buffer::from_bytes(
+        let uniforms = UniformBlock::new(
             &self.context,
-            &build_noise_uniforms(&self.channels),
-            glow::ARRAY_BUFFER,
+            UniformArray(build_noise_uniforms(&self.channels)),
+            0,
             glow::DYNAMIC_DRAW,
         )?;
 
-        generate_noise_pass.set_uniform_block("Channels", 0);
+        generate_noise_pass.set_uniform_block("Channels", uniforms.index);
         inject_noise_pass.set_uniforms(&[
             &Uniform {
                 name: "velocityTexture",
@@ -230,20 +238,15 @@ impl NoiseGeneratorBuilder {
     }
 }
 
-fn build_noise_uniforms(channels: &[NoiseChannel]) -> Vec<u8> {
-    let noise_uniforms: Vec<NoiseUniforms> = channels
+fn build_noise_uniforms(channels: &[NoiseChannel]) -> Vec<NoiseUniforms> {
+    channels
         .iter()
         .map(|channel| NoiseUniforms {
             scale: channel.scale,
             offset_1: channel.offset_1,
             offset_2: channel.offset_2,
+            blend_factor: channel.blend_factor,
             multiplier: channel.settings.multiplier,
-            blend_factor: 0.0,
         })
-        .collect();
-    let mut aligned_uniforms = Vec::new();
-    let mut writer = std140::Writer::new(&mut aligned_uniforms);
-    writer.write(noise_uniforms.as_slice()).unwrap();
-
-    aligned_uniforms
+        .collect()
 }

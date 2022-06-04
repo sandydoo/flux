@@ -9,8 +9,8 @@ struct Channel {
   mediump float uScale;
   mediump float uOffset1;
   mediump float uOffset2;
-  mediump float uMultiplier;
   mediump float uBlendFactor;
+  mediump float uMultiplier;
 };
 
 layout(std140) uniform Channels
@@ -115,15 +115,13 @@ vec2 makeNoisePair(vec3 params) {
 }
 
 vec2 makeNoise(Channel channel) {
-  vec2 noise;
   vec2 scale = channel.uScale * texturePosition;
   vec2 noise1 = makeNoisePair(vec3(scale, channel.uOffset1));
+  vec2 noise = noise1;
 
   if (channel.uBlendFactor > 0.0) {
     vec2 noise2 = makeNoisePair(vec3(scale, channel.uOffset2));
     noise = mix(noise1, noise2, channel.uBlendFactor);
-  } else {
-    noise = noise1;
   }
 
   return channel.uMultiplier * noise;

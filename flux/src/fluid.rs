@@ -1,11 +1,11 @@
 use crate::{data, render, settings};
 use render::{
-    Buffer, Context, DoubleFramebuffer, Framebuffer, TextureOptions, Uniform, UniformValue,
-    VertexArrayObject,
+    Buffer, Context, DoubleFramebuffer, Framebuffer, TextureOptions, Uniform, UniformBlock,
+    UniformValue, VertexArrayObject,
 };
 use settings::Settings;
 
-use crevice::std140::{AsStd140, Std140};
+use crevice::std140::AsStd140;
 use glow::HasContext;
 use half::f16;
 use std::cell::Ref;
@@ -31,7 +31,7 @@ static SUBTRACT_GRADIENT_FRAG_SHADER: &'static str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/subtract_gradient.frag"));
 
 #[derive(Copy, Clone, Debug, AsStd140)]
-struct Uniforms {
+struct FluidUniforms {
     timestep: f32,
     dissipation: f32,
     texel_size: mint::Vector2<f32>,
@@ -45,7 +45,7 @@ pub struct Fluid {
     pub height: u32,
     texel_size: [f32; 2],
 
-    uniform_buffer: Buffer,
+    uniforms: UniformBlock<FluidUniforms>,
     vertex_buffer: VertexArrayObject,
     #[allow(unused)]
     plane_vertices: Buffer,
@@ -165,25 +165,23 @@ impl Fluid {
         let subtract_gradient_pass =
             render::Program::new(&context, (FLUID_VERT_SHADER, SUBTRACT_GRADIENT_FRAG_SHADER))?;
 
-        let uniforms = Uniforms {
-            timestep: 1.0 / settings.fluid_simulation_frame_rate,
-            dissipation: settings.velocity_dissipation,
-            texel_size: texel_size.into(),
-        };
-
-        let uniform_buffer = Buffer::from_bytes(
-            &context,
-            uniforms.as_std140().as_bytes(),
-            glow::ARRAY_BUFFER,
+        let uniforms = UniformBlock::new(
+            context,
+            FluidUniforms {
+                timestep: 1.0 / settings.fluid_simulation_frame_rate,
+                dissipation: settings.velocity_dissipation,
+                texel_size: texel_size.into(),
+            },
+            0,
             glow::DYNAMIC_DRAW,
         )?;
 
-        advection_pass.set_uniform_block("FluidUniforms", 0);
-        adjust_advection_pass.set_uniform_block("FluidUniforms", 0);
-        diffusion_pass.set_uniform_block("FluidUniforms", 0);
-        divergence_pass.set_uniform_block("FluidUniforms", 0);
-        pressure_pass.set_uniform_block("FluidUniforms", 0);
-        subtract_gradient_pass.set_uniform_block("FluidUniforms", 0);
+        advection_pass.set_uniform_block("FluidUniforms", uniforms.index);
+        adjust_advection_pass.set_uniform_block("FluidUniforms", uniforms.index);
+        diffusion_pass.set_uniform_block("FluidUniforms", uniforms.index);
+        divergence_pass.set_uniform_block("FluidUniforms", uniforms.index);
+        pressure_pass.set_uniform_block("FluidUniforms", uniforms.index);
+        subtract_gradient_pass.set_uniform_block("FluidUniforms", uniforms.index);
 
         advection_pass.set_uniforms(&[&Uniform {
             name: "velocityTexture",
@@ -268,7 +266,7 @@ impl Fluid {
             height,
             texel_size,
 
-            uniform_buffer,
+            uniforms,
             vertex_buffer,
             plane_vertices,
 
@@ -278,7 +276,7 @@ impl Fluid {
             divergence_texture,
             pressure_textures,
 
-            clear_pressure_to_pass: clear_pressure_to_pass,
+            clear_pressure_to_pass,
             advection_pass,
             adjust_advection_pass,
             diffusion_pass,
@@ -293,12 +291,12 @@ impl Fluid {
             self.resize_fluid_texture(new_settings.fluid_size).unwrap();
         }
 
-        let uniforms = Uniforms {
+        self.uniforms.data = FluidUniforms {
             timestep: 0.0,
             dissipation: new_settings.velocity_dissipation,
             texel_size: self.texel_size.into(),
         };
-        self.uniform_buffer.update(uniforms.as_std140().as_bytes());
+        self.uniforms.update();
 
         self.settings = Rc::clone(new_settings); // Fix
     }
@@ -350,11 +348,7 @@ impl Fluid {
             .draw_to(&self.context, || unsafe {
                 self.advection_pass.use_program();
                 self.vertex_buffer.bind();
-                self.context.bind_buffer_base(
-                    glow::UNIFORM_BUFFER,
-                    0,
-                    Some(self.uniform_buffer.id),
-                );
+                self.uniforms.bind();
 
                 self.advection_pass.set_uniform(&Uniform {
                     name: "amount",
@@ -376,11 +370,7 @@ impl Fluid {
             .draw_to(&self.context, || unsafe {
                 self.advection_pass.use_program();
                 self.vertex_buffer.bind();
-                self.context.bind_buffer_base(
-                    glow::UNIFORM_BUFFER,
-                    0,
-                    Some(self.uniform_buffer.id),
-                );
+                self.uniforms.bind();
 
                 self.advection_pass.set_uniform(&Uniform {
                     name: "amount",
@@ -463,8 +453,7 @@ impl Fluid {
         self.divergence_texture.draw_to(&self.context, || unsafe {
             self.divergence_pass.use_program();
             self.vertex_buffer.bind();
-            self.context
-                .bind_buffer_base(glow::UNIFORM_BUFFER, 0, Some(self.uniform_buffer.id));
+            self.uniforms.bind();
 
             self.context.active_texture(glow::TEXTURE0);
             self.context.bind_texture(
@@ -526,11 +515,7 @@ impl Fluid {
             .draw_to(&self.context, |velocity_texture| unsafe {
                 self.subtract_gradient_pass.use_program();
                 self.vertex_buffer.bind();
-                self.context.bind_buffer_base(
-                    glow::UNIFORM_BUFFER,
-                    0,
-                    Some(self.uniform_buffer.id),
-                );
+                self.uniforms.bind();
 
                 self.context.active_texture(glow::TEXTURE0);
                 self.context

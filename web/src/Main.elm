@@ -659,7 +659,7 @@ viewNoiseChannel title setNoiseChannel noiseChannel =
                         0.0
 
                     else
-                        2 ^ (toFloat (n - 100) / scale)
+                        0.5 * 2 ^ (toFloat (n - 100) / scale)
 
                 fromSpeed : Float -> Int
                 fromSpeed n =
@@ -667,7 +667,7 @@ viewNoiseChannel title setNoiseChannel noiseChannel =
                         0
 
                     else
-                        100 + round (scale * logBase 2 n)
+                        100 + round (scale * logBase 2 (2.0 * n))
             in
             -- This scale is logarithmic. I should probably refactor the other
             -- sliders to 0-100 as well.

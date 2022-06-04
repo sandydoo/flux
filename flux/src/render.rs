@@ -1,3 +1,4 @@
+use crevice::std140::{self, WriteStd140};
 use glow::HasContext;
 use rustc_hash::FxHashMap;
 use std::borrow::Cow;
@@ -899,6 +900,71 @@ fn detect_texture_format(internal_format: GlDataType) -> Result<TextureFormat> {
         }),
         _ => Err(Problem::UnsupportedTextureFormat),
     }
+}
+
+// Type hackery to implement Std140 for Vec
+pub struct UniformArray<T>(pub Vec<T>);
+
+impl<T> WriteStd140 for UniformArray<T>
+where
+    T: WriteStd140,
+{
+    fn write_std140<W: std::io::Write>(
+        &self,
+        writer: &mut std140::Writer<W>,
+    ) -> std::io::Result<usize> {
+        writer.write(self.0.as_slice())
+    }
+}
+
+pub struct UniformBlock<T> {
+    context: Context,
+    pub index: u32,
+    pub data: T,
+    pub buffer: Buffer,
+}
+
+impl<T> UniformBlock<T>
+where
+    T: WriteStd140,
+{
+    pub fn new(context: &Context, data: T, index: u32, usage: GlDataType) -> Result<Self> {
+        let buffer = Buffer::from_bytes(
+            context,
+            &new_std140_buffer(&data),
+            glow::ARRAY_BUFFER,
+            usage,
+        )?;
+
+        Ok(Self {
+            context: Rc::clone(context),
+            index,
+            data,
+            buffer,
+        })
+    }
+
+    pub fn update(&self) {
+        self.buffer.update(&new_std140_buffer(&self.data));
+    }
+
+    pub fn bind(&self) {
+        unsafe {
+            self.context
+                .bind_buffer_base(glow::UNIFORM_BUFFER, self.index, Some(self.buffer.id));
+        }
+    }
+}
+
+fn new_std140_buffer<T>(data: &T) -> Vec<u8>
+where
+    T: WriteStd140,
+{
+    let mut buffer = Vec::new();
+    let mut writer = std140::Writer::new(&mut buffer);
+    writer.write(data).unwrap();
+
+    buffer
 }
 
 pub struct VertexArrayObject {

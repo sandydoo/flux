@@ -89,9 +89,8 @@ impl Flux {
     }
 
     pub fn animate(&mut self, timestamp: f32) {
-        let timestep = self
-            .max_frame_time
-            .min(0.001 * (timestamp - self.elapsed_time));
+        let timestamp = timestamp * 0.001;
+        let timestep = self.max_frame_time.min(timestamp - self.elapsed_time);
         self.elapsed_time = timestamp;
         self.frame_time += timestep;
 
