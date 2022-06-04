@@ -1,10 +1,10 @@
 use crate::{data, render, settings};
 use render::{
     Buffer, Context, DoubleFramebuffer, Framebuffer, Program, TextureOptions, Uniform,
-    UniformValue, VertexArrayObject, VertexBufferLayout,
+    UniformArray, UniformBlock, UniformValue, VertexArrayObject, VertexBufferLayout,
 };
 
-use crevice::std140::{self, AsStd140};
+use crevice::std140::AsStd140;
 use glow::HasContext;
 use half::f16;
 use std::rc::Rc;
@@ -63,7 +63,7 @@ pub struct NoiseGenerator {
     inject_noise_pass: Program,
 
     noise_buffer: VertexArrayObject,
-    uniforms: Buffer,
+    uniforms: UniformBlock<UniformArray<NoiseUniforms>>,
     #[allow(unused)]
     plane_vertices: Buffer,
 }
@@ -80,16 +80,15 @@ impl NoiseGenerator {
     }
 
     pub fn generate(&mut self, elapsed_time: f32) -> () {
-        let uniforms = &build_noise_uniforms(&self.channels);
-        self.uniforms.update(&uniforms);
+        self.uniforms.data = UniformArray(build_noise_uniforms(&self.channels));
+        self.uniforms.update();
 
         self.generate_noise_pass.use_program();
 
         unsafe {
             self.noise_buffer.bind();
 
-            self.context
-                .bind_buffer_base(glow::UNIFORM_BUFFER, 0, Some(self.uniforms.id));
+            self.uniforms.bind();
 
             self.texture.draw_to(&self.context, || {
                 self.context.draw_arrays(glow::TRIANGLES, 0, 6);
@@ -205,14 +204,14 @@ impl NoiseGeneratorBuilder {
             None,
         )?;
 
-        let uniforms = Buffer::from_bytes(
+        let uniforms = UniformBlock::new(
             &self.context,
-            &build_noise_uniforms(&self.channels),
-            glow::ARRAY_BUFFER,
+            UniformArray(build_noise_uniforms(&self.channels)),
+            0,
             glow::DYNAMIC_DRAW,
         )?;
 
-        generate_noise_pass.set_uniform_block("Channels", 0);
+        generate_noise_pass.set_uniform_block("Channels", uniforms.index);
         inject_noise_pass.set_uniforms(&[
             &Uniform {
                 name: "velocityTexture",
@@ -239,8 +238,8 @@ impl NoiseGeneratorBuilder {
     }
 }
 
-fn build_noise_uniforms(channels: &[NoiseChannel]) -> Vec<u8> {
-    let noise_uniforms: Vec<NoiseUniforms> = channels
+fn build_noise_uniforms(channels: &[NoiseChannel]) -> Vec<NoiseUniforms> {
+    channels
         .iter()
         .map(|channel| NoiseUniforms {
             scale: channel.scale,
@@ -249,10 +248,5 @@ fn build_noise_uniforms(channels: &[NoiseChannel]) -> Vec<u8> {
             blend_factor: channel.blend_factor,
             multiplier: channel.settings.multiplier,
         })
-        .collect();
-    let mut aligned_uniforms = Vec::new();
-    let mut writer = std140::Writer::new(&mut aligned_uniforms);
-    writer.write(noise_uniforms.as_slice()).unwrap();
-
-    aligned_uniforms
+        .collect()
 }

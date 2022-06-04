@@ -1,11 +1,12 @@
 use crate::{data, render, settings};
 use render::{
-    Buffer, Context, Framebuffer, Uniform, UniformValue, VertexArrayObject, VertexBufferLayout,
+    Buffer, Context, Framebuffer, Uniform, UniformBlock, UniformValue, VertexArrayObject,
+    VertexBufferLayout,
 };
 use settings::Settings;
 
 use bytemuck::{Pod, Zeroable};
-use crevice::std140::{AsStd140, Std140};
+use crevice::std140::AsStd140;
 use glow::HasContext;
 use std::f32::consts::PI;
 use std::rc::Rc;
@@ -131,10 +132,8 @@ pub struct Drawer {
     draw_endpoints_buffers: Vec<VertexArrayObject>,
     draw_texture_buffer: VertexArrayObject,
 
-    view_buffer: Buffer,
-    line_uniforms: LineUniforms,
-    line_uniforms_buffer: Buffer,
-    projection: Projection,
+    line_uniforms: UniformBlock<LineUniforms>,
+    projection: UniformBlock<Projection>,
 
     place_lines_pass: render::Program,
     draw_lines_pass: render::Program,
@@ -354,12 +353,10 @@ impl Drawer {
             projection_matrix: projection_matrix.into(),
             view_matrix: view_matrix.into(),
         };
-        let view_buffer = Buffer::from_bytes(
-            &context,
-            projection.as_std140().as_bytes(),
-            glow::ARRAY_BUFFER,
-            glow::STATIC_DRAW,
-        )?;
+        let projection = UniformBlock::new(context, projection, 0, glow::STATIC_DRAW)?;
+
+        let line_uniforms =
+            UniformBlock::new(context, LineUniforms::new(&settings), 1, glow::DYNAMIC_DRAW)?;
 
         place_lines_pass.set_uniforms(&[
             &Uniform {
@@ -378,21 +375,13 @@ impl Drawer {
             },
         ]);
 
-        let line_uniforms = LineUniforms::new(&settings);
-        let line_uniforms_buffer = Buffer::from_bytes(
-            &context,
-            &line_uniforms.as_std140().as_bytes(),
-            glow::ARRAY_BUFFER,
-            glow::STATIC_DRAW,
-        )?;
-
-        place_lines_pass.set_uniform_block("Projection", 0);
-        place_lines_pass.set_uniform_block("LineUniforms", 1);
-        draw_lines_pass.set_uniform_block("Projection", 0);
-        draw_lines_pass.set_uniform_block("LineUniforms", 1);
-        draw_endpoints_pass.set_uniform_block("Projection", 0);
-        draw_endpoints_pass.set_uniform_block("LineUniforms", 1);
-        draw_texture_pass.set_uniform_block("Projection", 0);
+        place_lines_pass.set_uniform_block("Projection", projection.index);
+        place_lines_pass.set_uniform_block("LineUniforms", line_uniforms.index);
+        draw_lines_pass.set_uniform_block("Projection", projection.index);
+        draw_lines_pass.set_uniform_block("LineUniforms", line_uniforms.index);
+        draw_endpoints_pass.set_uniform_block("Projection", projection.index);
+        draw_endpoints_pass.set_uniform_block("LineUniforms", line_uniforms.index);
+        draw_texture_pass.set_uniform_block("Projection", projection.index);
 
         Ok(Self {
             context: Rc::clone(context),
@@ -417,10 +406,8 @@ impl Drawer {
             draw_endpoints_buffers,
             draw_texture_buffer,
 
-            view_buffer,
-            line_uniforms,
-            line_uniforms_buffer,
             projection,
+            line_uniforms,
 
             place_lines_pass,
             draw_lines_pass,
@@ -430,9 +417,8 @@ impl Drawer {
     }
 
     pub fn update(&mut self, new_settings: &Rc<Settings>) -> () {
-        self.line_uniforms.update(new_settings);
-        self.line_uniforms_buffer
-            .update(self.line_uniforms.as_std140().as_bytes());
+        self.line_uniforms.data.update(new_settings);
+        self.line_uniforms.update();
 
         // FIX: move into uniform buffer
         self.place_lines_pass.set_uniforms(&[
@@ -463,15 +449,14 @@ impl Drawer {
         self.grid_width = grid_width;
         self.grid_height = grid_height;
 
-        self.projection.projection_matrix = new_projection_matrix(
+        self.projection.data.projection_matrix = new_projection_matrix(
             grid_width as f32,
             grid_height as f32,
             physical_width as f32,
             physical_height as f32,
         )
         .into();
-        self.view_buffer
-            .update(self.projection.as_std140().as_bytes());
+        self.projection.update();
 
         let (basepoints, line_state, line_count) =
             new_line_grid(grid_width, grid_height, self.settings.grid_spacing);
@@ -486,9 +471,8 @@ impl Drawer {
 
     pub fn place_lines(&mut self, velocity_texture: &Framebuffer, timestep: f32) -> () {
         self.elapsed_time += timestep;
-        self.line_uniforms.tick(self.elapsed_time);
-        self.line_uniforms_buffer
-            .update(self.line_uniforms.as_std140().as_bytes());
+        self.line_uniforms.data.tick(self.elapsed_time);
+        self.line_uniforms.update();
 
         unsafe {
             self.context.viewport(
@@ -502,13 +486,8 @@ impl Drawer {
             self.place_lines_pass.use_program();
 
             self.place_lines_buffers[self.line_state_buffers.active_buffer].bind();
-            self.context
-                .bind_buffer_base(glow::UNIFORM_BUFFER, 0, Some(self.view_buffer.id));
-            self.context.bind_buffer_base(
-                glow::UNIFORM_BUFFER,
-                1,
-                Some(self.line_uniforms_buffer.id),
-            );
+            self.projection.bind();
+            self.line_uniforms.bind();
 
             self.place_lines_pass.set_uniform(&Uniform {
                 name: "deltaTime",
@@ -541,13 +520,8 @@ impl Drawer {
             self.draw_lines_pass.use_program();
             self.draw_lines_buffers[self.line_state_buffers.active_buffer].bind();
 
-            self.context
-                .bind_buffer_base(glow::UNIFORM_BUFFER, 0, Some(self.view_buffer.id));
-            self.context.bind_buffer_base(
-                glow::UNIFORM_BUFFER,
-                1,
-                Some(self.line_uniforms_buffer.id),
-            );
+            self.projection.bind();
+            self.line_uniforms.bind();
 
             self.context
                 .draw_arrays_instanced(glow::TRIANGLES, 0, 6, self.line_count as i32);
@@ -571,13 +545,8 @@ impl Drawer {
             self.draw_endpoints_pass.use_program();
             self.draw_endpoints_buffers[self.line_state_buffers.active_buffer].bind();
 
-            self.context
-                .bind_buffer_base(glow::UNIFORM_BUFFER, 0, Some(self.view_buffer.id));
-            self.context.bind_buffer_base(
-                glow::UNIFORM_BUFFER,
-                1,
-                Some(self.line_uniforms_buffer.id),
-            );
+            self.projection.bind();
+            self.line_uniforms.bind();
 
             self.draw_endpoints_pass.set_uniform(&Uniform {
                 name: "uOrientation",
@@ -610,8 +579,7 @@ impl Drawer {
 
             self.draw_texture_pass.use_program();
 
-            self.context
-                .bind_buffer_base(glow::UNIFORM_BUFFER, 0, Some(self.view_buffer.id));
+            self.projection.bind();
             self.draw_texture_buffer.bind();
 
             self.context.active_texture(glow::TEXTURE0);
