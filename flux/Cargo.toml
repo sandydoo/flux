@@ -1,6 +1,6 @@
 [package]
 name = "flux"
-version = "2.2.1"
+version = "3.0.0"
 description = "An ode to the macOS Drift screensaver"
 authors = ["Sander Melnikov <hey@sandydoo.me"]
 repository = "https://github.com/sandydoo/flux/"
