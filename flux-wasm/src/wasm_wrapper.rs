@@ -66,7 +66,7 @@ impl Flux {
         })
     }
 
-    pub fn animate(&mut self, timestamp: f32) {
+    pub fn animate(&mut self, timestamp: f64) {
         self.id.animate(timestamp);
     }
 

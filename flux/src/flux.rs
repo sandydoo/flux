@@ -8,6 +8,10 @@ use glow::HasContext;
 use std::fmt;
 use std::rc::Rc;
 
+// The time at the animation timer will reset to zero.
+const MAX_ELAPSED_TIME: f32 = 1000.0;
+const MAX_FRAME_TIME: f32 = 1.0 / 10.0;
+
 pub struct Flux {
     fluid: Fluid,
     drawer: Drawer,
@@ -15,10 +19,15 @@ pub struct Flux {
     settings: Rc<Settings>,
 
     context: render::Context,
+
+    // A timestamp in milliseconds. Either host or video time.
+    last_timestamp: f64,
+
+    // A local animation timer in seconds that resets at MAX_ELAPSED_TIME.
     elapsed_time: f32,
+
     frame_time: f32,
     fluid_timestep: f32,
-    max_frame_time: f32,
 }
 
 impl Flux {
@@ -64,10 +73,10 @@ impl Flux {
             settings: Rc::clone(settings),
 
             context: Rc::clone(context),
+            last_timestamp: 0.0,
             elapsed_time: 0.0,
             frame_time: 0.0,
             fluid_timestep: 1.0 / settings.fluid_simulation_frame_rate,
-            max_frame_time: 1.0 / 10.0,
         })
     }
 
@@ -88,11 +97,21 @@ impl Flux {
             .unwrap(); // fix
     }
 
-    pub fn animate(&mut self, timestamp: f32) {
-        let timestamp = timestamp * 0.001;
-        let timestep = self.max_frame_time.min(timestamp - self.elapsed_time);
-        self.elapsed_time = timestamp;
+    pub fn animate(&mut self, timestamp: f64) {
+        // The delta time in seconds
+        let timestep = f32::min(
+            MAX_FRAME_TIME,
+            (0.001 * (timestamp - self.last_timestamp)) as f32,
+        );
+        self.last_timestamp = timestamp;
+        self.elapsed_time += timestep;
         self.frame_time += timestep;
+
+        // Reset animation timers to avoid precision issues
+        let timer_overflow = self.elapsed_time - MAX_ELAPSED_TIME;
+        if timer_overflow >= 0.0 {
+            self.elapsed_time = timer_overflow;
+        }
 
         while self.frame_time >= self.fluid_timestep {
             self.noise_generator.generate(self.elapsed_time);
@@ -100,7 +119,7 @@ impl Flux {
             self.fluid.advect_forward(self.fluid_timestep);
             self.fluid.advect_reverse(self.fluid_timestep);
             self.fluid.adjust_advection(self.fluid_timestep);
-            self.fluid.diffuse(self.fluid_timestep); // <- Convection
+            self.fluid.diffuse(self.fluid_timestep);
 
             self.noise_generator
                 .blend_noise_into(&self.fluid.get_velocity_textures(), self.fluid_timestep);
@@ -115,7 +134,7 @@ impl Flux {
         // TODO: the line animation is still dependent on the client’s fps. Is
         // this worth fixing?
         self.drawer
-            .place_lines(&self.fluid.get_velocity(), timestep);
+            .place_lines(&self.fluid.get_velocity(), self.elapsed_time, timestep);
 
         unsafe {
             self.context.clear_color(0.0, 0.0, 0.0, 1.0);

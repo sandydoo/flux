@@ -75,7 +75,7 @@ fn main() {
             }
 
             Event::RedrawRequested(_) => {
-                flux.animate(start.elapsed().as_millis() as f32);
+                flux.animate(start.elapsed().as_millis() as f64);
                 window.swap_buffers().unwrap();
             }
 

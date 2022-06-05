@@ -89,7 +89,7 @@ impl LineUniforms {
         const BLEND_THRESHOLD: f32 = 2.0;
         const BASE_OFFSET: f32 = 0.0015;
 
-        let perturb = 0.001 * (elapsed_time.to_radians() - std::f32::consts::PI).sin();
+        let perturb = 0.001 * (elapsed_time * std::f32::consts::TAU).sin();
         let offset = BASE_OFFSET + perturb;
         self.line_noise_offset_1 += offset;
 
@@ -116,7 +116,6 @@ pub struct Drawer {
     pub grid_width: u32,
     pub grid_height: u32,
     pub line_count: u32,
-    elapsed_time: f32,
 
     basepoint_buffer: Buffer,
     line_state_buffers: render::DoubleTransformFeedback,
@@ -393,7 +392,6 @@ impl Drawer {
             grid_width,
             grid_height,
             line_count,
-            elapsed_time: 0.0,
 
             basepoint_buffer,
             line_state_buffers,
@@ -469,9 +467,13 @@ impl Drawer {
         Ok(())
     }
 
-    pub fn place_lines(&mut self, velocity_texture: &Framebuffer, timestep: f32) -> () {
-        self.elapsed_time += timestep;
-        self.line_uniforms.data.tick(self.elapsed_time);
+    pub fn place_lines(
+        &mut self,
+        velocity_texture: &Framebuffer,
+        elapsed_time: f32,
+        timestep: f32,
+    ) -> () {
+        self.line_uniforms.data.tick(elapsed_time);
         self.line_uniforms.update();
 
         unsafe {
