@@ -323,12 +323,17 @@ view model =
                 , Html.li []
                     [ Html.a
                         [ HA.href "https://github.com/sandydoo/" ]
-                        [ Html.text "© 2021 Sander Melnikov" ]
+                        [ Html.text "© 2022 Sander Melnikov" ]
                     ]
                 , Html.li []
                     [ Html.a
                         [ HA.href "https://twitter.com/sandy_doo/" ]
                         [ Html.text "Follow me on Twitter" ]
+                    ]
+                , Html.li []
+                    [ Html.a
+                        [ HA.href "https://sandydoo.gumroad.com/l/flux" ]
+                        [ Html.text "Buy this screensaver" ]
                     ]
                 ]
             ]
