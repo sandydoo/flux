@@ -21,11 +21,5 @@ void main() {
   float T = textureOffset(velocityTexture, texturePosition, ivec2(0, 1)).y;
   float B = textureOffset(velocityTexture, texturePosition, ivec2(0, -1)).y;
 
-  vec2 velocity = texture(velocityTexture, texturePosition).xy;
-  if (texturePosition.x <= uTexelSize.x)       { L = -velocity.x; }
-  if (texturePosition.x >= 1.0 - uTexelSize.x) { R = -velocity.x; }
-  if (texturePosition.y >= 1.0 - uTexelSize.y) { T = -velocity.y; }
-  if (texturePosition.y <= uTexelSize.y)       { B = -velocity.y; }
-
   newDivergence = 0.5 * ((R - L) + (T - B));
 }
