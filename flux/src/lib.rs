@@ -5,5 +5,5 @@ mod flux;
 mod noise;
 mod render;
 
-pub use flux::Flux;
+pub use crate::flux::Flux;
 pub mod settings;
