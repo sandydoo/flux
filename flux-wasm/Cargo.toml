@@ -16,9 +16,11 @@ default = ["console_error_panic_hook"]
 
 [dependencies]
 console_error_panic_hook = { version = "0.1", optional = true }
+console_log = "0.2"
 flux = { version = "3", path = "../flux" }
 glow = "0.11.2"
 js-sys = "0.3"
+log = "0.4"
 serde = { version = "1", features = ["derive"] }
 wasm-bindgen = { version = "=0.2.79", features = ["serde-serialize"] }
 

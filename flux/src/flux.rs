@@ -46,6 +46,10 @@ impl Flux {
         physical_height: u32,
         settings: &Rc<Settings>,
     ) -> Result<Flux, Problem> {
+        log::info!("Initializing Flux...");
+        log::debug!("Logical size: {}x{}px", logical_width, logical_height);
+        log::debug!("Physical size: {}x{}px", physical_width, physical_height);
+
         let fluid = Fluid::new(&context, &settings).map_err(Problem::CannotRender)?;
 
         let drawer = Drawer::new(

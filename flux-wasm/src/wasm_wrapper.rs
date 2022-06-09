@@ -4,13 +4,6 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 use web_sys::Window;
 
-#[macro_export]
-macro_rules! log {
-    ( $( $t:tt )* ) => {
-        web_sys::console::log_1(&format!( $( $t )* ).into());
-    }
-}
-
 #[wasm_bindgen]
 pub struct Flux {
     canvas: Canvas,
@@ -31,6 +24,8 @@ impl Flux {
 
     #[wasm_bindgen(constructor)]
     pub fn new(settings_object: &JsValue) -> Result<Flux, JsValue> {
+        console_log::init();
+
         let (
             canvas,
             gl,
