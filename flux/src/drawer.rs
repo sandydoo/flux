@@ -53,6 +53,7 @@ unsafe impl Pod for LineState {}
 
 #[derive(AsStd140)]
 struct Projection {
+    fluid_projection_matrix: mint::ColumnMatrix4<f32>,
     projection_matrix: mint::ColumnMatrix4<f32>,
     view_matrix: mint::ColumnMatrix4<f32>,
 }
@@ -339,18 +340,20 @@ impl Drawer {
 
         // Uniforms
 
-        let projection_matrix = new_projection_matrix(
-            grid_width as f32,
-            grid_height as f32,
-            physical_width as f32,
-            physical_height as f32,
-        );
-
-        let view_matrix = nalgebra::Matrix4::new_scaling(settings.view_scale);
-
         let projection = Projection {
-            projection_matrix: projection_matrix.into(),
-            view_matrix: view_matrix.into(),
+            fluid_projection_matrix: new_fluid_projection_matrix(
+                grid_width as f32,
+                grid_height as f32,
+            )
+            .into(),
+            projection_matrix: new_projection_matrix(
+                grid_width as f32,
+                grid_height as f32,
+                logical_width as f32,
+                logical_height as f32,
+            )
+            .into(),
+            view_matrix: nalgebra::Matrix4::new_scaling(settings.view_scale).into(),
         };
         let projection = UniformBlock::new(context, projection, 0, glow::STATIC_DRAW)?;
 
@@ -450,10 +453,12 @@ impl Drawer {
         self.projection.data.projection_matrix = new_projection_matrix(
             grid_width as f32,
             grid_height as f32,
-            physical_width as f32,
-            physical_height as f32,
+            logical_width as f32,
+            logical_height as f32,
         )
         .into();
+        self.projection.data.fluid_projection_matrix =
+            new_fluid_projection_matrix(grid_width as f32, grid_height as f32).into();
         self.projection.update();
 
         let (basepoints, line_state, line_count) =
@@ -581,6 +586,17 @@ impl Drawer {
 
             self.draw_texture_pass.use_program();
 
+            self.draw_texture_pass.set_uniforms(&[
+                &Uniform {
+                    name: "uGridWidth",
+                    value: UniformValue::Float(self.grid_width as f32),
+                },
+                &Uniform {
+                    name: "uGridHeight",
+                    value: UniformValue::Float(self.grid_height as f32),
+                },
+            ]);
+
             self.projection.bind();
             self.draw_texture_buffer.bind();
 
@@ -594,26 +610,67 @@ impl Drawer {
 }
 
 fn compute_grid_size(logical_width: u32, logical_height: u32) -> (u32, u32) {
-    if logical_width > logical_height {
-        (u32::max(1280, logical_width), u32::max(800, logical_height))
+    let logical_width = logical_width as f32;
+    let logical_height = logical_height as f32;
+    let target_width = logical_width.clamp(800.0, 1920.0);
+    let target_height = logical_height.clamp(800.0, 1920.0);
+
+    let scale_factor = f32::max(target_width / logical_width, target_height / logical_height);
+
+    // The ratio factor ensures we don’t create grids with ridiculous aspect
+    // ratios. Remember, this needs to somehow map onto the square fluid
+    // texture.
+    let ratio = logical_width / logical_height;
+    let ratio_factor = ratio.clamp(0.625, 1.6) / ratio;
+    let mut ratio_factor_x = 1.0;
+    let mut ratio_factor_y = 1.0;
+
+    if ratio > 1.0 {
+        ratio_factor_x = ratio_factor;
     } else {
-        (u32::max(800, logical_width), u32::max(1280, logical_height))
+        ratio_factor_y = 1.0 / ratio_factor;
     }
+
+    (
+        (logical_width * scale_factor * ratio_factor_x).round() as u32,
+        (logical_height * scale_factor * ratio_factor_y).round() as u32,
+    )
 }
 
+// Project the basepoints into clipspace to then map 1:1 onto the fluid texture.
+fn new_fluid_projection_matrix(grid_width: f32, grid_height: f32) -> nalgebra::Matrix4<f32> {
+    let half_grid_width = (grid_width as f32) / 2.0;
+    let half_grid_height = (grid_height as f32) / 2.0;
+    nalgebra::Matrix4::new_orthographic(
+        -half_grid_width,
+        half_grid_width,
+        -half_grid_height,
+        half_grid_height,
+        -1.0,
+        1.0,
+    )
+}
+
+// Project the basepoints into clipspace, taking into account the aspect ratios
+// of the window and the basepoint grid.
+//
+// Why does this matter? Let’s say our window is very wide and short. This is
+// not a very good size for a grid, because we’d be mapping the entire vertical
+// axis of the fluid onto just a few grid rows. Instead, we want to create a
+// more rectangular grid, sample the fluid properly, and then clip the grid when
+// drawing it.
 fn new_projection_matrix(
     grid_width: f32,
     grid_height: f32,
-    physical_width: f32,
-    physical_height: f32,
+    logical_width: f32,
+    logical_height: f32,
 ) -> nalgebra::Matrix4<f32> {
     let grid_ratio = grid_width / grid_height;
-    let physical_ratio = physical_width / physical_height;
-
-    let (width, height) = if grid_ratio > physical_ratio {
-        (grid_height * physical_ratio, grid_height)
+    let logical_ratio = logical_width / logical_height;
+    let (width, height) = if grid_ratio > logical_ratio {
+        (grid_height * logical_ratio, grid_height)
     } else {
-        (grid_width, grid_width / physical_ratio)
+        (grid_width, grid_width / logical_ratio)
     };
 
     let half_width = width / 2.0;
@@ -685,4 +742,40 @@ fn new_endpoint(resolution: u32) -> Vec<f32> {
     }
 
     segments
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn is_sane_grid_for_iphone_xr() {
+        assert_eq!(compute_grid_size(414, 896), (800, 1280));
+    }
+
+    #[test]
+    fn is_sane_grid_for_iphone_12_pro() {
+        assert_eq!(compute_grid_size(390, 844), (800, 1280));
+    }
+
+    #[test]
+    fn is_sane_grid_for_macbook_pro_13_with_default_scaling() {
+        assert_eq!(compute_grid_size(1280, 800), (1280, 800));
+    }
+
+    #[test]
+    fn is_sane_grid_for_macbook_pro_15_with_default_scaling() {
+        assert_eq!(compute_grid_size(1440, 900), (1440, 900));
+    }
+
+    #[test]
+    fn is_sane_grid_for_awkward_window_sizes() {
+        assert_eq!(compute_grid_size(1280, 172), (1280, 800));
+        assert_eq!(compute_grid_size(172, 1280), (800, 1280));
+    }
+
+    #[test]
+    fn is_sane_grid_for_ultrawide_21_9() {
+        assert_eq!(compute_grid_size(3840, 1600), (2560, 1600));
+    }
 }

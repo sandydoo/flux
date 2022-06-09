@@ -17,6 +17,7 @@ in float iLineWidth;
 
 layout(std140) uniform Projection
 {
+  mat4 uFluidProjection;
   mat4 uProjection;
   mat4 uView;
 };
@@ -147,7 +148,7 @@ float snoise(vec3 v) {
 void main() {
   float lineNoiseScale = 64.0;
 
-  vec2 basepointInClipSpace = 0.5 + 0.5 * (uProjection * vec4(basepoint, 0.0, 1.0)).xy;
+  vec2 basepointInClipSpace = 0.5 + 0.5 * (uFluidProjection * vec4(basepoint, 0.0, 1.0)).xy;
   vec2 velocity = texture(velocityTexture, basepointInClipSpace).xy;
   float noise = snoise(vec3(lineNoiseScale * basepointInClipSpace, lineNoiseOffset1));
 

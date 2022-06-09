@@ -12,6 +12,7 @@ in mediump float iLineWidth;
 
 layout(std140) uniform Projection
 {
+  mat4 uFluidProjection;
   mat4 uProjection;
   mat4 uView;
 };
