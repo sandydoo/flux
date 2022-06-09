@@ -52,12 +52,13 @@
           '';
           cargoBuildOptions = args:
             args ++ [ "-p flux-desktop" "--target x86_64-pc-windows-gnu" ];
+          doCheck = true;
+          singleStep = true;
           nativeBuildInputs = with pkgs; [ pkgsCross.mingwW64.stdenv.cc ];
           buildInputs = with pkgs.pkgsCross.mingwW64; [
             windows.mingw_w64_pthreads
             windows.pthreads
           ];
-          singleStep = true;
         };
 
       in lib.recursiveUpdate rec {
@@ -73,6 +74,7 @@
           version = readVersionFrom ./flux/Cargo.toml;
           src = ./.;
           cargoBuildOptions = args: args ++ [ "-p flux" ];
+          doCheck = true;
         };
 
         packages.flux-wasm = naersk-lib.buildPackage {
@@ -84,6 +86,7 @@
           release = true;
           cargoBuildOptions = args:
             args ++ [ "-p flux-wasm" "--target wasm32-unknown-unknown" ];
+          doCheck = true;
         };
 
         packages.flux-web = import ./web/default.nix {
@@ -97,6 +100,7 @@
           src = ./.;
           release = true;
           cargoBuildOptions = args: args ++ [ "-p flux-desktop" ];
+          doCheck = true;
           nativeBuildInputs = lib.optionals stdenv.isDarwin
             (with pkgs.darwin.apple_sdk.frameworks; [
               AppKit
