@@ -8,7 +8,7 @@ use glow::HasContext;
 use std::fmt;
 use std::rc::Rc;
 
-// The time at the animation timer will reset to zero.
+// The time at which the animation timer will reset to zero.
 const MAX_ELAPSED_TIME: f32 = 1000.0;
 const MAX_FRAME_TIME: f32 = 1.0 / 10.0;
 
