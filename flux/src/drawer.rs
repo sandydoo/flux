@@ -635,19 +635,11 @@ fn compute_grid_size(logical_width: u32, logical_height: u32) -> (u32, u32) {
     // ratios. Remember, this needs to somehow map onto the square fluid
     // texture.
     let ratio = logical_width / logical_height;
-    let ratio_factor = ratio.clamp(0.625, 1.6) / ratio;
-    let mut ratio_factor_x = 1.0;
-    let mut ratio_factor_y = 1.0;
-
-    if ratio > 1.0 {
-        ratio_factor_x = ratio_factor;
-    } else {
-        ratio_factor_y = 1.0 / ratio_factor;
-    }
+    let ratio_factor = ratio.clamp(1.0, 1.6) / ratio;
 
     (
-        (logical_width * scale_factor * ratio_factor_x).round() as u32,
-        (logical_height * scale_factor * ratio_factor_y).round() as u32,
+        (logical_width * scale_factor * ratio_factor).round() as u32,
+        (logical_height * scale_factor).round() as u32,
     )
 }
 
