@@ -63,9 +63,11 @@ struct LineUniforms {
     line_width: f32,
     line_length: f32,
     line_begin_offset: f32,
+    line_variance: f32,
     line_noise_offset_1: f32,
     line_noise_offset_2: f32,
     line_noise_blend_factor: f32,
+    delta_time: f32,
 }
 
 impl LineUniforms {
@@ -74,19 +76,28 @@ impl LineUniforms {
             line_width: settings.line_width,
             line_length: settings.line_length,
             line_begin_offset: settings.line_begin_offset,
+            line_variance: settings.line_variance,
             line_noise_offset_1: 0.0,
             line_noise_offset_2: 0.0,
             line_noise_blend_factor: 0.0,
+            delta_time: 0.0,
         }
     }
 
-    fn update(&mut self, settings: &Rc<Settings>) {
+    fn update(&mut self, settings: &Rc<Settings>) -> &mut Self {
         self.line_width = settings.line_width;
         self.line_length = settings.line_length;
         self.line_begin_offset = settings.line_begin_offset;
+        self.line_variance = settings.line_variance;
+        self
     }
 
-    fn tick(&mut self, elapsed_time: f32) {
+    fn set_timestep(&mut self, timestep: f32) -> &mut Self {
+        self.delta_time = timestep;
+        self
+    }
+
+    fn tick(&mut self, elapsed_time: f32) -> &mut Self {
         const BLEND_THRESHOLD: f32 = 2.0;
         const BASE_OFFSET: f32 = 0.0015;
 
@@ -104,6 +115,8 @@ impl LineUniforms {
             self.line_noise_offset_2 = 0.0;
             self.line_noise_blend_factor = 0.0;
         }
+
+        self
     }
 }
 
@@ -368,10 +381,6 @@ impl Drawer {
                 value: UniformValue::Texture2D(0),
             },
             &Uniform {
-                name: "uLineVariance",
-                value: UniformValue::Float(settings.line_variance),
-            },
-            &Uniform {
                 name: "uColorWheel[0]",
                 value: UniformValue::Vec4Array(&settings::color_wheel_from_scheme(
                     &settings.color_scheme,
@@ -420,22 +429,19 @@ impl Drawer {
     }
 
     pub fn update(&mut self, new_settings: &Rc<Settings>) -> () {
-        self.line_uniforms.data.update(new_settings);
-        self.line_uniforms.update();
+        self.line_uniforms
+            .update(|line_uniforms| {
+                line_uniforms.update(new_settings);
+            })
+            .buffer_data();
 
         // FIX: move into uniform buffer
-        self.place_lines_pass.set_uniforms(&[
-            &Uniform {
-                name: "uLineVariance",
-                value: UniformValue::Float(new_settings.line_variance),
-            },
-            &Uniform {
-                name: "uColorWheel[0]",
-                value: UniformValue::Vec4Array(&settings::color_wheel_from_scheme(
-                    &new_settings.color_scheme,
-                )),
-            },
-        ]);
+        self.place_lines_pass.set_uniforms(&[&Uniform {
+            name: "uColorWheel[0]",
+            value: UniformValue::Vec4Array(&settings::color_wheel_from_scheme(
+                &new_settings.color_scheme,
+            )),
+        }]);
     }
 
     pub fn resize(
@@ -452,16 +458,19 @@ impl Drawer {
         self.grid_width = grid_width;
         self.grid_height = grid_height;
 
-        self.projection.data.projection_matrix = new_projection_matrix(
-            grid_width as f32,
-            grid_height as f32,
-            logical_width as f32,
-            logical_height as f32,
-        )
-        .into();
-        self.projection.data.fluid_projection_matrix =
-            new_fluid_projection_matrix(grid_width as f32, grid_height as f32).into();
-        self.projection.update();
+        self.projection
+            .update(|projection| {
+                projection.projection_matrix = new_projection_matrix(
+                    grid_width as f32,
+                    grid_height as f32,
+                    logical_width as f32,
+                    logical_height as f32,
+                )
+                .into();
+                projection.fluid_projection_matrix =
+                    new_fluid_projection_matrix(grid_width as f32, grid_height as f32).into();
+            })
+            .buffer_data();
 
         let (basepoints, line_state, line_count) =
             new_line_grid(grid_width, grid_height, self.settings.grid_spacing);
@@ -480,8 +489,11 @@ impl Drawer {
         elapsed_time: f32,
         timestep: f32,
     ) -> () {
-        self.line_uniforms.data.tick(elapsed_time);
-        self.line_uniforms.update();
+        self.line_uniforms
+            .update(|line_uniforms| {
+                line_uniforms.tick(elapsed_time).set_timestep(timestep);
+            })
+            .buffer_data();
 
         unsafe {
             self.context.viewport(
@@ -623,19 +635,11 @@ fn compute_grid_size(logical_width: u32, logical_height: u32) -> (u32, u32) {
     // ratios. Remember, this needs to somehow map onto the square fluid
     // texture.
     let ratio = logical_width / logical_height;
-    let ratio_factor = ratio.clamp(0.625, 1.6) / ratio;
-    let mut ratio_factor_x = 1.0;
-    let mut ratio_factor_y = 1.0;
-
-    if ratio > 1.0 {
-        ratio_factor_x = ratio_factor;
-    } else {
-        ratio_factor_y = 1.0 / ratio_factor;
-    }
+    let ratio_factor = ratio.clamp(1.0, 1.6) / ratio;
 
     (
-        (logical_width * scale_factor * ratio_factor_x).round() as u32,
-        (logical_height * scale_factor * ratio_factor_y).round() as u32,
+        (logical_width * scale_factor * ratio_factor).round() as u32,
+        (logical_height * scale_factor).round() as u32,
     )
 }
 

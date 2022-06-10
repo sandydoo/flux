@@ -81,14 +81,16 @@ impl NoiseGenerator {
     }
 
     pub fn generate(&mut self, elapsed_time: f32) -> () {
-        self.uniforms.data = UniformArray(build_noise_uniforms(&self.channels));
-        self.uniforms.update();
+        self.uniforms
+            .update(|noise_uniforms| {
+                *noise_uniforms = UniformArray(build_noise_uniforms(&self.channels));
+            })
+            .buffer_data();
 
         self.generate_noise_pass.use_program();
 
         unsafe {
             self.noise_buffer.bind();
-
             self.uniforms.bind();
 
             self.texture.draw_to(&self.context, || {
