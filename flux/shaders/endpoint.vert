@@ -15,6 +15,9 @@ layout(std140) uniform LineUniforms
   mediump float uLineWidth;
   mediump float uLineLength;
   mediump float uLineBeginOffset;
+  highp float lineNoiseOffset1;
+  highp float lineNoiseOffset2;
+  highp float lineNoiseBlendFactor;
 };
 
 uniform float uOrientation;

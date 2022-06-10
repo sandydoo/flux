@@ -27,9 +27,9 @@ layout(std140) uniform LineUniforms
   mediump float uLineWidth;
   mediump float uLineLength;
   mediump float uLineBeginOffset;
-  uniform float lineNoiseOffset1;
-  uniform float lineNoiseOffset2;
-  uniform float lineNoiseBlendFactor;
+  highp float lineNoiseOffset1;
+  highp float lineNoiseOffset2;
+  highp float lineNoiseBlendFactor;
 };
 
 uniform float deltaTime;
