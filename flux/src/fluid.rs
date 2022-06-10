@@ -291,12 +291,11 @@ impl Fluid {
             self.resize_fluid_texture(new_settings.fluid_size).unwrap();
         }
 
-        self.uniforms.data = FluidUniforms {
-            timestep: 0.0,
-            dissipation: new_settings.velocity_dissipation,
-            texel_size: self.texel_size.into(),
-        };
-        self.uniforms.update();
+        self.uniforms
+            .update(|data| {
+                data.dissipation = new_settings.velocity_dissipation;
+            })
+            .buffer_data();
 
         self.settings = Rc::clone(new_settings); // Fix
     }

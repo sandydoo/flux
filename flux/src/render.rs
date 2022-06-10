@@ -633,7 +633,7 @@ impl Program {
                             AttributeInfo {
                                 type_: info.atype,
                                 size: info.size as u32,
-                                location: location,
+                                location,
                             },
                         );
                     }
@@ -944,7 +944,15 @@ where
         })
     }
 
-    pub fn update(&self) {
+    pub fn update<F>(&mut self, update_closure: F) -> &Self
+    where
+        F: Fn(&mut T) -> (),
+    {
+        update_closure(&mut self.data);
+        self
+    }
+
+    pub fn buffer_data(&self) {
         self.buffer.update(&new_std140_buffer(&self.data));
     }
 
