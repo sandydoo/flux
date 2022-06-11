@@ -1,5 +1,5 @@
 #ifdef GL_ES
-precision mediump float;
+precision highp float;
 precision highp sampler2D;
 #endif
 
@@ -16,7 +16,6 @@ uniform float amount;
 in vec2 texturePosition;
 out vec2 outVelocity;
 
-// Velocity is sampled on a staggered grid.
 void main() {
   vec2 velocity = texture(velocityTexture, texturePosition).xy;
   vec2 advectedPosition = (texturePosition + 0.5 * uTexelSize) - amount * velocity;

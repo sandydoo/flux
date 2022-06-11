@@ -12,7 +12,6 @@ out vec2 outVelocity;
 
 void main() {
   vec2 velocity = texture(velocityTexture, texturePosition).xy;
-  float dx = 1.0 / float(textureSize(velocityTexture, 0));
-  vec2 noise = texture(noiseTexture, texturePosition + 0.5 * dx).xy;
+  vec2 noise = texture(noiseTexture, texturePosition).xy;
   outVelocity = velocity + deltaTime * noise;
 }

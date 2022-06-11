@@ -45,11 +45,12 @@ type alias Model =
 
 type alias Settings =
     { mode : Mode
+    , fluidSize : Int
+    , fluidFrameRate : Int
+    , fluidTimestep : Float
     , viscosity : Float
     , velocityDissipation : Float
-    , startingPressure : StartingPressure
-    , fluidSize : Int
-    , fluidSimulationFrameRate : Int
+    , clearPressure : ClearPressure
     , diffusionIterations : Int
     , pressureIterations : Int
     , colorScheme : ColorScheme
@@ -71,9 +72,9 @@ type Mode
     | DebugDivergence
 
 
-type StartingPressure
-    = Inherit
-    | Fixed Float
+type ClearPressure
+    = KeepPressure
+    | ClearPressure Float
 
 
 type ColorScheme
@@ -93,31 +94,32 @@ type alias Noise =
 defaultSettings : Settings
 defaultSettings =
     { mode = Normal
+    , fluidSize = 128
+    , fluidFrameRate = 30
+    , fluidTimestep = 1.0 / 60.0
     , viscosity = 5.0
     , velocityDissipation = 0.0
-    , startingPressure = Inherit
-    , fluidSize = 128
-    , fluidSimulationFrameRate = 60
-    , colorScheme = Peacock
-    , diffusionIterations = 5
+    , clearPressure = KeepPressure
+    , diffusionIterations = 4
     , pressureIterations = 20
+    , colorScheme = Peacock
     , lineLength = 250.0
-    , lineWidth = 4.5
-    , lineBeginOffset = 0.45
-    , lineVariance = 0.47
+    , lineWidth = 4.0
+    , lineBeginOffset = 0.38
+    , lineVariance = 0.5
     , viewScale = 1.6
-    , gridSpacing = 21
+    , gridSpacing = 22
     , noiseChannels =
         Array.fromList
-            [ { scale = 2.5
+            [ { scale = 2.6
               , multiplier = 1.0
               , offsetIncrement = 0.0015
               }
-            , { scale = 15.0
+            , { scale = 12.0
               , multiplier = 0.7
               , offsetIncrement = 0.0015
               }
-            , { scale = 30.0
+            , { scale = 25.0
               , multiplier = 0.5
               , offsetIncrement = 0.0015
               }
@@ -167,7 +169,7 @@ type SettingMsg
     = SetMode Mode
     | SetViscosity Float
     | SetVelocityDissipation Float
-    | SetStartingPressure Float
+    | SetClearPressure Float
     | SetDiffusionIterations Int
     | SetPressureIterations Int
     | SetColorScheme ColorScheme
@@ -196,8 +198,8 @@ updateSettings msg settings =
         SetVelocityDissipation newVelocityDissipation ->
             { settings | velocityDissipation = newVelocityDissipation }
 
-        SetStartingPressure newPressure ->
-            { settings | startingPressure = Fixed newPressure }
+        SetClearPressure _ ->
+            { settings | clearPressure = KeepPressure }
 
         SetDiffusionIterations newDiffusionIterations ->
             { settings | diffusionIterations = newDiffusionIterations }
@@ -495,32 +497,6 @@ viewSettings settings =
                     , toString = formatFloat 1
                     }
                 )
-
-        --, viewControl <|
-        --    let
-        --        pressureFromSetting = case settings.startingPressure of
-        --            Fixed pressure -> pressure
-        --            _ -> 0.0
-        --    in
-        --    Control
-        --        "Starting pressure"
-        --        """
-        --        The amount of fluid pressure we assume before actually calculating pressure.
-        --        """
-        --        (Slider
-        --            { min = 0.0
-        --            , max = 1.0
-        --            , step = 0.1
-        --            , value = pressureFromSetting
-        --            , onInput =
-        --                \value ->
-        --                    String.toFloat value
-        --                        |> Maybe.withDefault 0.0
-        --                        |> SetStartingPressure
-        --                        |> SaveSetting
-        --            , toString = formatFloat 1
-        --            }
-        --        )
         , viewControl <|
             Control
                 "Diffusion iterations"
@@ -801,11 +777,12 @@ encodeSettings : Settings -> Encode.Value
 encodeSettings settings =
     Encode.object
         [ ( "mode", encodeMode settings.mode )
+        , ( "fluidSize", Encode.int settings.fluidSize )
+        , ( "fluidFrameRate", Encode.int settings.fluidFrameRate )
+        , ( "fluidTimestep", Encode.float settings.fluidTimestep )
         , ( "viscosity", Encode.float settings.viscosity )
         , ( "velocityDissipation", Encode.float settings.velocityDissipation )
-        , ( "startingPressure", encodeStartingPressure settings.startingPressure )
-        , ( "fluidSize", Encode.int settings.fluidSize )
-        , ( "fluidSimulationFrameRate", Encode.int settings.fluidSimulationFrameRate )
+        , ( "clearPressure", encodeClearPressure settings.clearPressure )
         , ( "diffusionIterations", Encode.int settings.diffusionIterations )
         , ( "pressureIterations", Encode.int settings.pressureIterations )
         , ( "colorScheme", encodeColorScheme settings.colorScheme )
@@ -839,14 +816,14 @@ encodeMode mode =
                 "DebugDivergence"
 
 
-encodeStartingPressure : StartingPressure -> Encode.Value
-encodeStartingPressure startingPressure =
-    case startingPressure of
-        Inherit ->
-            Encode.string "Inherit"
+encodeClearPressure : ClearPressure -> Encode.Value
+encodeClearPressure clearPressure =
+    case clearPressure of
+        KeepPressure ->
+            Encode.string "KeepPressure"
 
-        Fixed pressure ->
-            Encode.object [ ( "Fixed", Encode.float pressure ) ]
+        ClearPressure pressure ->
+            Encode.object [ ( "ClearPressure", Encode.float pressure ) ]
 
 
 encodeColorScheme : ColorScheme -> Encode.Value

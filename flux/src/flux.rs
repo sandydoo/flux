@@ -13,12 +13,11 @@ const MAX_ELAPSED_TIME: f32 = 1000.0;
 const MAX_FRAME_TIME: f32 = 1.0 / 10.0;
 
 pub struct Flux {
+    context: render::Context,
     fluid: Fluid,
     drawer: Drawer,
     noise_generator: NoiseGenerator,
     settings: Rc<Settings>,
-
-    context: render::Context,
 
     // A timestamp in milliseconds. Either host or video time.
     last_timestamp: f64,
@@ -26,8 +25,8 @@ pub struct Flux {
     // A local animation timer in seconds that resets at MAX_ELAPSED_TIME.
     elapsed_time: f32,
 
-    frame_time: f32,
-    fluid_timestep: f32,
+    fluid_update_interval: f32,
+    fluid_frame_time: f32,
 }
 
 impl Flux {
@@ -36,6 +35,8 @@ impl Flux {
         self.fluid.update(&self.settings);
         self.drawer.update(&self.settings);
         self.noise_generator.update(&self.settings.noise_channels);
+
+        self.fluid_update_interval = 1.0 / settings.fluid_frame_rate;
     }
 
     pub fn new(
@@ -79,8 +80,9 @@ impl Flux {
             context: Rc::clone(context),
             last_timestamp: 0.0,
             elapsed_time: 0.0,
-            frame_time: 0.0,
-            fluid_timestep: 1.0 / settings.fluid_simulation_frame_rate,
+
+            fluid_update_interval: 1.0 / settings.fluid_frame_rate,
+            fluid_frame_time: 0.0,
         })
     }
 
@@ -105,11 +107,11 @@ impl Flux {
         // The delta time in seconds
         let timestep = f32::min(
             MAX_FRAME_TIME,
-            (0.001 * (timestamp - self.last_timestamp)) as f32,
+            0.001 * (timestamp - self.last_timestamp) as f32,
         );
         self.last_timestamp = timestamp;
         self.elapsed_time += timestep;
-        self.frame_time += timestep;
+        self.fluid_frame_time += timestep;
 
         // Reset animation timers to avoid precision issues
         let timer_overflow = self.elapsed_time - MAX_ELAPSED_TIME;
@@ -117,22 +119,24 @@ impl Flux {
             self.elapsed_time = timer_overflow;
         }
 
-        while self.frame_time >= self.fluid_timestep {
+        while self.fluid_frame_time >= self.fluid_update_interval {
             self.noise_generator.generate(self.elapsed_time);
 
-            self.fluid.advect_forward(self.fluid_timestep);
-            self.fluid.advect_reverse(self.fluid_timestep);
-            self.fluid.adjust_advection(self.fluid_timestep);
-            self.fluid.diffuse(self.fluid_timestep);
+            self.fluid.advect_forward(self.settings.fluid_timestep);
+            self.fluid.advect_reverse(self.settings.fluid_timestep);
+            self.fluid.adjust_advection(self.settings.fluid_timestep);
+            self.fluid.diffuse(self.settings.fluid_timestep);
 
-            self.noise_generator
-                .blend_noise_into(&self.fluid.get_velocity_textures(), self.fluid_timestep);
+            self.noise_generator.blend_noise_into(
+                &self.fluid.get_velocity_textures(),
+                self.settings.fluid_timestep,
+            );
 
             self.fluid.calculate_divergence();
             self.fluid.solve_pressure();
             self.fluid.subtract_gradient();
 
-            self.frame_time -= self.fluid_timestep;
+            self.fluid_frame_time -= self.fluid_update_interval;
         }
 
         // TODO: the line animation is still dependent on the client’s fps. Is

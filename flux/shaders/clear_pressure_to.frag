@@ -2,9 +2,9 @@
 precision mediump float;
 #endif
 
-uniform float uStartingPressure;
+uniform float uClearPressure;
 out float pressure;
 
 void main() {
-  pressure = uStartingPressure;
+  pressure = uClearPressure;
 }

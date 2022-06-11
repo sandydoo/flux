@@ -4,11 +4,13 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
     pub mode: Mode,
+
+    pub fluid_size: u32,
+    pub fluid_frame_rate: f32,
+    pub fluid_timestep: f32,
     pub viscosity: f32,
     pub velocity_dissipation: f32,
-    pub starting_pressure: StartingPressure,
-    pub fluid_size: u32,
-    pub fluid_simulation_frame_rate: f32,
+    pub clear_pressure: ClearPressure,
     pub diffusion_iterations: u32,
     pub pressure_iterations: u32,
 
@@ -34,9 +36,9 @@ pub enum Mode {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub enum StartingPressure {
-    Inherit,
-    Fixed(f32),
+pub enum ClearPressure {
+    KeepPressure,
+    ClearPressure(f32),
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

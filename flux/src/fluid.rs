@@ -168,7 +168,7 @@ impl Fluid {
         let uniforms = UniformBlock::new(
             context,
             FluidUniforms {
-                timestep: 1.0 / settings.fluid_simulation_frame_rate,
+                timestep: 1.0 / settings.fluid_timestep,
                 dissipation: settings.velocity_dissipation,
                 texel_size: texel_size.into(),
             },
@@ -210,7 +210,7 @@ impl Fluid {
             value: UniformValue::Texture2D(0),
         });
 
-        // a = dx^2
+        // a = -dx^2
         let alpha = -1.0;
         let r_beta = 0.25;
         pressure_pass.set_uniforms(&[
@@ -468,7 +468,7 @@ impl Fluid {
         self.clear_pressure_to_pass.use_program();
         self.vertex_buffer.bind();
         self.clear_pressure_to_pass.set_uniform(&Uniform {
-            name: "uStartingPressure",
+            name: "uClearPressure",
             value: UniformValue::Float(pressure),
         });
         let draw_quad = || unsafe {
@@ -483,10 +483,12 @@ impl Fluid {
     }
 
     pub fn solve_pressure(&self) -> () {
-        use settings::StartingPressure::*;
-        match self.settings.starting_pressure {
-            Fixed(pressure) => self.clear_pressure(pressure),
-            _ => (),
+        use settings::ClearPressure::*;
+        match self.settings.clear_pressure {
+            ClearPressure(pressure) => {
+                self.clear_pressure(pressure);
+            }
+            KeepPressure => (),
         }
 
         self.pressure_pass.use_program();

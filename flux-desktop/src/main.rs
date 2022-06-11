@@ -1,4 +1,4 @@
-use flux::settings::{ColorScheme, Mode, Noise, Settings, StartingPressure};
+use flux::settings::{ClearPressure, ColorScheme, Mode, Noise, Settings};
 use flux::Flux;
 use glutin::event::{Event, WindowEvent};
 use glutin::event_loop::{ControlFlow, EventLoop};
@@ -9,12 +9,13 @@ use std::rc::Rc;
 fn main() {
     let settings = Settings {
         mode: Mode::Normal,
+        fluid_size: 128,
+        fluid_frame_rate: 60.0,
+        fluid_timestep: 1.0 / 60.0,
         viscosity: 5.0,
         velocity_dissipation: 0.0,
-        starting_pressure: StartingPressure::Inherit,
-        fluid_size: 128,
-        fluid_simulation_frame_rate: 60.0,
-        diffusion_iterations: 5,
+        clear_pressure: ClearPressure::KeepPressure,
+        diffusion_iterations: 4,
         pressure_iterations: 20,
         color_scheme: ColorScheme::Peacock,
         line_length: 250.0,
