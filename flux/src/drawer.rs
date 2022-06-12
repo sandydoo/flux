@@ -98,11 +98,11 @@ impl LineUniforms {
     }
 
     fn tick(&mut self, elapsed_time: f32) -> &mut Self {
-        const BLEND_THRESHOLD: f32 = 2.0;
+        const BLEND_THRESHOLD: f32 = 4.0;
         const BASE_OFFSET: f32 = 0.0015;
 
-        let perturb = 0.001 * (elapsed_time * std::f32::consts::TAU).sin();
-        let offset = BASE_OFFSET + perturb;
+        let perturb = 1.0 + 0.1 * (0.001 * elapsed_time * std::f32::consts::TAU).sin();
+        let offset = BASE_OFFSET * perturb;
         self.line_noise_offset_1 += offset;
 
         if self.line_noise_offset_1 > BLEND_THRESHOLD {

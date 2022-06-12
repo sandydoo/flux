@@ -37,8 +37,8 @@ impl NoiseChannel {
     pub fn tick(&mut self, elapsed_time: f32) -> () {
         const BLEND_THRESHOLD: f32 = 20.0;
 
-        self.scale =
-            self.settings.scale + 0.3 * (0.001 * elapsed_time * std::f32::consts::TAU).sin();
+        self.scale = self.settings.scale
+            * (1.0 + 0.1 * (0.001 * elapsed_time * std::f32::consts::TAU).sin());
         self.offset_1 += self.settings.offset_increment;
 
         if self.offset_1 > BLEND_THRESHOLD {
