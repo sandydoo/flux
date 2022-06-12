@@ -95,7 +95,7 @@ defaultSettings : Settings
 defaultSettings =
     { mode = Normal
     , fluidSize = 128
-    , fluidFrameRate = 30
+    , fluidFrameRate = 60
     , fluidTimestep = 1.0 / 60.0
     , viscosity = 5.0
     , velocityDissipation = 0.0
@@ -103,23 +103,23 @@ defaultSettings =
     , diffusionIterations = 4
     , pressureIterations = 20
     , colorScheme = Peacock
-    , lineLength = 250.0
+    , lineLength = 200.0
     , lineWidth = 4.0
-    , lineBeginOffset = 0.38
-    , lineVariance = 0.5
+    , lineBeginOffset = 0.45
+    , lineVariance = 0.47
     , viewScale = 1.6
     , gridSpacing = 22
     , noiseChannels =
         Array.fromList
-            [ { scale = 2.6
+            [ { scale = 2.5
               , multiplier = 1.0
               , offsetIncrement = 0.0015
               }
-            , { scale = 12.0
+            , { scale = 15.0
               , multiplier = 0.7
               , offsetIncrement = 0.0015
               }
-            , { scale = 25.0
+            , { scale = 30.0
               , multiplier = 0.5
               , offsetIncrement = 0.0015
               }
