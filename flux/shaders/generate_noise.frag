@@ -146,6 +146,6 @@ void main() {
   #endif
 
   // TODO: make this configurable
-  noise *= 0.36;
+  noise *= 0.45;
 }
 

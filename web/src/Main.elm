@@ -103,23 +103,23 @@ defaultSettings =
     , diffusionIterations = 4
     , pressureIterations = 20
     , colorScheme = Peacock
-    , lineLength = 200.0
+    , lineLength = 180.0
     , lineWidth = 4.0
     , lineBeginOffset = 0.45
-    , lineVariance = 0.47
+    , lineVariance = 0.4
     , viewScale = 1.6
     , gridSpacing = 22
     , noiseChannels =
         Array.fromList
-            [ { scale = 2.5
+            [ { scale = 2.0
               , multiplier = 1.0
               , offsetIncrement = 0.0015
               }
-            , { scale = 15.0
+            , { scale = 12.0
               , multiplier = 0.7
               , offsetIncrement = 0.0015
               }
-            , { scale = 30.0
+            , { scale = 24.0
               , multiplier = 0.5
               , offsetIncrement = 0.0015
               }

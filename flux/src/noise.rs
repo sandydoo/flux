@@ -38,7 +38,7 @@ impl NoiseChannel {
         const BLEND_THRESHOLD: f32 = 20.0;
 
         self.scale = self.settings.scale
-            * (1.0 + 0.1 * (0.001 * elapsed_time * std::f32::consts::TAU).sin());
+            * (1.0 + 0.15 * (0.010 * elapsed_time * std::f32::consts::TAU).sin());
         self.offset_1 += self.settings.offset_increment;
 
         if self.offset_1 > BLEND_THRESHOLD {
