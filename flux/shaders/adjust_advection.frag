@@ -13,12 +13,12 @@ uniform float deltaTime;
 out vec2 outVelocity;
 
 void main() {
-  float size = float(textureSize(velocityTexture, 0));
+  vec2 size = vec2(textureSize(velocityTexture, 0));
   ivec2 position = ivec2(floor(texturePosition * size + 0.01));
   vec2 velocity = texelFetch(velocityTexture, position, 0).xy;
 
-  // Remember to scale the velocity to the texel space.
-  vec2 minMaxSamplingPosition = (0.5 + floor((vec2(position) + 1.0) - size * deltaTime * velocity)) / size;
+  // Again, we’re supposed to scale to texel space here, but don’t.
+  vec2 minMaxSamplingPosition = (0.5 + floor((vec2(position) + 1.0) - deltaTime * velocity)) / size;
   vec2 L = textureOffset(velocityTexture, minMaxSamplingPosition, ivec2(-1, 0)).xy;
   vec2 R = textureOffset(velocityTexture, minMaxSamplingPosition, ivec2(1, 0)).xy;
   vec2 T = textureOffset(velocityTexture, minMaxSamplingPosition, ivec2(0, 1)).xy;

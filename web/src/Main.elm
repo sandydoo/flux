@@ -100,26 +100,26 @@ defaultSettings =
     , viscosity = 5.0
     , velocityDissipation = 0.0
     , clearPressure = KeepPressure
-    , diffusionIterations = 4
-    , pressureIterations = 20
+    , diffusionIterations = 3
+    , pressureIterations = 19
     , colorScheme = Peacock
-    , lineLength = 180.0
-    , lineWidth = 4.0
-    , lineBeginOffset = 0.45
-    , lineVariance = 0.4
+    , lineLength = 500.0
+    , lineWidth = 13.0
+    , lineBeginOffset = 0.35
+    , lineVariance = 0.35
     , viewScale = 1.6
-    , gridSpacing = 22
+    , gridSpacing = 15
     , noiseChannels =
         Array.fromList
-            [ { scale = 2.0
+            [ { scale = 2.3
               , multiplier = 1.0
               , offsetIncrement = 0.0015
               }
-            , { scale = 12.0
+            , { scale = 13.2
               , multiplier = 0.7
               , offsetIncrement = 0.0015
               }
-            , { scale = 24.0
+            , { scale = 26.4
               , multiplier = 0.5
               , offsetIncrement = 0.0015
               }

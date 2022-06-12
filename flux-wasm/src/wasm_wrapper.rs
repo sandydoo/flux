@@ -24,7 +24,7 @@ impl Flux {
 
     #[wasm_bindgen(constructor)]
     pub fn new(settings_object: &JsValue) -> Result<Flux, JsValue> {
-        console_log::init().expect("cannot enable logging");
+        console_log::init_with_level(log::Level::Debug).expect("cannot enable logging");
 
         let (
             canvas,

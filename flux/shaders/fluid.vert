@@ -2,15 +2,7 @@
 precision highp float;
 #endif
 
-layout(std140) uniform FluidUniforms
-{
-  highp float deltaT;
-  highp float dissipation;
-  highp vec2 uTexelSize;
-};
-
 in vec2 position;
-
 out vec2 texturePosition;
 
 void main() {

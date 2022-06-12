@@ -10,15 +10,10 @@ in vec2 iVelocityVector;
 in mediump vec4 iColor;
 in mediump float iLineWidth;
 
-layout(std140) uniform Projection
-{
-  mat4 uFluidProjection;
-  mat4 uProjection;
-  mat4 uView;
-};
-
 layout(std140) uniform LineUniforms
 {
+  highp float aspect;
+  highp float zoom;
   mediump float uLineWidth;
   mediump float uLineLength;
   mediump float uLineBeginOffset;
@@ -31,16 +26,23 @@ layout(std140) uniform LineUniforms
 
 out vec2 vVertex;
 out vec4 vColor;
+out float vLineOffset;
 
 void main() {
-  vec2 endpoint = basepoint + iEndpointVector * uLineLength;
+  vec2 xBasis = vec2(-iEndpointVector.y, iEndpointVector.x);
+  xBasis /= length(xBasis) + 0.0001; // safely normalize
 
-  vec2 yBasis = endpoint - basepoint;
-  vec2 xBasis = normalize(vec2(-yBasis.y, yBasis.x));
-  vec2 point = basepoint + yBasis * lineVertex.y + xBasis * (iLineWidth * uLineWidth) * lineVertex.x;
+  vec2 point =
+    vec2(aspect, 1.0) * zoom * (basepoint * 2.0 - 1.0)
+    + iEndpointVector * lineVertex.y
+    + uLineWidth * iLineWidth * xBasis * lineVertex.x;
 
-  gl_Position = uProjection * uView * vec4(point, 0.0, 1.0);
+  point.x /= aspect;
 
+  gl_Position = vec4(point, 0.0, 1.0);
   vVertex = lineVertex;
   vColor = iColor;
+
+  float shortLineBoost = 1.0 + (uLineWidth * iLineWidth) / length(iEndpointVector);
+  vLineOffset = uLineBeginOffset / shortLineBoost;
 }

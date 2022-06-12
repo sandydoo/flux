@@ -3,15 +3,10 @@
 precision highp float;
 #endif
 
-layout(std140) uniform Projection
-{
-  mat4 uFluidProjection;
-  mat4 uProjection;
-  mat4 uView;
-};
-
 layout(std140) uniform LineUniforms
 {
+  highp float aspect;
+  highp float zoom;
   mediump float uLineWidth;
   mediump float uLineLength;
   mediump float uLineBeginOffset;
@@ -33,58 +28,38 @@ in mediump vec4 iColor;
 in mediump float iLineWidth;
 
 out vec2 vVertex;
-out vec4 vColor;
-
-mat4 translate(vec2 offset) {
-  return mat4(
-    1.0, 0.0, 0.0, 0.0,
-    0.0, 1.0, 0.0, 0.0,
-    0.0, 0.0, 1.0, 0.0,
-    offset.x, offset.y, 0.0, 1.0
-  );
-}
+out vec2 vMidpointVector;
+out vec4 vTopColor;
+out vec4 vBottomColor;
 
 void main() {
-  vec2 endpoint = basepoint + iEndpointVector * uLineLength;
+  vec2 point
+    = vec2(aspect, 1.0) * zoom * (basepoint * 2.0 - 1.0)
+    + iEndpointVector
+    + 0.5 * uLineWidth * iLineWidth * vertex;
+  point.x /= aspect;
 
-  float angle = -atan(iEndpointVector.y, iEndpointVector.x) + PI / 2.0;
-  float c = cos(angle);
-  float s = sin(angle);
-  mat4 rotationMatrix = mat4(
-    c,   -s,  0.0, 0.0,
-    s,   c,   0.0, 0.0,
-    0.0, 0.0, 1.0, 0.0,
-    0.0, 0.0, 0.0, 1.0
-  );
-
-  float pointSize = uLineWidth * iLineWidth;
-  mat4 modelMatrix = mat4(
-    0.5 * pointSize, 0.0,                            0.0, 0.0,
-    0.0,             uOrientation * 0.5 * pointSize, 0.0, 0.0,
-    0.0,             0.0,                            1.0, 0.0,
-    0.0,             0.0,                            0.0, 1.0
-  );
-
-  gl_Position = uProjection * uView * translate(endpoint) * rotationMatrix * modelMatrix * vec4(vertex, 0.0, 1.0);
-
+  gl_Position = vec4(point, 0.0, 1.0);
   vVertex = vertex;
 
+  // Rotate the endpoint vector 90°. We use this to detect which side of the
+  // endpoint we’re on in the fragment.
+  vMidpointVector = vec2(iEndpointVector.y, -iEndpointVector.x);
+
   float endpointOpacity = clamp(iColor.a + (1.0 - iLineWidth), 0.0, 1.0);
-  if (uOrientation > 0.0) {
-    vColor = vec4(iColor.rgb, endpointOpacity);
-  } else {
-    // The color of the lower half of the endpoint is less obvious. We’re
-    // drawing over part of the line, so to match the color of the upper
-    // endpoint, we have to do some math. Luckily, we know the premultiplied
-    // color of the line underneath, so we can reverse the blend equation to get
-    // the right color.
-    //
-    // GL_BLEND(SRC_ALPHA, ONE) = srcColor * srcAlpha + dstColor * srcAlpha
-    // = vColor * vEndpointOpacity + vColor * vLineOpacity
-    //
-    // Remember, we’ve already premultiplied our colors! The opacity should be
-    // 1.0 to disable more opacity blending!
-    vec3 premultipliedLineColor = iColor.rgb * iColor.a;
-    vColor = vec4(iColor.rgb * endpointOpacity - premultipliedLineColor, 1.0);
-  }
+  vTopColor = vec4(iColor.rgb, endpointOpacity);
+
+  // The color of the lower half of the endpoint is less obvious. We’re
+  // drawing over part of the line, so to match the color of the upper
+  // endpoint, we have to do some math. Luckily, we know the premultiplied
+  // color of the line underneath, so we can reverse the blend equation to get
+  // the right color.
+  //
+  // GL_BLEND(SRC_ALPHA, ONE) = srcColor * srcAlpha + dstColor * srcAlpha
+  // = vColor * vEndpointOpacity + vColor * vLineOpacity
+  //
+  // Remember, we’ve already premultiplied our colors! The opacity should be
+  // 1.0 to disable more opacity blending!
+  vec3 premultipliedLineColor = iColor.rgb * iColor.a;
+  vBottomColor = vec4(iColor.rgb * endpointOpacity - premultipliedLineColor, 1.0);
 }

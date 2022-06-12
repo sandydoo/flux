@@ -8,7 +8,6 @@ use settings::Settings;
 use bytemuck::{Pod, Zeroable};
 use crevice::std140::AsStd140;
 use glow::HasContext;
-use std::f32::consts::PI;
 use std::rc::Rc;
 
 static LINE_VERT_SHADER: &'static str =
@@ -52,14 +51,9 @@ unsafe impl Zeroable for LineState {}
 unsafe impl Pod for LineState {}
 
 #[derive(AsStd140)]
-struct Projection {
-    fluid_projection_matrix: mint::ColumnMatrix4<f32>,
-    projection_matrix: mint::ColumnMatrix4<f32>,
-    view_matrix: mint::ColumnMatrix4<f32>,
-}
-
-#[derive(AsStd140)]
 struct LineUniforms {
+    aspect: f32,
+    zoom: f32,
     line_width: f32,
     line_length: f32,
     line_begin_offset: f32,
@@ -71,10 +65,13 @@ struct LineUniforms {
 }
 
 impl LineUniforms {
-    fn new(settings: &Rc<Settings>) -> Self {
+    fn new(width: f32, height: f32, settings: &Rc<Settings>) -> Self {
+        let line_scale_factor = get_line_scale_factor(width, height);
         Self {
-            line_width: settings.line_width,
-            line_length: settings.line_length,
+            aspect: width / height,
+            zoom: settings.view_scale,
+            line_width: settings.view_scale * settings.line_width / line_scale_factor,
+            line_length: settings.view_scale * settings.line_length / line_scale_factor,
             line_begin_offset: settings.line_begin_offset,
             line_variance: settings.line_variance,
             line_noise_offset_1: 0.0,
@@ -84,9 +81,12 @@ impl LineUniforms {
         }
     }
 
-    fn update(&mut self, settings: &Rc<Settings>) -> &mut Self {
-        self.line_width = settings.line_width;
-        self.line_length = settings.line_length;
+    fn update(&mut self, width: f32, height: f32, settings: &Rc<Settings>) -> &mut Self {
+        let line_scale_factor = get_line_scale_factor(width, height);
+        self.aspect = width / height;
+        self.zoom = settings.view_scale;
+        self.line_width = settings.view_scale * settings.line_width / line_scale_factor;
+        self.line_length = settings.view_scale * settings.line_length / line_scale_factor;
         self.line_begin_offset = settings.line_begin_offset;
         self.line_variance = settings.line_variance;
         self
@@ -120,23 +120,25 @@ impl LineUniforms {
     }
 }
 
+fn get_line_scale_factor(width: f32, height: f32) -> f32 {
+    (0.5 * width + 0.5 + height).max(1000.0)
+}
+
 pub struct Drawer {
     context: Context,
     settings: Rc<Settings>,
 
+    logical_width: u32,
+    logical_height: u32,
     physical_width: u32,
     physical_height: u32,
 
-    pub grid_width: u32,
-    pub grid_height: u32,
     pub line_count: u32,
 
     basepoint_buffer: Buffer,
     line_state_buffers: render::DoubleTransformFeedback,
     #[allow(unused)]
     line_vertices: Buffer,
-    #[allow(unused)]
-    endpoint_vertices: Buffer,
     #[allow(unused)]
     plane_vertices: Buffer,
 
@@ -146,7 +148,6 @@ pub struct Drawer {
     draw_texture_buffer: VertexArrayObject,
 
     line_uniforms: UniformBlock<LineUniforms>,
-    projection: UniformBlock<Projection>,
 
     place_lines_pass: render::Program,
     draw_lines_pass: render::Program,
@@ -163,11 +164,10 @@ impl Drawer {
         physical_height: u32,
         settings: &Rc<Settings>,
     ) -> Result<Self, render::Problem> {
-        let (grid_width, grid_height) = compute_grid_size(logical_width, logical_height);
-        let (basepoints, line_state, line_count) =
-            new_line_grid(grid_width, grid_height, settings.grid_spacing);
+        let (basepoints, line_state, (cols, rows), line_count) =
+            new_line_grid(logical_width, logical_height, settings.grid_spacing);
 
-        log::debug!("Basepoint grid size: {}x{}", grid_width, grid_height);
+        log::debug!("Grid size: {}x{}", cols, rows);
         log::debug!("Line count: {}", line_count);
 
         let basepoint_buffer =
@@ -175,12 +175,6 @@ impl Drawer {
         let line_vertices = Buffer::from_f32(
             &context,
             &bytemuck::cast_slice(&LINE_VERTICES),
-            glow::ARRAY_BUFFER,
-            glow::STATIC_DRAW,
-        )?;
-        let endpoint_vertices = Buffer::from_f32(
-            &context,
-            &new_endpoint(8),
             glow::ARRAY_BUFFER,
             glow::STATIC_DRAW,
         )?;
@@ -321,7 +315,7 @@ impl Drawer {
 
             let mut endpoint_attributes = common_attributes_with_divisor(1);
             endpoint_attributes.push((
-                &endpoint_vertices,
+                &plane_vertices,
                 VertexBufferLayout {
                     name: "vertex",
                     size: 2,
@@ -356,25 +350,12 @@ impl Drawer {
 
         // Uniforms
 
-        let projection = Projection {
-            fluid_projection_matrix: new_fluid_projection_matrix(
-                grid_width as f32,
-                grid_height as f32,
-            )
-            .into(),
-            projection_matrix: new_projection_matrix(
-                grid_width as f32,
-                grid_height as f32,
-                logical_width as f32,
-                logical_height as f32,
-            )
-            .into(),
-            view_matrix: nalgebra::Matrix4::new_scaling(settings.view_scale).into(),
-        };
-        let projection = UniformBlock::new(context, projection, 0, glow::STATIC_DRAW)?;
-
-        let line_uniforms =
-            UniformBlock::new(context, LineUniforms::new(&settings), 1, glow::DYNAMIC_DRAW)?;
+        let line_uniforms = UniformBlock::new(
+            context,
+            LineUniforms::new(logical_width as f32, logical_height as f32, &settings),
+            0,
+            glow::DYNAMIC_DRAW,
+        )?;
 
         place_lines_pass.set_uniforms(&[
             &Uniform {
@@ -389,29 +370,23 @@ impl Drawer {
             },
         ]);
 
-        place_lines_pass.set_uniform_block("Projection", projection.index);
         place_lines_pass.set_uniform_block("LineUniforms", line_uniforms.index);
-        draw_lines_pass.set_uniform_block("Projection", projection.index);
         draw_lines_pass.set_uniform_block("LineUniforms", line_uniforms.index);
-        draw_endpoints_pass.set_uniform_block("Projection", projection.index);
         draw_endpoints_pass.set_uniform_block("LineUniforms", line_uniforms.index);
-        draw_texture_pass.set_uniform_block("Projection", projection.index);
 
         Ok(Self {
             context: Rc::clone(context),
             settings: Rc::clone(settings),
 
+            logical_width,
+            logical_height,
             physical_width,
             physical_height,
 
-            grid_width,
-            grid_height,
             line_count,
-
             basepoint_buffer,
             line_state_buffers,
             line_vertices,
-            endpoint_vertices,
             plane_vertices,
 
             place_lines_buffers,
@@ -419,7 +394,6 @@ impl Drawer {
             draw_endpoints_buffers,
             draw_texture_buffer,
 
-            projection,
             line_uniforms,
 
             place_lines_pass,
@@ -432,7 +406,11 @@ impl Drawer {
     pub fn update(&mut self, new_settings: &Rc<Settings>) -> () {
         self.line_uniforms
             .update(|line_uniforms| {
-                line_uniforms.update(new_settings);
+                line_uniforms.update(
+                    self.logical_width as f32,
+                    self.logical_height as f32,
+                    new_settings,
+                );
             })
             .buffer_data();
 
@@ -452,34 +430,24 @@ impl Drawer {
         physical_width: u32,
         physical_height: u32,
     ) -> Result<(), render::Problem> {
-        let (grid_width, grid_height) = compute_grid_size(logical_width, logical_height);
-
         self.physical_width = physical_width;
         self.physical_height = physical_height;
-        self.grid_width = grid_width;
-        self.grid_height = grid_height;
+        self.logical_width = logical_width;
+        self.logical_height = logical_height;
 
-        self.projection
-            .update(|projection| {
-                projection.projection_matrix = new_projection_matrix(
-                    grid_width as f32,
-                    grid_height as f32,
-                    logical_width as f32,
-                    logical_height as f32,
-                )
-                .into();
-                projection.fluid_projection_matrix =
-                    new_fluid_projection_matrix(grid_width as f32, grid_height as f32).into();
-            })
-            .buffer_data();
-
-        let (basepoints, line_state, line_count) =
-            new_line_grid(grid_width, grid_height, self.settings.grid_spacing);
+        let (basepoints, line_state, _, line_count) =
+            new_line_grid(logical_width, logical_height, self.settings.grid_spacing);
         self.line_count = line_count;
         self.basepoint_buffer
             .overwrite(bytemuck::cast_slice(&basepoints));
         self.line_state_buffers
             .overwrite_buffer(bytemuck::cast_slice(&line_state))?;
+
+        self.line_uniforms
+            .update(|line_uniforms| {
+                line_uniforms.update(logical_width as f32, logical_height as f32, &self.settings);
+            })
+            .buffer_data();
 
         Ok(())
     }
@@ -506,15 +474,8 @@ impl Drawer {
             self.context.disable(glow::BLEND);
 
             self.place_lines_pass.use_program();
-
             self.place_lines_buffers[self.line_state_buffers.active_buffer].bind();
-            self.projection.bind();
             self.line_uniforms.bind();
-
-            self.place_lines_pass.set_uniform(&Uniform {
-                name: "deltaTime",
-                value: UniformValue::Float(timestep),
-            });
 
             self.context.active_texture(glow::TEXTURE0);
             self.context
@@ -541,8 +502,6 @@ impl Drawer {
 
             self.draw_lines_pass.use_program();
             self.draw_lines_buffers[self.line_state_buffers.active_buffer].bind();
-
-            self.projection.bind();
             self.line_uniforms.bind();
 
             self.context
@@ -566,25 +525,10 @@ impl Drawer {
 
             self.draw_endpoints_pass.use_program();
             self.draw_endpoints_buffers[self.line_state_buffers.active_buffer].bind();
-
-            self.projection.bind();
             self.line_uniforms.bind();
 
-            self.draw_endpoints_pass.set_uniform(&Uniform {
-                name: "uOrientation",
-                value: UniformValue::Float(1.0),
-            });
-
             self.context
-                .draw_arrays_instanced(glow::TRIANGLE_FAN, 0, 10, self.line_count as i32);
-
-            self.draw_endpoints_pass.set_uniform(&Uniform {
-                name: "uOrientation",
-                value: UniformValue::Float(-1.0),
-            });
-
-            self.context
-                .draw_arrays_instanced(glow::TRIANGLE_FAN, 0, 10, self.line_count as i32);
+                .draw_arrays_instanced(glow::TRIANGLES, 0, 6, self.line_count as i32);
 
             self.context.disable(glow::BLEND);
         }
@@ -600,19 +544,6 @@ impl Drawer {
             );
 
             self.draw_texture_pass.use_program();
-
-            self.draw_texture_pass.set_uniforms(&[
-                &Uniform {
-                    name: "uGridWidth",
-                    value: UniformValue::Float(self.grid_width as f32),
-                },
-                &Uniform {
-                    name: "uGridHeight",
-                    value: UniformValue::Float(self.grid_height as f32),
-                },
-            ]);
-
-            self.projection.bind();
             self.draw_texture_buffer.bind();
 
             self.context.active_texture(glow::TEXTURE0);
@@ -624,105 +555,30 @@ impl Drawer {
     }
 }
 
-fn compute_grid_size(logical_width: u32, logical_height: u32) -> (u32, u32) {
-    let logical_width = logical_width as f32;
-    let logical_height = logical_height as f32;
-    let target_width = logical_width.clamp(800.0, 2560.0);
-    let target_height = logical_height.clamp(800.0, 2560.0);
-
-    let scale_factor = f32::max(target_width / logical_width, target_height / logical_height);
-
-    // The ratio factor ensures we don’t create grids with ridiculous aspect
-    // ratios. Remember, this needs to somehow map onto the square fluid
-    // texture.
-    let ratio = logical_width / logical_height;
-    let ratio_factor = ratio.clamp(1.0, 1.7777778) / ratio;
-
-    (
-        (logical_width * scale_factor * ratio_factor).round() as u32,
-        (logical_height * scale_factor).round() as u32,
-    )
-}
-
-// Project the basepoints into clipspace to then map 1:1 onto the fluid texture.
-fn new_fluid_projection_matrix(grid_width: f32, grid_height: f32) -> nalgebra::Matrix4<f32> {
-    let half_grid_width = (grid_width as f32) / 2.0;
-    let half_grid_height = (grid_height as f32) / 2.0;
-    nalgebra::Matrix4::new_orthographic(
-        -half_grid_width,
-        half_grid_width,
-        -half_grid_height,
-        half_grid_height,
-        -1.0,
-        1.0,
-    )
-}
-
-// Project the basepoints into clipspace, taking into account the aspect ratios
-// of the window and the basepoint grid.
-//
-// Why does this matter? Let’s say our window is very wide and short. This is
-// not a very good size for a grid, because we’d be mapping the entire vertical
-// axis of the fluid onto just a few grid rows. Instead, we want to create a
-// more rectangular grid, sample the fluid properly, and then clip the grid when
-// drawing it.
-fn new_projection_matrix(
-    grid_width: f32,
-    grid_height: f32,
-    logical_width: f32,
-    logical_height: f32,
-) -> nalgebra::Matrix4<f32> {
-    let grid_ratio = grid_width / grid_height;
-    let logical_ratio = logical_width / logical_height;
-    let (width, height) = if grid_ratio > logical_ratio {
-        (grid_height * logical_ratio, grid_height)
-    } else {
-        (grid_width, grid_width / logical_ratio)
-    };
-
-    let half_width = width / 2.0;
-    let half_height = height / 2.0;
-
-    nalgebra::Matrix4::new_orthographic(
-        -half_width,
-        half_width,
-        -half_height,
-        half_height,
-        -1.0,
-        1.0,
-    )
-}
-
-fn new_line_grid(width: u32, height: u32, grid_spacing: u32) -> (Vec<f32>, Vec<LineState>, u32) {
+fn new_line_grid(
+    width: u32,
+    height: u32,
+    grid_spacing: u32,
+) -> (Vec<f32>, Vec<LineState>, (u32, u32), u32) {
     let height = height as f32;
     let width = width as f32;
     let grid_spacing = grid_spacing as f32;
 
-    let half_width = width / 2.0;
-    let half_height = height / 2.0;
+    let cols = (width / grid_spacing).floor() as u32;
+    let rows = ((height / width) * cols as f32).floor() as u32;
+    let line_count = (rows + 1) * (cols + 1);
+    let grid_spacing_x: f32 = 1.0 / (cols as f32);
+    let grid_spacing_y: f32 = 1.0 / (rows as f32);
 
-    let aspect = width / height;
-    let inverse_aspect = 1.0 / aspect;
-    let rows = (height / grid_spacing).ceil() as u32;
-    let cols = ((aspect * width) / grid_spacing).ceil() as u32;
-    let line_count = rows * cols;
-
-    // World space coordinates: zero-centered, width x height
     let mut basepoints = Vec::with_capacity((line_count * 2) as usize);
-    for v in 0..rows {
-        for u in 0..cols {
-            let x: f32 = (u as f32) * grid_spacing * inverse_aspect;
-            let y: f32 = (v as f32) * grid_spacing;
-
-            basepoints.push(x - half_width);
-            basepoints.push(y - half_height);
-        }
-    }
-
     let mut line_state =
         Vec::with_capacity(std::mem::size_of::<LineState>() / 4 * line_count as usize);
-    for _ in 0..rows {
-        for _ in 0..cols {
+
+    for v in 0..=rows {
+        for u in 0..=cols {
+            basepoints.push(u as f32 * grid_spacing_x);
+            basepoints.push(v as f32 * grid_spacing_y);
+
             line_state.push(LineState {
                 endpoint: [0.0, 0.0].into(),
                 velocity: [0.0, 0.0].into(),
@@ -733,56 +589,40 @@ fn new_line_grid(width: u32, height: u32, grid_spacing: u32) -> (Vec<f32>, Vec<L
         }
     }
 
-    (basepoints, line_state, line_count)
-}
-
-fn new_endpoint(resolution: u32) -> Vec<f32> {
-    let mut segments = Vec::with_capacity(((resolution + 1) * 2) as usize);
-
-    segments.push(0.0);
-    segments.push(0.0);
-
-    for section in 0..=resolution {
-        let angle = PI * (section as f32) / (resolution as f32);
-        segments.push(angle.cos());
-        segments.push(angle.sin());
-    }
-
-    segments
+    (basepoints, line_state, (cols + 1, rows + 1), line_count)
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
 
+    fn create_test_grid(width: u32, height: u32, grid_spacing: u32) -> (u32, u32) {
+        let (_, _, grid_size, _) = new_line_grid(width, height, grid_spacing);
+        grid_size
+    }
+
     #[test]
     fn is_sane_grid_for_iphone_xr() {
-        assert_eq!(compute_grid_size(414, 896), (800, 1280));
+        assert_eq!(create_test_grid(414, 896, 15), (28, 59));
     }
 
     #[test]
     fn is_sane_grid_for_iphone_12_pro() {
-        assert_eq!(compute_grid_size(390, 844), (800, 1280));
+        assert_eq!(create_test_grid(390, 844, 15), (27, 57));
     }
 
     #[test]
-    fn is_sane_grid_for_macbook_pro_13_with_default_scaling() {
-        assert_eq!(compute_grid_size(1280, 800), (1280, 800));
+    fn is_sane_grid_for_macbook_pro_13_with_1280_800_scaling() {
+        assert_eq!(create_test_grid(1280, 800, 15), (86, 54));
     }
 
     #[test]
-    fn is_sane_grid_for_macbook_pro_15_with_default_scaling() {
-        assert_eq!(compute_grid_size(1440, 900), (1440, 900));
+    fn is_sane_grid_for_macbook_pro_15_with_1440_900_scaling() {
+        assert_eq!(create_test_grid(1440, 900, 15), (97, 61));
     }
 
     #[test]
-    fn is_sane_grid_for_awkward_window_sizes() {
-        assert_eq!(compute_grid_size(1280, 172), (1280, 800));
-        assert_eq!(compute_grid_size(172, 1280), (800, 1280));
-    }
-
-    #[test]
-    fn is_sane_grid_for_ultrawide_21_9() {
-        assert_eq!(compute_grid_size(3840, 1600), (2560, 1600));
+    fn is_sane_grid_for_ultrawide_4k() {
+        assert_eq!(create_test_grid(3840, 1600, 15), (257, 107));
     }
 }

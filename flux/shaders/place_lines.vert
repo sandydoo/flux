@@ -15,15 +15,10 @@ in vec4 iColor;
 in vec3 iColorVelocity;
 in float iLineWidth;
 
-layout(std140) uniform Projection
-{
-  mat4 uFluidProjection;
-  mat4 uProjection;
-  mat4 uView;
-};
-
 layout(std140) uniform LineUniforms
 {
+  highp float aspect;
+  highp float zoom;
   mediump float uLineWidth;
   mediump float uLineLength;
   mediump float uLineBeginOffset;
@@ -148,32 +143,33 @@ float snoise(vec3 v) {
 void main() {
   float lineNoiseScale = 64.0;
 
-  vec2 basepointInClipSpace = 0.5 + 0.5 * (uFluidProjection * vec4(basepoint, 0.0, 1.0)).xy;
-  vec2 velocity = texture(velocityTexture, basepointInClipSpace).xy;
-  float noise = snoise(vec3(lineNoiseScale * basepointInClipSpace, lineNoiseOffset1));
-
-  // Blend noise
+  vec2 velocity = texture(velocityTexture, basepoint).xy;
+  float noise = snoise(vec3(lineNoiseScale * basepoint, lineNoiseOffset1));
 
   float variance = mix(1.0 - uLineVariance, 1.0, 0.5 + 0.5 * noise);
   float velocityDeltaBoost = mix(3.0, 25.0, 1.0 - variance);
   float momentumBoost = mix(3.0, 5.0, variance);
 
-  // TODO: move to uniform buffer
-  float lineLength = 1.2;
   vVelocityVector
     = (1.0 - deltaTime * momentumBoost) * iVelocityVector
-    + (lineLength * velocity - iEndpointVector) * velocityDeltaBoost * deltaTime;
+    + (uLineLength * velocity - iEndpointVector) * velocityDeltaBoost * deltaTime;
+
   vEndpointVector = iEndpointVector + deltaTime * vVelocityVector;
 
+  // Basically, smoothstep(0.0, 0.4, length(velocity));
+  // Maybe width and opacity should be on different easings.
   float widthBoost = clamp(2.5 * length(velocity), 0.0, 1.0);
   vLineWidth = widthBoost * widthBoost * (3.0 - widthBoost * 2.0);
 
   float angle = atan(velocity.x, velocity.y);
   vec4 color = getColor(uColorWheel, angle);
+
   float colorMomentumBoost = 5.0;
   float colorDeltaBoost = 10.0;
+
   vColorVelocity
     = iColorVelocity * (1.0 - colorMomentumBoost * deltaTime)
     + (color.rgb - iColor.rgb) * colorDeltaBoost * deltaTime;
-  vColor = vec4(iColor.rgb + deltaTime * vColorVelocity,  widthBoost);
+
+  vColor = vec4(iColor.rgb + deltaTime * vColorVelocity, widthBoost);
 }

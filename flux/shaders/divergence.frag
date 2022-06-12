@@ -3,13 +3,6 @@ precision mediump float;
 precision highp sampler2D;
 #endif
 
-layout(std140) uniform FluidUniforms
-{
-  highp float deltaT;
-  highp float dissipation;
-  highp vec2 uTexelSize;
-};
-
 uniform sampler2D velocityTexture;
 
 in highp vec2 texturePosition;

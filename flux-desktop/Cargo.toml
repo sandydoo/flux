@@ -9,6 +9,7 @@ publish = false
 edition = "2021"
 
 [dependencies]
+env_logger = "0.9"
 flux = { version = "4", path = "../flux" }
 glow = "0.11.2"
 glutin = "0.28"

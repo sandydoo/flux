@@ -7,6 +7,8 @@ use glutin::PossiblyCurrent;
 use std::rc::Rc;
 
 fn main() {
+    env_logger::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+
     let settings = Settings {
         mode: Mode::Normal,
         fluid_size: 128,
@@ -15,37 +17,37 @@ fn main() {
         viscosity: 5.0,
         velocity_dissipation: 0.0,
         clear_pressure: ClearPressure::KeepPressure,
-        diffusion_iterations: 4,
-        pressure_iterations: 20,
+        diffusion_iterations: 3,
+        pressure_iterations: 19,
         color_scheme: ColorScheme::Peacock,
-        line_length: 180.0,
-        line_width: 4.0,
-        line_begin_offset: 0.45,
-        line_variance: 0.4,
-        grid_spacing: 22,
+        line_length: 500.0,
+        line_width: 13.0,
+        line_begin_offset: 0.35,
+        line_variance: 0.35,
+        grid_spacing: 15,
         view_scale: 1.6,
         noise_channels: vec![
             Noise {
-                scale: 2.0,
+                scale: 2.3,
                 multiplier: 1.0,
                 offset_increment: 0.0015,
             },
             Noise {
-                scale: 12.0,
+                scale: 13.8,
                 multiplier: 0.7,
                 offset_increment: 0.0015,
             },
             Noise {
-                scale: 24.0,
+                scale: 27.6,
                 multiplier: 0.5,
                 offset_increment: 0.0015,
             },
         ],
     };
 
-    let logical_size = glutin::dpi::LogicalSize::new(1200, 900);
-    let (context, window, event_loop) =
-        get_rendering_context(logical_size.width, logical_size.height);
+    // let logical_size = glutin::dpi::LogicalSize::new(2560, 480);
+    let logical_size = glutin::dpi::LogicalSize::new(1280, 800);
+    let (context, window, event_loop) = get_rendering_context(logical_size);
     let physical_size = logical_size.to_physical(window.window().scale_factor());
 
     let context = Rc::new(context);
@@ -100,8 +102,7 @@ fn main() {
 }
 
 pub fn get_rendering_context(
-    width: u32,
-    height: u32,
+    logical_size: glutin::dpi::LogicalSize<u32>,
 ) -> (
     glow::Context,
     glutin::ContextWrapper<PossiblyCurrent, Window>,
@@ -112,7 +113,7 @@ pub fn get_rendering_context(
         .with_title("Flux")
         .with_decorations(true)
         .with_resizable(true)
-        .with_inner_size(glutin::dpi::LogicalSize::new(width, height));
+        .with_inner_size(logical_size);
     let window = glutin::ContextBuilder::new()
         .with_vsync(true)
         .with_multisampling(0)
