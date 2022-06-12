@@ -18,7 +18,9 @@ out vec2 outVelocity;
 
 void main() {
   vec2 velocity = texture(velocityTexture, texturePosition).xy;
-  vec2 advectedPosition = (texturePosition + 0.5 * uTexelSize) - amount * velocity;
+  // Note, that, by multiplying by 1/dx, we’ve “incorrectly” scaled our coordinate system.
+  // This is actually a key component of slow, wriggly “coral reef” look.
+  vec2 advectedPosition = (texturePosition + 0.5 * uTexelSize) - uTexelSize * amount * velocity;
   float decay = 1.0 + dissipation * amount;
   outVelocity = texture(velocityTexture, advectedPosition).xy / decay;
 }

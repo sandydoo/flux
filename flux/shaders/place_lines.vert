@@ -165,7 +165,7 @@ void main() {
     + (lineLength * velocity - iEndpointVector) * velocityDeltaBoost * deltaTime;
   vEndpointVector = iEndpointVector + deltaTime * vVelocityVector;
 
-  float widthBoost = clamp(3.0 * length(velocity), 0.0, 1.0);
+  float widthBoost = clamp(2.5 * length(velocity), 0.0, 1.0);
   vLineWidth = widthBoost * widthBoost * (3.0 - widthBoost * 2.0);
 
   float angle = atan(velocity.x, velocity.y);

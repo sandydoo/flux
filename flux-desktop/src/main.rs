@@ -18,11 +18,11 @@ fn main() {
         diffusion_iterations: 4,
         pressure_iterations: 20,
         color_scheme: ColorScheme::Peacock,
-        line_length: 250.0,
-        line_width: 4.5,
+        line_length: 200.0,
+        line_width: 4.0,
         line_begin_offset: 0.45,
         line_variance: 0.47,
-        grid_spacing: 21,
+        grid_spacing: 22,
         view_scale: 1.6,
         noise_channels: vec![
             Noise {

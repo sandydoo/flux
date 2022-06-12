@@ -17,7 +17,8 @@ void main() {
   ivec2 position = ivec2(floor(texturePosition * size + 0.01));
   vec2 velocity = texelFetch(velocityTexture, position, 0).xy;
 
-  vec2 minMaxSamplingPosition = (0.5 + floor((vec2(position) + 1.0) - deltaTime * velocity)) / size;
+  // Remember to scale the velocity to the texel space.
+  vec2 minMaxSamplingPosition = (0.5 + floor((vec2(position) + 1.0) - size * deltaTime * velocity)) / size;
   vec2 L = textureOffset(velocityTexture, minMaxSamplingPosition, ivec2(-1, 0)).xy;
   vec2 R = textureOffset(velocityTexture, minMaxSamplingPosition, ivec2(1, 0)).xy;
   vec2 T = textureOffset(velocityTexture, minMaxSamplingPosition, ivec2(0, 1)).xy;
