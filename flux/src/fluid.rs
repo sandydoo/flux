@@ -67,6 +67,7 @@ pub struct Fluid {
 
 impl Fluid {
     pub fn new(context: &Context, settings: &Rc<Settings>) -> Result<Self, render::Problem> {
+        log::info!("💧 Condensing fluid");
         let (width, height) = (settings.fluid_size, settings.fluid_size);
         let texel_size = [1.0 / width as f32, 1.0 / height as f32];
 

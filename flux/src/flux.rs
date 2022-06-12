@@ -47,7 +47,7 @@ impl Flux {
         physical_height: u32,
         settings: &Rc<Settings>,
     ) -> Result<Flux, Problem> {
-        log::info!("Initializing Flux...");
+        log::info!("✨ Initialising Flux");
         log::debug!("Logical size: {}x{}px", logical_width, logical_height);
         log::debug!("Physical size: {}x{}px", physical_width, physical_height);
 

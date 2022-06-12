@@ -164,11 +164,12 @@ impl Drawer {
         settings: &Rc<Settings>,
     ) -> Result<Self, render::Problem> {
         let (grid_width, grid_height) = compute_grid_size(logical_width, logical_height);
-
-        log::debug!("Basepoint grid size: {}x{}", grid_width, grid_height);
-
         let (basepoints, line_state, line_count) =
             new_line_grid(grid_width, grid_height, settings.grid_spacing);
+
+        log::debug!("Basepoint grid size: {}x{}", grid_width, grid_height);
+        log::debug!("Line count: {}", line_count);
+
         let basepoint_buffer =
             Buffer::from_f32(&context, &basepoints, glow::ARRAY_BUFFER, glow::STATIC_DRAW)?;
         let line_vertices = Buffer::from_f32(

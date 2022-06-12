@@ -164,6 +164,8 @@ impl NoiseGeneratorBuilder {
     }
 
     pub fn build(self) -> Result<NoiseGenerator, render::Problem> {
+        log::info!("🎛 Generating noise");
+
         // Geometry
         let plane_vertices = Buffer::from_f32(
             &self.context,
