@@ -627,8 +627,8 @@ impl Drawer {
 fn compute_grid_size(logical_width: u32, logical_height: u32) -> (u32, u32) {
     let logical_width = logical_width as f32;
     let logical_height = logical_height as f32;
-    let target_width = logical_width.clamp(800.0, 1920.0);
-    let target_height = logical_height.clamp(800.0, 1920.0);
+    let target_width = logical_width.clamp(800.0, 2560.0);
+    let target_height = logical_height.clamp(800.0, 2560.0);
 
     let scale_factor = f32::max(target_width / logical_width, target_height / logical_height);
 
@@ -636,7 +636,7 @@ fn compute_grid_size(logical_width: u32, logical_height: u32) -> (u32, u32) {
     // ratios. Remember, this needs to somehow map onto the square fluid
     // texture.
     let ratio = logical_width / logical_height;
-    let ratio_factor = ratio.clamp(1.0, 1.6) / ratio;
+    let ratio_factor = ratio.clamp(1.0, 1.7777778) / ratio;
 
     (
         (logical_width * scale_factor * ratio_factor).round() as u32,
