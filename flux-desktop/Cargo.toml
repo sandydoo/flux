@@ -1,6 +1,6 @@
 [package]
 name = "flux-desktop"
-version = "3.1.0"
+version = "4.0.0"
 description = "An ode to the macOS Drift screensaver"
 authors = ["Sander Melnikov <hey@sandydoo.me"]
 repository = "https://github.com/sandydoo/flux/"
@@ -9,7 +9,7 @@ publish = false
 edition = "2021"
 
 [dependencies]
-flux = { version = "3", path = "../flux" }
+flux = { version = "4", path = "../flux" }
 glow = "0.11.2"
 glutin = "0.28"
 serde_json = "1"
