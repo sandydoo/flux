@@ -383,7 +383,7 @@ viewSettings settings =
                 """
                 (Slider
                     { min = 1.0
-                    , max = 500.0
+                    , max = 1000.0
                     , step = 1.0
                     , value = settings.lineLength
                     , onInput =
@@ -730,7 +730,7 @@ formatFloat decimals value =
     F.format
         { decimals = F.Exact decimals
         , system = F.Western
-        , thousandSeparator = ","
+        , thousandSeparator = ""
         , decimalSeparator = "."
         , negativePrefix = "−"
         , negativeSuffix = ""
