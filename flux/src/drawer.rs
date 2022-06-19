@@ -121,7 +121,9 @@ impl LineUniforms {
 }
 
 fn get_line_scale_factor(width: f32, height: f32) -> f32 {
-    (0.5 * width + 0.5 + height).max(1000.0)
+    let aspect_ratio = width / height;
+    let p = 1.0 / aspect_ratio;
+    ((1.0 - p) * width + p * height).min(2000.0)
 }
 
 pub struct Drawer {
@@ -164,6 +166,10 @@ impl Drawer {
         physical_height: u32,
         settings: &Rc<Settings>,
     ) -> Result<Self, render::Problem> {
+        let (logical_width, logical_height) = clamp_logical_size(logical_width, logical_height);
+        log::debug!("Physical size: {}x{}px", physical_width, physical_height);
+        log::debug!("Logical size: {}x{}px", logical_width, logical_height);
+
         let (basepoints, line_state, (cols, rows), line_count) =
             new_line_grid(logical_width, logical_height, settings.grid_spacing);
 
@@ -430,6 +436,7 @@ impl Drawer {
         physical_width: u32,
         physical_height: u32,
     ) -> Result<(), render::Problem> {
+        let (logical_width, logical_height) = clamp_logical_size(logical_width, logical_height);
         self.physical_width = physical_width;
         self.physical_height = physical_height;
         self.logical_width = logical_width;
@@ -555,6 +562,17 @@ impl Drawer {
     }
 }
 
+fn clamp_logical_size(width: u32, height: u32) -> (u32, u32) {
+    let width = width as f32;
+    let height = height as f32;
+    let ratio = width / height;
+
+    // TODO: Should we also clamp the upper bound?
+    let minimum_dimension = 800.0;
+    let scale = f32::max(minimum_dimension / width, minimum_dimension / height).max(1.0);
+    ((width * scale).floor() as u32, (height * scale).floor() as u32)
+}
+
 fn new_line_grid(
     width: u32,
     height: u32,
@@ -596,33 +614,57 @@ fn new_line_grid(
 mod test {
     use super::*;
 
-    fn create_test_grid(width: u32, height: u32, grid_spacing: u32) -> (u32, u32) {
-        let (_, _, grid_size, _) = new_line_grid(width, height, grid_spacing);
+    #[derive(Copy, Clone, PartialEq, Debug)]
+    struct LogicalSize {
+        pub width: u32,
+        pub height: u32
+    }
+
+    impl LogicalSize {
+        pub fn new(width: u32, height: u32) -> Self {
+            Self {
+                width, height
+            }
+        }
+    }
+
+    fn create_test_grid(logical_size: LogicalSize, grid_spacing: u32) -> (u32, u32) {
+        let (_, _, grid_size, _) = new_line_grid(logical_size.width, logical_size.height, grid_spacing);
         grid_size
     }
 
     #[test]
     fn is_sane_grid_for_iphone_xr() {
-        assert_eq!(create_test_grid(414, 896, 15), (28, 59));
+        let logical_size = LogicalSize::new(414, 896);
+        assert_eq!(create_test_grid(logical_size, 15), (28, 59));
+        assert_eq!(clamp_logical_size(logical_size.width, logical_size.height), (800, 1731));
     }
 
     #[test]
     fn is_sane_grid_for_iphone_12_pro() {
-        assert_eq!(create_test_grid(390, 844, 15), (27, 57));
+        let logical_size = LogicalSize::new(390, 844);
+        assert_eq!(create_test_grid(logical_size, 15), (27, 57));
+        assert_eq!(clamp_logical_size(logical_size.width, logical_size.height), (800, 1731));
     }
 
     #[test]
     fn is_sane_grid_for_macbook_pro_13_with_1280_800_scaling() {
-        assert_eq!(create_test_grid(1280, 800, 15), (86, 54));
+        let logical_size = LogicalSize::new(1280, 800);
+        assert_eq!(create_test_grid(logical_size, 15), (86, 54));
+        assert_eq!(clamp_logical_size(logical_size.width, logical_size.height), (1280, 800));
     }
 
     #[test]
     fn is_sane_grid_for_macbook_pro_15_with_1440_900_scaling() {
-        assert_eq!(create_test_grid(1440, 900, 15), (97, 61));
+        let logical_size = LogicalSize::new(1440, 900);
+        assert_eq!(create_test_grid(logical_size, 15), (97, 61));
+        assert_eq!(clamp_logical_size(logical_size.width, logical_size.height), (1440, 900));
     }
 
     #[test]
     fn is_sane_grid_for_ultrawide_4k() {
-        assert_eq!(create_test_grid(3840, 1600, 15), (257, 107));
+        let logical_size = LogicalSize::new(3840, 1600);
+        assert_eq!(create_test_grid(logical_size, 15), (257, 107));
+        assert_eq!(clamp_logical_size(logical_size.width, logical_size.height), (3840, 1600));
     }
 }
