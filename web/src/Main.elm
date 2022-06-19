@@ -111,17 +111,17 @@ defaultSettings =
     , gridSpacing = 15
     , noiseChannels =
         Array.fromList
-            [ { scale = 2.3
+            [ { scale = 2.5
               , multiplier = 1.0
               , offsetIncrement = 0.0015
               }
-            , { scale = 13.2
+            , { scale = 15.0
               , multiplier = 0.7
-              , offsetIncrement = 0.0015
+              , offsetIncrement = 0.0015 * 6.0
               }
-            , { scale = 26.4
+            , { scale = 30.0
               , multiplier = 0.5
-              , offsetIncrement = 0.0015
+              , offsetIncrement = 0.0015 * 12.0
               }
             ]
     }

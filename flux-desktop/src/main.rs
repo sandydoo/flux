@@ -28,19 +28,19 @@ fn main() {
         view_scale: 1.6,
         noise_channels: vec![
             Noise {
-                scale: 2.3,
+                scale: 2.5,
                 multiplier: 1.0,
                 offset_increment: 0.0015,
             },
             Noise {
-                scale: 13.8,
+                scale: 15.0,
                 multiplier: 0.7,
-                offset_increment: 0.0015,
+                offset_increment: 0.0015 * 6.0,
             },
             Noise {
-                scale: 27.6,
+                scale: 30.0,
                 multiplier: 0.5,
-                offset_increment: 0.0015,
+                offset_increment: 0.0015 * 12.0,
             },
         ],
     };
