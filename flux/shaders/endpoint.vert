@@ -7,13 +7,13 @@ layout(std140) uniform LineUniforms
 {
   highp float aspect;
   highp float zoom;
-  mediump float uLineWidth;
-  mediump float uLineLength;
+  highp float uLineWidth;
+  highp float uLineLength;
   mediump float uLineBeginOffset;
   mediump float uLineVariance;
-  highp float lineNoiseOffset1;
-  highp float lineNoiseOffset2;
-  highp float lineNoiseBlendFactor;
+  mediump float lineNoiseOffset1;
+  mediump float lineNoiseOffset2;
+  mediump float lineNoiseBlendFactor;
   highp float deltaTime;
 };
 
@@ -22,15 +22,15 @@ uniform float uOrientation;
 in vec2 vertex;
 in vec2 basepoint;
 
-in vec2 iEndpointVector;
-in vec2 iVelocityVector;
+in highp vec2 iEndpointVector;
+in mediump vec2 iVelocityVector;
 in mediump vec4 iColor;
 in mediump float iLineWidth;
 
 out vec2 vVertex;
 out vec2 vMidpointVector;
-out vec4 vTopColor;
-out vec4 vBottomColor;
+out mediump vec4 vTopColor;
+out mediump vec4 vBottomColor;
 
 void main() {
   vec2 point
@@ -46,7 +46,7 @@ void main() {
   // endpoint we’re on in the fragment.
   vMidpointVector = vec2(iEndpointVector.y, -iEndpointVector.x);
 
-  float endpointOpacity = clamp(iColor.a + (1.0 - iLineWidth), 0.0, 1.0);
+  float endpointOpacity = clamp(iColor.a + (1.0 - iColor.a), 0.0, 1.0);
   vTopColor = vec4(iColor.rgb, endpointOpacity);
 
   // The color of the lower half of the endpoint is less obvious. We’re

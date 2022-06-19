@@ -7,11 +7,12 @@ uniform float alpha;
 uniform float rBeta;
 uniform sampler2D velocityTexture;
 
-in vec2 texturePosition;
+in highp vec2 texturePosition;
 out vec2 outVelocity;
 
 void main() {
-  vec2 velocity = texture(velocityTexture, texturePosition).xy;
+  vec2 size = vec2(textureSize(velocityTexture, 0));
+  vec2 velocity = texelFetch(velocityTexture, ivec2(floor(size * texturePosition)), 0).xy;
   vec2 L = textureOffset(velocityTexture, texturePosition, ivec2(-1, 0)).xy;
   vec2 R = textureOffset(velocityTexture, texturePosition, ivec2(1, 0)).xy;
   vec2 T = textureOffset(velocityTexture, texturePosition, ivec2(0, 1)).xy;

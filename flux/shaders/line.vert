@@ -5,8 +5,8 @@ precision highp float;
 in vec2 lineVertex;
 in vec2 basepoint;
 
-in vec2 iEndpointVector;
-in vec2 iVelocityVector;
+in highp vec2 iEndpointVector;
+in mediump vec2 iVelocityVector;
 in mediump vec4 iColor;
 in mediump float iLineWidth;
 
@@ -14,13 +14,13 @@ layout(std140) uniform LineUniforms
 {
   highp float aspect;
   highp float zoom;
-  mediump float uLineWidth;
-  mediump float uLineLength;
+  highp float uLineWidth;
+  highp float uLineLength;
   mediump float uLineBeginOffset;
   mediump float uLineVariance;
-  highp float lineNoiseOffset1;
-  highp float lineNoiseOffset2;
-  highp float lineNoiseBlendFactor;
+  mediump float lineNoiseOffset1;
+  mediump float lineNoiseOffset2;
+  mediump float lineNoiseBlendFactor;
   highp float deltaTime;
 };
 

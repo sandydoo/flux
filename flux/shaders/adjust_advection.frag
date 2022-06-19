@@ -1,9 +1,9 @@
 #ifdef GL_ES
-precision mediump float;
+precision highp float;
 precision highp sampler2D;
 #endif
 
-in vec2 texturePosition;
+in highp vec2 texturePosition;
 
 uniform sampler2D velocityTexture;
 uniform sampler2D forwardAdvectedTexture;
@@ -14,7 +14,7 @@ out vec2 outVelocity;
 
 void main() {
   vec2 size = vec2(textureSize(velocityTexture, 0));
-  ivec2 position = ivec2(floor(texturePosition * size + 0.01));
+  ivec2 position = ivec2(floor(texturePosition * size));
   vec2 velocity = texelFetch(velocityTexture, position, 0).xy;
 
   // Again, we’re supposed to scale to texel space here, but don’t.

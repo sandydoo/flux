@@ -1,5 +1,5 @@
 #ifdef GL_ES
-precision highp float;
+precision mediump float;
 precision highp sampler2D;
 #endif
 
@@ -13,7 +13,7 @@ layout(std140) uniform FluidUniforms
 uniform sampler2D velocityTexture;
 uniform sampler2D pressureTexture;
 
-in vec2 texturePosition;
+in highp vec2 texturePosition;
 out vec2 newVelocity;
 
 void main() {
@@ -47,20 +47,24 @@ void main() {
   //  A number of things actually work here: -1.0 adjustment for velocity,
   //  setting just the relevant component of velocity to zero, and flipping
   //  pressures along relevant axis. All seem stable, but experiment!
-  float adjustment = 1.0;
+
+  vec2 size = vec2(textureSize(velocityTexture, 0));
+  ivec2 texelPosition = ivec2(floor(size * texturePosition));
+  vec2 velocity = texelFetch(velocityTexture, texelPosition, 0).xy;
+
+  vec2 boundaryCondition = vec2(1.0);
   if (texturePosition.x < uTexelSize.x) {
-    adjustment = 0.0;
+    boundaryCondition.x = 0.0;
   }
   if (texturePosition.x > 1.0 - uTexelSize.x) {
-    adjustment = 0.0;
+    boundaryCondition.x = 0.0;
   }
   if (texturePosition.y < uTexelSize.y) {
-    adjustment = 0.0;
+    boundaryCondition.y = 0.0;
   }
   if (texturePosition.y > 1.0 - uTexelSize.y) {
-    adjustment = 0.0;
+    boundaryCondition.y = 0.0;
   }
 
-  vec2 velocity = texture(velocityTexture, texturePosition).xy;
-  newVelocity = adjustment * (velocity - 0.5 * vec2(R - L, T - B));
+  newVelocity = boundaryCondition * (velocity - 0.5 * vec2(R - L, T - B));
 }

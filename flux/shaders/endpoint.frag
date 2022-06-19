@@ -16,6 +16,7 @@ void main() {
   float side
     = (vVertex.x - vMidpointVector.x) * (-vMidpointVector.y)
     - (vVertex.y - vMidpointVector.y) * (-vMidpointVector.x);
+
   if (side > 0.0) {
     color = vTopColor;
   }

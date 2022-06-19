@@ -9,23 +9,23 @@ precision highp sampler2D;
 in vec2 basepoint;
 
 // dynamic input
-in vec2 iEndpointVector;
-in vec2 iVelocityVector;
-in vec4 iColor;
-in vec3 iColorVelocity;
-in float iLineWidth;
+in highp vec2 iEndpointVector;
+in mediump vec2 iVelocityVector;
+in mediump vec4 iColor;
+in mediump vec3 iColorVelocity;
+in mediump float iLineWidth;
 
 layout(std140) uniform LineUniforms
 {
   highp float aspect;
   highp float zoom;
-  mediump float uLineWidth;
-  mediump float uLineLength;
+  highp float uLineWidth;
+  highp float uLineLength;
   mediump float uLineBeginOffset;
   mediump float uLineVariance;
-  highp float lineNoiseOffset1;
-  highp float lineNoiseOffset2;
-  highp float lineNoiseBlendFactor;
+  mediump float lineNoiseOffset1;
+  mediump float lineNoiseOffset2;
+  mediump float lineNoiseBlendFactor;
   highp float deltaTime;
 };
 
@@ -33,12 +33,17 @@ uniform mediump vec4 uColorWheel[6];
 
 uniform sampler2D velocityTexture;
 
-// transform feedback output
-out vec2 vEndpointVector;
-out vec2 vVelocityVector;
-out vec4 vColor;
-out vec3 vColorVelocity;
-out float vLineWidth;
+// Transform feedback output.
+//
+// Note that the vertex output here cannot be HALF_FLOAT; at a minimum, it’s
+// FLOAT. You can manually pack 16-bit floats into 32-bit unsigned integers, but
+// the ancient OpenGL on MacOS (4.1) doesn’t support the functions we need for
+// that.
+out highp vec2 vEndpointVector;
+out mediump vec2 vVelocityVector;
+out mediump vec4 vColor;
+out mediump vec3 vColorVelocity;
+out mediump float vLineWidth;
 
 vec4 getColor(vec4 wheel[6], float angle) {
   float slice = TAU / 6.0;
@@ -164,8 +169,8 @@ void main() {
   float angle = atan(velocity.x, velocity.y);
   vec4 color = getColor(uColorWheel, angle);
 
-  float colorMomentumBoost = 5.0;
-  float colorDeltaBoost = 10.0;
+  float colorMomentumBoost = 3.0;
+  float colorDeltaBoost = 90.0;
 
   vColorVelocity
     = iColorVelocity * (1.0 - colorMomentumBoost * deltaTime)
