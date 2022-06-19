@@ -20,7 +20,7 @@ fn main() {
         diffusion_iterations: 3,
         pressure_iterations: 19,
         color_scheme: ColorScheme::Peacock,
-        line_length: 500.0,
+        line_length: 550.0,
         line_width: 10.0,
         line_begin_offset: 0.4,
         line_variance: 0.45,
