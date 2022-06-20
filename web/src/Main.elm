@@ -78,8 +78,8 @@ type ClearPressure
 
 
 type ColorScheme
-    = Plasma
-    | Peacock
+    = Original
+    | Plasma
     | Poolside
     | Freedom
 
@@ -102,10 +102,10 @@ defaultSettings =
     , clearPressure = KeepPressure
     , diffusionIterations = 3
     , pressureIterations = 19
-    , colorScheme = Peacock
+    , colorScheme = Original
     , lineLength = 550.0
     , lineWidth = 10.0
-    , lineBeginOffset = 0.40
+    , lineBeginOffset = 0.4
     , lineVariance = 0.45
     , viewScale = 1.6
     , gridSpacing = 15
@@ -367,8 +367,8 @@ viewSettings settings =
         , Html.h2 [ HA.class "col-span-2-md" ] [ Html.text "Colors" ]
         , viewButtonGroup (SetColorScheme >> SaveSetting)
             settings.colorScheme
-            [ ( "Plasma", Plasma )
-            , ( "Peacock", Peacock )
+            [ ( "Original", Original )
+            , ( "Plasma", Plasma )
             , ( "Poolside", Poolside )
             , ( "🇺🇦", Freedom )
             ]
@@ -419,7 +419,7 @@ viewSettings settings =
             Control
                 "Line fade offset"
                 """
-                The point along a line when it begins to fade out.
+                The point along a line where it begins to fade in.
                 """
                 (Slider
                     { min = 0.0
@@ -439,7 +439,7 @@ viewSettings settings =
             Control
                 "Variance"
                 """
-                Give each line a slightly different amount of mass.
+                Less compels order. More wreaks chaos.
                 """
                 (Slider
                     { min = 0.0
@@ -522,7 +522,7 @@ viewSettings settings =
             Control
                 "Pressure iterations"
                 """
-                Applying a force to fluid creates pressure as the fluid pushes back.
+                Applying a force to the fluid creates pressure as the fluid pushes back.
                 Calculating pressure is expensive, but the fluid will look unrealistic with fewer than 20 iterations.
                 """
                 (Slider
@@ -676,7 +676,7 @@ viewNoiseChannel title setNoiseChannel noiseChannel =
 
 viewDebug : Mode -> List (Html Msg)
 viewDebug mode =
-    [ Html.h2 [ HA.class "col-span-2-md" ] [ Html.text "Debugging" ]
+    [ Html.h2 [ HA.class "col-span-2-md" ] [ Html.text "Debug" ]
     , viewButtonGroup (SetMode >> SaveSetting)
         mode
         [ ( "Normal", Normal )
@@ -834,11 +834,11 @@ encodeColorScheme =
 colorSchemeToString : ColorScheme -> String
 colorSchemeToString colorscheme =
     case colorscheme of
+        Original ->
+            "Peacock"
+
         Plasma ->
             "Plasma"
-
-        Peacock ->
-            "Peacock"
 
         Poolside ->
             "Poolside"
