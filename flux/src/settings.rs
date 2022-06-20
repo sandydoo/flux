@@ -60,9 +60,9 @@ pub struct Noise {
 pub fn color_wheel_from_scheme(color_scheme: &ColorScheme) -> [f32; 24] {
     match color_scheme {
         ColorScheme::Plasma => COLOR_SCHEME_PLASMA,
-        ColorScheme::Peacock => COLOR_SCHEME_PEACOCK,
         ColorScheme::Poolside => COLOR_SCHEME_POOLSIDE,
         ColorScheme::Freedom => COLOR_SCHEME_FREEDOM,
+        _ => [0.0; 24],
     }
 }
 
@@ -74,15 +74,6 @@ pub static COLOR_SCHEME_PLASMA: [f32; 24] = [
     242.924 / 255.0, 94.3563 / 255.0, 22.4186 / 255.0, 1.0,
     242.435 / 255.0, 156.752 / 255.0, 58.9794 / 255.0, 1.0,
     135.291 / 255.0, 152.793 / 255.0, 182.473 / 255.0, 1.0,
-];
-#[rustfmt::skip]
-pub static COLOR_SCHEME_PEACOCK: [f32; 24] = [
-    0.5 + 1.0 * 0.4, 0.66 * (0.5 + 0.0   * 0.4), 0.5, 1.0,
-    0.5 + 0.5 * 0.4, 0.66 * (0.5 + 0.866 * 0.4), 0.5, 1.0,
-    0.5 - 0.5 * 0.4, 0.66 * (0.5 + 0.866 * 0.4), 0.5, 1.0,
-    0.5 - 1.0 * 0.4, 0.66 * (0.5 + 0.0   * 0.4), 0.5, 1.0,
-    0.5 - 0.5 * 0.4, 0.66 * (0.5 - 0.866 * 0.4), 0.5, 1.0,
-    0.5 + 0.5 * 0.4, 0.66 * (0.5 - 0.866 * 0.4), 0.5, 1.0,
 ];
 #[rustfmt::skip]
 pub static COLOR_SCHEME_POOLSIDE: [f32; 24] = [

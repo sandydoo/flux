@@ -61,6 +61,7 @@ struct LineUniforms {
     line_noise_offset_1: f32,
     line_noise_offset_2: f32,
     line_noise_blend_factor: f32,
+    color_mode: u32,
     delta_time: f32,
 }
 
@@ -77,6 +78,7 @@ impl LineUniforms {
             line_noise_offset_1: 0.0,
             line_noise_offset_2: 0.0,
             line_noise_blend_factor: 0.0,
+            color_mode: Self::color_scheme_to_mode(&settings.color_scheme),
             delta_time: 0.0,
         }
     }
@@ -89,7 +91,15 @@ impl LineUniforms {
         self.line_length = settings.view_scale * settings.line_length / line_scale_factor;
         self.line_begin_offset = settings.line_begin_offset;
         self.line_variance = settings.line_variance;
+        self.color_mode = Self::color_scheme_to_mode(&settings.color_scheme);
         self
+    }
+
+    fn color_scheme_to_mode(color_scheme: &settings::ColorScheme) -> u32 {
+        match color_scheme {
+            settings::ColorScheme::Peacock => 0,
+            _ => 1,
+        }
     }
 
     fn set_timestep(&mut self, timestep: f32) -> &mut Self {
@@ -570,7 +580,10 @@ fn clamp_logical_size(width: u32, height: u32) -> (u32, u32) {
     // TODO: Should we also clamp the upper bound?
     let minimum_dimension = 800.0;
     let scale = f32::max(minimum_dimension / width, minimum_dimension / height).max(1.0);
-    ((width * scale).floor() as u32, (height * scale).floor() as u32)
+    (
+        (width * scale).floor() as u32,
+        (height * scale).floor() as u32,
+    )
 }
 
 fn new_line_grid(
@@ -617,19 +630,18 @@ mod test {
     #[derive(Copy, Clone, PartialEq, Debug)]
     struct LogicalSize {
         pub width: u32,
-        pub height: u32
+        pub height: u32,
     }
 
     impl LogicalSize {
         pub fn new(width: u32, height: u32) -> Self {
-            Self {
-                width, height
-            }
+            Self { width, height }
         }
     }
 
     fn create_test_grid(logical_size: LogicalSize, grid_spacing: u32) -> (u32, u32) {
-        let (_, _, grid_size, _) = new_line_grid(logical_size.width, logical_size.height, grid_spacing);
+        let (_, _, grid_size, _) =
+            new_line_grid(logical_size.width, logical_size.height, grid_spacing);
         grid_size
     }
 
@@ -637,34 +649,49 @@ mod test {
     fn is_sane_grid_for_iphone_xr() {
         let logical_size = LogicalSize::new(414, 896);
         assert_eq!(create_test_grid(logical_size, 15), (28, 59));
-        assert_eq!(clamp_logical_size(logical_size.width, logical_size.height), (800, 1731));
+        assert_eq!(
+            clamp_logical_size(logical_size.width, logical_size.height),
+            (800, 1731)
+        );
     }
 
     #[test]
     fn is_sane_grid_for_iphone_12_pro() {
         let logical_size = LogicalSize::new(390, 844);
         assert_eq!(create_test_grid(logical_size, 15), (27, 57));
-        assert_eq!(clamp_logical_size(logical_size.width, logical_size.height), (800, 1731));
+        assert_eq!(
+            clamp_logical_size(logical_size.width, logical_size.height),
+            (800, 1731)
+        );
     }
 
     #[test]
     fn is_sane_grid_for_macbook_pro_13_with_1280_800_scaling() {
         let logical_size = LogicalSize::new(1280, 800);
         assert_eq!(create_test_grid(logical_size, 15), (86, 54));
-        assert_eq!(clamp_logical_size(logical_size.width, logical_size.height), (1280, 800));
+        assert_eq!(
+            clamp_logical_size(logical_size.width, logical_size.height),
+            (1280, 800)
+        );
     }
 
     #[test]
     fn is_sane_grid_for_macbook_pro_15_with_1440_900_scaling() {
         let logical_size = LogicalSize::new(1440, 900);
         assert_eq!(create_test_grid(logical_size, 15), (97, 61));
-        assert_eq!(clamp_logical_size(logical_size.width, logical_size.height), (1440, 900));
+        assert_eq!(
+            clamp_logical_size(logical_size.width, logical_size.height),
+            (1440, 900)
+        );
     }
 
     #[test]
     fn is_sane_grid_for_ultrawide_4k() {
         let logical_size = LogicalSize::new(3840, 1600);
         assert_eq!(create_test_grid(logical_size, 15), (257, 107));
-        assert_eq!(clamp_logical_size(logical_size.width, logical_size.height), (3840, 1600));
+        assert_eq!(
+            clamp_logical_size(logical_size.width, logical_size.height),
+            (3840, 1600)
+        );
     }
 }

@@ -26,6 +26,7 @@ layout(std140) uniform LineUniforms
   mediump float lineNoiseOffset1;
   mediump float lineNoiseOffset2;
   mediump float lineNoiseBlendFactor;
+  uint colorMode;
   highp float deltaTime;
 };
 
@@ -166,8 +167,17 @@ void main() {
   float widthBoost = clamp(2.5 * length(velocity), 0.0, 1.0);
   vLineWidth = widthBoost * widthBoost * (3.0 - widthBoost * 2.0);
 
-  float angle = atan(velocity.x, velocity.y);
-  vec4 color = getColor(uColorWheel, angle);
+  vec3 color;
+  switch (colorMode) {
+    case 0u:
+      color = vec3(clamp(vec2(1.0, 0.66) * (0.5 + velocity), 0.0, 1.0), 0.5);
+      break;
+
+    case 1u:
+      float angle = atan(velocity.x, velocity.y);
+      color = getColor(uColorWheel, angle).rgb;
+      break;
+  }
 
   float colorMomentumBoost = 3.0;
   float colorDeltaBoost = 90.0;
