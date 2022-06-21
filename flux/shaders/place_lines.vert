@@ -186,5 +186,5 @@ void main() {
     = iColorVelocity * (1.0 - colorMomentumBoost * deltaTime)
     + (color.rgb - iColor.rgb) * colorDeltaBoost * deltaTime;
 
-  vColor = vec4(iColor.rgb + deltaTime * vColorVelocity, widthBoost);
+  vColor = vec4(clamp(iColor.rgb + deltaTime * vColorVelocity, 0.0, 1.0), widthBoost);
 }
