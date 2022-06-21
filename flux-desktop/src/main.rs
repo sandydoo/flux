@@ -7,7 +7,7 @@ use glutin::PossiblyCurrent;
 use std::rc::Rc;
 
 fn main() {
-    env_logger::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
 
     let settings = Settings {
         mode: Mode::Normal,
@@ -45,7 +45,6 @@ fn main() {
         ],
     };
 
-    // let logical_size = glutin::dpi::LogicalSize::new(2560, 480);
     let logical_size = glutin::dpi::LogicalSize::new(1280, 800);
     let (context, window, event_loop) = get_rendering_context(logical_size);
     let physical_size = logical_size.to_physical(window.window().scale_factor());
@@ -64,9 +63,7 @@ fn main() {
     let start = std::time::Instant::now();
 
     event_loop.run(move |event, _, control_flow| {
-        let next_frame_time =
-            std::time::Instant::now() + std::time::Duration::from_nanos(16_666_667);
-        *control_flow = glutin::event_loop::ControlFlow::WaitUntil(next_frame_time);
+        *control_flow = glutin::event_loop::ControlFlow::Wait;
 
         match event {
             Event::LoopDestroyed => {
