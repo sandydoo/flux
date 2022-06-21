@@ -1,3 +1,4 @@
+use flux::{self, settings};
 use serde::Serialize;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
@@ -11,15 +12,15 @@ pub struct Flux {
     logical_width: u32,
     logical_height: u32,
     pixel_ratio: f64,
-    id: flux::Flux,
+    instance: flux::Flux,
 }
 
 #[wasm_bindgen]
 impl Flux {
     #[wasm_bindgen(setter)]
     pub fn set_settings(&mut self, settings_object: &JsValue) {
-        let settings: flux::settings::Settings = settings_object.into_serde().unwrap();
-        self.id.update(&Rc::new(settings));
+        let settings: settings::Settings = settings_object.into_serde().unwrap();
+        self.instance.update(&Rc::new(settings));
     }
 
     #[wasm_bindgen(constructor)]
@@ -36,7 +37,7 @@ impl Flux {
             pixel_ratio,
         ) = get_rendering_context("canvas")?;
         let context = Rc::new(gl);
-        let settings: Rc<flux::settings::Settings> = match settings_object.into_serde() {
+        let settings: Rc<settings::Settings> = match settings_object.into_serde() {
             Ok(settings) => Rc::new(settings),
             Err(msg) => return Err(JsValue::from_str(&msg.to_string())),
         };
@@ -52,7 +53,7 @@ impl Flux {
         .map_err(|err| JsValue::from_str(&err.to_string()))?;
 
         Ok(Self {
-            id: flux,
+            instance: flux,
             canvas,
             logical_width,
             logical_height,
@@ -62,7 +63,7 @@ impl Flux {
     }
 
     pub fn animate(&mut self, timestamp: f64) {
-        self.id.animate(timestamp);
+        self.instance.animate(timestamp);
     }
 
     pub fn resize(&mut self, logical_width: u32, logical_height: u32) {
@@ -73,7 +74,7 @@ impl Flux {
             self.canvas.set_width(physical_width);
             self.canvas.set_height(physical_height);
 
-            self.id.resize(
+            self.instance.resize(
                 logical_width,
                 logical_height,
                 physical_width,
