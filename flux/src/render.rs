@@ -115,13 +115,14 @@ impl Buffer {
         }
     }
 
-    pub fn overwrite(&self, data: &[u8]) {
+    pub fn overwrite(&mut self, data: &[u8]) {
         unsafe {
             self.context.bind_buffer(self.type_, Some(self.id));
             self.context
                 .buffer_data_u8_slice(self.type_, data, self.usage);
             self.context.bind_buffer(self.type_, None);
         }
+        self.size = data.len();
     }
 }
 
