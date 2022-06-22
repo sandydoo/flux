@@ -11,32 +11,6 @@ use half::f16;
 use std::cell::Ref;
 use std::rc::Rc;
 
-static CLEAR_PRESSURE_TO_VERT_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/clear_pressure_to.vert"));
-static CLEAR_PRESSURE_TO_FRAG_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/clear_pressure_to.frag"));
-static FLUID_VERT_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/fluid.vert"));
-static ADVECTION_FRAG_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/advection.frag"));
-static ADJUST_ADVECTION_FRAG_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/adjust_advection.frag"));
-static DIFFUSE_FRAG_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/diffuse.frag"));
-static DIVERGENCE_FRAG_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/divergence.frag"));
-static SOLVE_PRESSURE_FRAG_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/solve_pressure.frag"));
-static SUBTRACT_GRADIENT_FRAG_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/subtract_gradient.frag"));
-
-#[derive(Copy, Clone, Debug, AsStd140)]
-struct FluidUniforms {
-    timestep: f32,
-    dissipation: f32,
-    texel_size: mint::Vector2<f32>,
-}
-
 pub struct Fluid {
     context: Context,
     settings: Rc<Settings>,
@@ -548,3 +522,29 @@ impl Fluid {
         &self.velocity_textures
     }
 }
+
+#[derive(Copy, Clone, Debug, AsStd140)]
+struct FluidUniforms {
+    timestep: f32,
+    dissipation: f32,
+    texel_size: mint::Vector2<f32>,
+}
+
+static CLEAR_PRESSURE_TO_VERT_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/clear_pressure_to.vert"));
+static CLEAR_PRESSURE_TO_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/clear_pressure_to.frag"));
+static FLUID_VERT_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/fluid.vert"));
+static ADVECTION_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/advection.frag"));
+static ADJUST_ADVECTION_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/adjust_advection.frag"));
+static DIFFUSE_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/diffuse.frag"));
+static DIVERGENCE_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/divergence.frag"));
+static SOLVE_PRESSURE_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/solve_pressure.frag"));
+static SUBTRACT_GRADIENT_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/subtract_gradient.frag"));

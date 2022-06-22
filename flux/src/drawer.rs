@@ -10,132 +10,6 @@ use crevice::std140::AsStd140;
 use glow::HasContext;
 use std::rc::Rc;
 
-static LINE_VERT_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/line.vert"));
-static LINE_FRAG_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/line.frag"));
-static ENDPOINT_VERT_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/endpoint.vert"));
-static ENDPOINT_FRAG_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/endpoint.frag"));
-static TEXTURE_VERT_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/texture.vert"));
-static TEXTURE_FRAG_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/texture.frag"));
-static PLACE_LINES_VERT_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/place_lines.vert"));
-static PLACE_LINES_FRAG_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/place_lines.frag"));
-
-#[rustfmt::skip]
-const LINE_VERTICES: [f32; 12] = [
-    -0.5, 0.0,
-    -0.5, 1.0,
-     0.5, 1.0,
-    -0.5, 0.0,
-     0.5, 1.0,
-     0.5, 0.0,
-];
-
-#[repr(C)]
-#[derive(Clone, Copy)]
-struct LineState {
-    endpoint: mint::Vector2<f32>,
-    velocity: mint::Vector2<f32>,
-    color: mint::Vector4<f32>,
-    color_velocity: mint::Vector3<f32>,
-    width: f32,
-}
-
-unsafe impl Zeroable for LineState {}
-unsafe impl Pod for LineState {}
-
-#[derive(AsStd140)]
-struct LineUniforms {
-    aspect: f32,
-    zoom: f32,
-    line_width: f32,
-    line_length: f32,
-    line_begin_offset: f32,
-    line_variance: f32,
-    line_noise_offset_1: f32,
-    line_noise_offset_2: f32,
-    line_noise_blend_factor: f32,
-    color_mode: u32,
-    delta_time: f32,
-}
-
-impl LineUniforms {
-    fn new(width: f32, height: f32, settings: &Rc<Settings>) -> Self {
-        let line_scale_factor = get_line_scale_factor(width, height);
-        Self {
-            aspect: width / height,
-            zoom: settings.view_scale,
-            line_width: settings.view_scale * settings.line_width / line_scale_factor,
-            line_length: settings.view_scale * settings.line_length / line_scale_factor,
-            line_begin_offset: settings.line_begin_offset,
-            line_variance: settings.line_variance,
-            line_noise_offset_1: 0.0,
-            line_noise_offset_2: 0.0,
-            line_noise_blend_factor: 0.0,
-            color_mode: Self::color_scheme_to_mode(&settings.color_scheme),
-            delta_time: 0.0,
-        }
-    }
-
-    fn update(&mut self, width: f32, height: f32, settings: &Rc<Settings>) -> &mut Self {
-        let line_scale_factor = get_line_scale_factor(width, height);
-        self.aspect = width / height;
-        self.zoom = settings.view_scale;
-        self.line_width = settings.view_scale * settings.line_width / line_scale_factor;
-        self.line_length = settings.view_scale * settings.line_length / line_scale_factor;
-        self.line_begin_offset = settings.line_begin_offset;
-        self.line_variance = settings.line_variance;
-        self.color_mode = Self::color_scheme_to_mode(&settings.color_scheme);
-        self
-    }
-
-    fn color_scheme_to_mode(color_scheme: &settings::ColorScheme) -> u32 {
-        match color_scheme {
-            settings::ColorScheme::Peacock => 0,
-            _ => 1,
-        }
-    }
-
-    fn set_timestep(&mut self, timestep: f32) -> &mut Self {
-        self.delta_time = timestep;
-        self
-    }
-
-    fn tick(&mut self, elapsed_time: f32) -> &mut Self {
-        const BLEND_THRESHOLD: f32 = 4.0;
-        const BASE_OFFSET: f32 = 0.0015;
-
-        let perturb = 1.0 + 0.2 * (0.010 * elapsed_time * std::f32::consts::TAU).sin();
-        let offset = BASE_OFFSET * perturb;
-        self.line_noise_offset_1 += offset;
-
-        if self.line_noise_offset_1 > BLEND_THRESHOLD {
-            self.line_noise_offset_2 += offset;
-            self.line_noise_blend_factor += BASE_OFFSET;
-        }
-
-        if self.line_noise_blend_factor > 1.0 {
-            self.line_noise_offset_1 = self.line_noise_offset_2;
-            self.line_noise_offset_2 = 0.0;
-            self.line_noise_blend_factor = 0.0;
-        }
-
-        self
-    }
-}
-
-fn get_line_scale_factor(width: f32, height: f32) -> f32 {
-    let aspect_ratio = width / height;
-    let p = 1.0 / aspect_ratio;
-    ((1.0 - p) * width + p * height).min(2000.0)
-}
-
 pub struct Drawer {
     context: Context,
     settings: Rc<Settings>,
@@ -572,10 +446,108 @@ impl Drawer {
     }
 }
 
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct LineState {
+    endpoint: mint::Vector2<f32>,
+    velocity: mint::Vector2<f32>,
+    color: mint::Vector4<f32>,
+    color_velocity: mint::Vector3<f32>,
+    width: f32,
+}
+
+unsafe impl Zeroable for LineState {}
+unsafe impl Pod for LineState {}
+
+#[derive(AsStd140)]
+struct LineUniforms {
+    aspect: f32,
+    zoom: f32,
+    line_width: f32,
+    line_length: f32,
+    line_begin_offset: f32,
+    line_variance: f32,
+    line_noise_offset_1: f32,
+    line_noise_offset_2: f32,
+    line_noise_blend_factor: f32,
+    color_mode: u32,
+    delta_time: f32,
+}
+
+impl LineUniforms {
+    fn new(width: f32, height: f32, settings: &Rc<Settings>) -> Self {
+        let line_scale_factor = get_line_scale_factor(width, height);
+        Self {
+            aspect: width / height,
+            zoom: settings.view_scale,
+            line_width: settings.view_scale * settings.line_width / line_scale_factor,
+            line_length: settings.view_scale * settings.line_length / line_scale_factor,
+            line_begin_offset: settings.line_begin_offset,
+            line_variance: settings.line_variance,
+            line_noise_offset_1: 0.0,
+            line_noise_offset_2: 0.0,
+            line_noise_blend_factor: 0.0,
+            color_mode: Self::color_scheme_to_mode(&settings.color_scheme),
+            delta_time: 0.0,
+        }
+    }
+
+    fn update(&mut self, width: f32, height: f32, settings: &Rc<Settings>) -> &mut Self {
+        let line_scale_factor = get_line_scale_factor(width, height);
+        self.aspect = width / height;
+        self.zoom = settings.view_scale;
+        self.line_width = settings.view_scale * settings.line_width / line_scale_factor;
+        self.line_length = settings.view_scale * settings.line_length / line_scale_factor;
+        self.line_begin_offset = settings.line_begin_offset;
+        self.line_variance = settings.line_variance;
+        self.color_mode = Self::color_scheme_to_mode(&settings.color_scheme);
+        self
+    }
+
+    fn color_scheme_to_mode(color_scheme: &settings::ColorScheme) -> u32 {
+        match color_scheme {
+            settings::ColorScheme::Peacock => 0,
+            _ => 1,
+        }
+    }
+
+    fn set_timestep(&mut self, timestep: f32) -> &mut Self {
+        self.delta_time = timestep;
+        self
+    }
+
+    fn tick(&mut self, elapsed_time: f32) -> &mut Self {
+        const BLEND_THRESHOLD: f32 = 4.0;
+        const BASE_OFFSET: f32 = 0.0015;
+
+        let perturb = 1.0 + 0.2 * (0.010 * elapsed_time * std::f32::consts::TAU).sin();
+        let offset = BASE_OFFSET * perturb;
+        self.line_noise_offset_1 += offset;
+
+        if self.line_noise_offset_1 > BLEND_THRESHOLD {
+            self.line_noise_offset_2 += offset;
+            self.line_noise_blend_factor += BASE_OFFSET;
+        }
+
+        if self.line_noise_blend_factor > 1.0 {
+            self.line_noise_offset_1 = self.line_noise_offset_2;
+            self.line_noise_offset_2 = 0.0;
+            self.line_noise_blend_factor = 0.0;
+        }
+
+        self
+    }
+}
+
+fn get_line_scale_factor(width: f32, height: f32) -> f32 {
+    let aspect_ratio = width / height;
+    let p = 1.0 / aspect_ratio;
+    ((1.0 - p) * width + p * height).min(2000.0)
+}
+
 fn clamp_logical_size(width: u32, height: u32) -> (u32, u32) {
     let width = width as f32;
     let height = height as f32;
-    let ratio = width / height;
 
     // TODO: Should we also clamp the upper bound?
     let minimum_dimension = 800.0;
@@ -622,6 +594,33 @@ fn new_line_grid(
 
     (basepoints, line_state, (cols + 1, rows + 1), line_count)
 }
+
+static LINE_VERT_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/line.vert"));
+static LINE_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/line.frag"));
+static ENDPOINT_VERT_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/endpoint.vert"));
+static ENDPOINT_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/endpoint.frag"));
+static TEXTURE_VERT_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/texture.vert"));
+static TEXTURE_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/texture.frag"));
+static PLACE_LINES_VERT_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/place_lines.vert"));
+static PLACE_LINES_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/place_lines.frag"));
+
+#[rustfmt::skip]
+const LINE_VERTICES: [f32; 12] = [
+    -0.5, 0.0,
+    -0.5, 1.0,
+     0.5, 1.0,
+    -0.5, 0.0,
+     0.5, 1.0,
+     0.5, 0.0,
+];
 
 #[cfg(test)]
 mod test {

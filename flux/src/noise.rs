@@ -9,52 +9,6 @@ use glow::HasContext;
 use half::f16;
 use std::rc::Rc;
 
-static NOISE_VERT_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/noise.vert"));
-static GENERATE_NOISE_FRAG_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/generate_noise.frag"));
-static INJECT_NOISE_FRAG_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/inject_noise.frag"));
-
-#[derive(AsStd140)]
-pub struct NoiseUniforms {
-    scale: f32,
-    offset_1: f32,
-    offset_2: f32,
-    blend_factor: f32,
-    multiplier: f32,
-}
-
-pub struct NoiseChannel {
-    settings: settings::Noise,
-    scale: f32,
-    offset_1: f32,
-    offset_2: f32,
-    blend_factor: f32,
-}
-
-impl NoiseChannel {
-    pub fn tick(&mut self, elapsed_time: f32) -> () {
-        const BLEND_THRESHOLD: f32 = 20.0;
-
-        self.scale = self.settings.scale
-            * (1.0 + 0.15 * (0.01 * elapsed_time * std::f32::consts::TAU).sin());
-        self.offset_1 += self.settings.offset_increment;
-
-        if self.offset_1 > BLEND_THRESHOLD {
-            self.blend_factor += self.settings.offset_increment;
-            self.offset_2 += self.settings.offset_increment;
-        }
-
-        // Reset blending
-        if self.blend_factor > 1.0 {
-            self.offset_1 = self.offset_2;
-            self.offset_2 = 0.0;
-            self.blend_factor = 0.0;
-        }
-    }
-}
-
 pub struct NoiseGenerator {
     context: Context,
     channels: Vec<NoiseChannel>,
@@ -83,7 +37,8 @@ impl NoiseGenerator {
     pub fn generate(&mut self, elapsed_time: f32) -> () {
         self.uniforms
             .update(|noise_uniforms| {
-                *noise_uniforms = UniformArray(build_noise_uniforms(&self.channels));
+                *noise_uniforms =
+                    UniformArray(self.channels.iter().map(NoiseUniforms::new).collect())
             })
             .buffer_data();
 
@@ -211,7 +166,7 @@ impl NoiseGeneratorBuilder {
 
         let uniforms = UniformBlock::new(
             &self.context,
-            UniformArray(build_noise_uniforms(&self.channels)),
+            UniformArray(self.channels.iter().map(NoiseUniforms::new).collect()),
             0,
             glow::DYNAMIC_DRAW,
         )?;
@@ -243,15 +198,60 @@ impl NoiseGeneratorBuilder {
     }
 }
 
-fn build_noise_uniforms(channels: &[NoiseChannel]) -> Vec<NoiseUniforms> {
-    channels
-        .iter()
-        .map(|channel| NoiseUniforms {
+pub struct NoiseChannel {
+    settings: settings::Noise,
+    scale: f32,
+    offset_1: f32,
+    offset_2: f32,
+    blend_factor: f32,
+}
+
+impl NoiseChannel {
+    pub fn tick(&mut self, elapsed_time: f32) -> () {
+        const BLEND_THRESHOLD: f32 = 20.0;
+
+        self.scale = self.settings.scale
+            * (1.0 + 0.15 * (0.01 * elapsed_time * std::f32::consts::TAU).sin());
+        self.offset_1 += self.settings.offset_increment;
+
+        if self.offset_1 > BLEND_THRESHOLD {
+            self.blend_factor += self.settings.offset_increment;
+            self.offset_2 += self.settings.offset_increment;
+        }
+
+        // Reset blending
+        if self.blend_factor > 1.0 {
+            self.offset_1 = self.offset_2;
+            self.offset_2 = 0.0;
+            self.blend_factor = 0.0;
+        }
+    }
+}
+
+#[derive(AsStd140)]
+pub struct NoiseUniforms {
+    scale: f32,
+    offset_1: f32,
+    offset_2: f32,
+    blend_factor: f32,
+    multiplier: f32,
+}
+
+impl NoiseUniforms {
+    fn new(channel: &NoiseChannel) -> Self {
+        Self {
             scale: channel.scale,
             offset_1: channel.offset_1,
             offset_2: channel.offset_2,
             blend_factor: channel.blend_factor,
             multiplier: channel.settings.multiplier,
-        })
-        .collect()
+        }
+    }
 }
+
+static NOISE_VERT_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/noise.vert"));
+static GENERATE_NOISE_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/generate_noise.frag"));
+static INJECT_NOISE_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/inject_noise.frag"));
