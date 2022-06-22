@@ -1,4 +1,4 @@
-use crate::{data, render, settings};
+use crate::{data, drawer, render, settings};
 use render::{
     Buffer, Context, DoubleFramebuffer, Framebuffer, Program, TextureOptions, Uniform,
     UniformArray, UniformBlock, UniformValue, VertexArrayObject, VertexBufferLayout,
@@ -13,6 +13,7 @@ pub struct NoiseGenerator {
     context: Context,
     channels: Vec<NoiseChannel>,
     texture: Framebuffer,
+    scaling_ratio: drawer::ScalingRatio,
 
     generate_noise_pass: Program,
     inject_noise_pass: Program,
@@ -24,8 +25,40 @@ pub struct NoiseGenerator {
 }
 
 impl NoiseGenerator {
-    pub fn new(context: &Context, width: u32, height: u32) -> NoiseGeneratorBuilder {
-        NoiseGeneratorBuilder::new(context, width, height)
+    pub fn new(
+        context: &Context,
+        size: u32,
+        scaling_ratio: drawer::ScalingRatio,
+    ) -> NoiseGeneratorBuilder {
+        NoiseGeneratorBuilder::new(context, size, scaling_ratio)
+    }
+
+    pub fn resize(
+        &mut self,
+        size: u32,
+        scaling_ratio: drawer::ScalingRatio,
+    ) -> Result<(), render::Problem> {
+        if scaling_ratio == self.scaling_ratio {
+            return Ok(());
+        }
+
+        self.scaling_ratio = scaling_ratio;
+        let (width, height) = (
+            size * self.scaling_ratio.rounded_x(),
+            size * self.scaling_ratio.rounded_y(),
+        );
+        self.texture = Framebuffer::new(
+            &self.context,
+            width,
+            height,
+            TextureOptions {
+                mag_filter: glow::LINEAR,
+                min_filter: glow::LINEAR,
+                format: glow::RG16F,
+                ..Default::default()
+            },
+        )?;
+        self.texture.with_data(None::<&[f16]>)
     }
 
     pub fn update(&mut self, new_settings: &[settings::Noise]) -> () {
@@ -37,8 +70,12 @@ impl NoiseGenerator {
     pub fn generate(&mut self, elapsed_time: f32) -> () {
         self.uniforms
             .update(|noise_uniforms| {
-                *noise_uniforms =
-                    UniformArray(self.channels.iter().map(NoiseUniforms::new).collect())
+                *noise_uniforms = UniformArray(
+                    self.channels
+                        .iter()
+                        .map(|ref channel| NoiseUniforms::new(self.scaling_ratio, channel))
+                        .collect(),
+                )
             })
             .buffer_data();
 
@@ -91,17 +128,17 @@ impl NoiseGenerator {
 
 pub struct NoiseGeneratorBuilder {
     context: Context,
-    width: u32,
-    height: u32,
+    size: u32,
+    scaling_ratio: drawer::ScalingRatio,
     channels: Vec<NoiseChannel>,
 }
 
 impl NoiseGeneratorBuilder {
-    pub fn new(context: &Context, width: u32, height: u32) -> Self {
+    pub fn new(context: &Context, size: u32, scaling_ratio: drawer::ScalingRatio) -> Self {
         NoiseGeneratorBuilder {
             context: Rc::clone(context),
-            width,
-            height,
+            size,
+            scaling_ratio,
             channels: Vec::new(),
         }
     }
@@ -110,7 +147,7 @@ impl NoiseGeneratorBuilder {
         self.channels.push(NoiseChannel {
             settings: channel.clone(),
             scale: channel.scale,
-            offset_1: 2.0 * rand::random::<f32>(),
+            offset_1: 4.0 * rand::random::<f32>(),
             offset_2: 0.0,
             blend_factor: 0.0,
         });
@@ -121,6 +158,11 @@ impl NoiseGeneratorBuilder {
     pub fn build(self) -> Result<NoiseGenerator, render::Problem> {
         log::info!("🎛 Generating noise");
 
+        let (width, height) = (
+            self.size * self.scaling_ratio.rounded_x(),
+            self.size * self.scaling_ratio.rounded_y(),
+        );
+
         // Geometry
         let plane_vertices = Buffer::from_f32(
             &self.context,
@@ -130,8 +172,8 @@ impl NoiseGeneratorBuilder {
         )?;
         let texture = Framebuffer::new(
             &self.context,
-            self.width,
-            self.height,
+            width,
+            height,
             TextureOptions {
                 mag_filter: glow::LINEAR,
                 min_filter: glow::LINEAR,
@@ -166,7 +208,12 @@ impl NoiseGeneratorBuilder {
 
         let uniforms = UniformBlock::new(
             &self.context,
-            UniformArray(self.channels.iter().map(NoiseUniforms::new).collect()),
+            UniformArray(
+                self.channels
+                    .iter()
+                    .map(|ref channel| NoiseUniforms::new(self.scaling_ratio, channel))
+                    .collect(),
+            ),
             0,
             glow::DYNAMIC_DRAW,
         )?;
@@ -187,6 +234,7 @@ impl NoiseGeneratorBuilder {
             context: self.context,
             channels: self.channels,
             texture,
+            scaling_ratio: self.scaling_ratio,
 
             generate_noise_pass,
             inject_noise_pass,
@@ -230,7 +278,7 @@ impl NoiseChannel {
 
 #[derive(AsStd140)]
 pub struct NoiseUniforms {
-    scale: f32,
+    scale: mint::Vector2<f32>,
     offset_1: f32,
     offset_2: f32,
     blend_factor: f32,
@@ -238,9 +286,13 @@ pub struct NoiseUniforms {
 }
 
 impl NoiseUniforms {
-    fn new(channel: &NoiseChannel) -> Self {
+    fn new(scaling_ratio: drawer::ScalingRatio, channel: &NoiseChannel) -> Self {
         Self {
-            scale: channel.scale,
+            scale: [
+                channel.scale * scaling_ratio.x(),
+                channel.scale * scaling_ratio.y(),
+            ]
+            .into(),
             offset_1: channel.offset_1,
             offset_2: channel.offset_2,
             blend_factor: channel.blend_factor,

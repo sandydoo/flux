@@ -49,8 +49,6 @@ impl Flux {
     ) -> Result<Flux, Problem> {
         log::info!("✨ Initialising Flux");
 
-        let fluid = Fluid::new(&context, &settings).map_err(Problem::CannotRender)?;
-
         let drawer = Drawer::new(
             &context,
             logical_width,
@@ -61,7 +59,11 @@ impl Flux {
         )
         .map_err(Problem::CannotRender)?;
 
-        let mut noise_generator_builder = NoiseGenerator::new(&context, 256, 256);
+        let fluid = Fluid::new(&context, drawer.scaling_ratio(), &settings)
+            .map_err(Problem::CannotRender)?;
+
+        let mut noise_generator_builder =
+            NoiseGenerator::new(&context, 2 * settings.fluid_size, drawer.scaling_ratio());
         for channel in settings.noise_channels.iter() {
             noise_generator_builder.add_channel(&channel);
         }
@@ -84,6 +86,7 @@ impl Flux {
         })
     }
 
+    // TODO: handle errors
     pub fn resize(
         &mut self,
         logical_width: u32,
@@ -98,7 +101,11 @@ impl Flux {
                 physical_width,
                 physical_height,
             )
-            .unwrap(); // fix
+            .unwrap();
+        self.fluid.resize(self.drawer.scaling_ratio()).unwrap();
+        self.noise_generator
+            .resize(2 * self.settings.fluid_size, self.drawer.scaling_ratio())
+            .unwrap();
     }
 
     pub fn animate(&mut self, timestamp: f64) {

@@ -6,7 +6,7 @@ precision mediump float;
 // #define CHANNEL_COUNT 3
 
 struct Channel {
-  mediump float uScale;
+  mediump vec2 uScale;
   mediump float uOffset1;
   mediump float uOffset2;
   mediump float uBlendFactor;

@@ -23,6 +23,7 @@ layout(std140) uniform LineUniforms
   highp float uLineLength;
   mediump float uLineBeginOffset;
   mediump float uLineVariance;
+  mediump vec2 lineNoiseScale;
   mediump float lineNoiseOffset1;
   mediump float lineNoiseOffset2;
   mediump float lineNoiseBlendFactor;
@@ -147,8 +148,6 @@ float snoise(vec3 v) {
 }
 
 void main() {
-  float lineNoiseScale = 64.0;
-
   vec2 velocity = texture(velocityTexture, basepoint).xy;
   float noise = snoise(vec3(lineNoiseScale * basepoint, lineNoiseOffset1));
 
