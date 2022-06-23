@@ -10,28 +10,53 @@
       url = "github:nmattia/naersk";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    crane = {
+      url = "github:ipetkov/crane";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+        flake-utils.follows = "flake-utils";
+      };
+    };
   };
 
-  outputs = { self, nixpkgs, flake-utils, fenix, naersk }:
+  outputs = { self, nixpkgs, flake-utils, fenix, naersk, crane, rust-overlay }:
     let
       SYSTEMS =
         [ "aarch64-darwin" "aarch64-linux" "x86_64-darwin" "x86_64-linux" ];
     in flake-utils.lib.eachSystem SYSTEMS (system:
       let
-        pkgs = nixpkgs.legacyPackages.${system};
-        inherit (pkgs) lib stdenv;
+        # pkgs = import nixpkgs {
+        #   inherit system;
+        #   overlays = [ (import rust-overlay) ];
+        # };
 
-        toolchain = with fenix.packages.${system};
-          combine ([
-            latest.rustc
-            latest.cargo
-            targets.wasm32-unknown-unknown.latest.rust-std
-          ] ++ lib.optionals stdenv.isLinux
-            [ targets.x86_64-pc-windows-gnu.latest.rust-std ]);
+        pkgs = import nixpkgs {
+          localSystem = system;
+          crossSystem.config = "x86_64-w64-mingw32";
+          overlays = [ (import rust-overlay) ];
+        };
+
+        inherit (pkgs) lib stdenv;
+        # rustToolchain = with fenix.packages.${system};
+        #   combine ([
+        #     latest.rustc
+        #     latest.cargo
+        #     targets.wasm32-unknown-unknown.latest.rust-std
+        #   ] ++ lib.optionals stdenv.isLinux
+        #     [ targets.x86_64-pc-windows-gnu.latest.rust-std ]);
+
+        rustToolchain = pkgs.pkgsBuildHost.rust-bin.stable.latest.default.override {
+          targets = [ "wasm32-unknown-unknown" ] ++ lib.optionals stdenv.isLinux
+            [ "x86_64-pc-windows-gnu" ];
+        };
 
         naersk-lib = naersk.lib.${system}.override {
-          rustc = toolchain;
-          cargo = toolchain;
+          rustc = rustToolchain;
+          cargo = rustToolchain;
         };
 
         readVersionFrom = pathToCargoTOML:
@@ -42,80 +67,93 @@
 
         fluxDesktopVersion = readVersionFrom ./flux-desktop/Cargo.toml;
 
-        flux-desktop-x86_64-pc-windows-gnu = naersk-lib.buildPackage {
-          name = "flux-desktop";
-          version = fluxDesktopVersion;
-          src = ./.;
-          preBuild = ''
-            export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_RUSTFLAGS="-C link-args=$(echo $NIX_LDFLAGS | tr ' ' '\n' | grep -- '^-L' | tr '\n' ' ')"
-            export NIX_LDFLAGS=
-          '';
-          cargoBuildOptions = args:
-            args ++ [ "-p flux-desktop" "--target x86_64-pc-windows-gnu" ];
-          doCheck = true;
-          singleStep = true;
-          nativeBuildInputs = with pkgs; [ pkgsCross.mingwW64.stdenv.cc ];
-          buildInputs = with pkgs.pkgsCross.mingwW64; [
-            windows.mingw_w64_pthreads
-            windows.pthreads
-          ];
-        };
+        craneLib = (crane.mkLib pkgs).overrideScope' (final: prev: {
+          rustc = rustToolchain;
+          cargo = rustToolchain;
+          rustfmt = rustToolchain;
+        });
+
+        flux-desktop-x86_64-pc-windows-gnu =
+          { lib
+          , stdenv
+          }:
+          craneLib.buildPackage {
+            src = ./.;
+            cargoExtraArgs = "-p flux-desktop --target x86_64-pc-windows-gnu";
+            CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER = "${stdenv.cc.targetPrefix}cc";
+            # HOST_CC = "${pkgsCross.stdenv.cc.nativePrefix}cc";
+            doCheck = false;
+            # nativeBuildInputs = with pkgsCross.mingwW64; [
+            #   stdenv.cc
+            #   # windows.mingw_w64_pthreads
+            #   # windows.pthreads
+            # ];
+            buildInputs = with pkgs.pkgsCross.mingwW64; [
+              windows.mingw_w64_pthreads
+              windows.pthreads
+            ];
+          };
 
       in lib.recursiveUpdate rec {
-        defaultPackage = packages.flux-web;
-
-        devShell = pkgs.mkShell {
-          packages = with pkgs; [ nixfmt wasm-pack ];
-          inputsFrom = with packages; [ flux-web flux-desktop ];
+        devShells = {
+          default = pkgs.mkShell {
+            packages = with pkgs; [ nixfmt wasm-pack ];
+            inputsFrom = with packages; [ flux-web flux-desktop ];
+          };
         };
 
-        packages.flux = naersk-lib.buildPackage {
-          name = "flux";
-          version = readVersionFrom ./flux/Cargo.toml;
-          src = ./.;
-          cargoBuildOptions = args: args ++ [ "-p flux" ];
-          doCheck = true;
-        };
+        packages = {
+          default = packages.flux-web;
 
-        packages.flux-wasm = naersk-lib.buildPackage {
-          name = "flux-wasm";
-          version = readVersionFrom ./flux-wasm/Cargo.toml;
-          src = ./.;
-          copyBins = false;
-          copyLibs = true;
-          release = true;
-          cargoBuildOptions = args:
-            args ++ [ "-p flux-wasm" "--target wasm32-unknown-unknown" ];
-          doCheck = true;
-        };
+          flux = craneLib.buildPackage {
+            src = ./.;
+            cargoExtraArgs = "-p flux";
+            doCheck = true;
+          };
 
-        packages.flux-web = import ./web/default.nix {
-          inherit (pkgs) pkgs lib stdenv;
-          inherit (packages) flux-wasm;
-        };
+          flux-wasm = naersk-lib.buildPackage {
+            name = "flux-wasm";
+            version = readVersionFrom ./flux-wasm/Cargo.toml;
+            src = ./.;
+            copyBins = false;
+            copyLibs = true;
+            release = true;
+            cargoBuildOptions = args:
+              args ++ [ "-p flux-wasm" "--target wasm32-unknown-unknown" ];
+            doCheck = true;
+          };
 
-        packages.flux-desktop = naersk-lib.buildPackage {
-          name = "flux-desktop";
-          version = fluxDesktopVersion;
-          src = ./.;
-          release = true;
-          cargoBuildOptions = args: args ++ [ "-p flux-desktop" ];
-          doCheck = true;
-          nativeBuildInputs = lib.optionals stdenv.isDarwin
-            (with pkgs.darwin.apple_sdk.frameworks; [
-              AppKit
-              ApplicationServices
-              CoreFoundation
-              CoreGraphics
-              CoreVideo
-              Foundation
-              OpenGL
-              QuartzCore
-            ]);
-        };
+          flux-web = import ./web/default.nix {
+            inherit (pkgs) pkgs lib stdenv;
+            inherit (packages) flux-wasm;
+          };
+
+          flux-desktop = naersk-lib.buildPackage {
+            name = "flux-desktop";
+            version = fluxDesktopVersion;
+            src = ./.;
+            release = true;
+            cargoBuildOptions = args: args ++ [ "-p flux-desktop" ];
+            doCheck = true;
+            nativeBuildInputs = lib.optionals stdenv.isDarwin
+              (with pkgs.darwin.apple_sdk.frameworks; [
+                AppKit
+                ApplicationServices
+                CoreFoundation
+                CoreGraphics
+                CoreVideo
+                Foundation
+                OpenGL
+                QuartzCore
+              ]);
+          };
+          flux-desktop-x86_64-pc-windows-gnu =
+            pkgs.callPackage flux-desktop-x86_64-pc-windows-gnu { };
+          };
       } (lib.optionalAttrs stdenv.isLinux {
         # Cross-compile the Windows executable only on Linux hosts.
         packages.flux-desktop-x86_64-pc-windows-gnu =
-          flux-desktop-x86_64-pc-windows-gnu;
-      }));
+          pkgs.callPackage flux-desktop-x86_64-pc-windows-gnu { };
+        }
+      ));
 }
