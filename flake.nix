@@ -16,10 +16,12 @@
   };
 
   outputs = { self, nixpkgs, flake-utils, crane, rust-overlay }:
-    let
-      SYSTEMS =
-        [ "aarch64-darwin" "aarch64-linux" "x86_64-darwin" "x86_64-linux" ];
-    in flake-utils.lib.eachSystem SYSTEMS (system:
+    flake-utils.lib.eachSystem [
+      "aarch64-darwin"
+      "aarch64-linux"
+      "x86_64-darwin"
+      "x86_64-linux"
+    ] (system:
       let
         pkgs = import nixpkgs {
           inherit system;
@@ -73,6 +75,8 @@
             nativeBuildInputs = [ rustToolchain ];
           };
         };
+
+        formatter = pkgs.nixfmt;
 
         packages = {
           default = packages.flux-web;
