@@ -56,15 +56,22 @@
             # Uppercase and replace `-` with `_`.
             shellEnvTriple = builtins.replaceStrings ([ "-" ] ++ lib.lowerChars)
               ([ "_" ] ++ lib.upperChars) targetTriple;
-          in craneLib.buildPackage {
-            src = ./.;
-            cargoExtraArgs = "-p ${packageName} --target ${targetTriple}";
-            "CARGO_TARGET_${shellEnvTriple}_LINKER" =
-              "${hostPkgs.stdenv.cc.targetPrefix}cc";
-            # HOST_CC = "${pkgsCross.stdenv.cc.nativePrefix}cc";
-            doCheck = false;
-            buildInputs = lib.optionals hostPkgs.hostPlatform.isWindows
-              (with hostPkgs; [ windows.mingw_w64_pthreads windows.pthreads ]);
+          in {
+            inherit rustToolchain;
+
+            package = craneLib.buildPackage {
+              src = ./.;
+              cargoExtraArgs = "-p ${packageName} --target ${targetTriple}";
+              "CARGO_TARGET_${shellEnvTriple}_LINKER" =
+                "${hostPkgs.stdenv.cc.targetPrefix}cc";
+              # HOST_CC = "${pkgsCross.stdenv.cc.nativePrefix}cc";
+              doCheck = false;
+              buildInputs = lib.optionals hostPkgs.hostPlatform.isWindows
+                (with hostPkgs; [
+                  windows.mingw_w64_pthreads
+                  windows.pthreads
+                ]);
+            };
           };
 
       in lib.recursiveUpdate rec {
@@ -123,18 +130,27 @@
               ]);
           };
         };
-      } (lib.optionalAttrs stdenv.isLinux {
-        # Cross-compile the Windows executable only on Linux hosts.
-        packages.flux-desktop-x86_64-pc-windows-gnu = let
-          crossPkgs = import nixpkgs {
-            inherit system;
-            crossSystem.config = "x86_64-w64-mingw32";
-            overlays = [ (import rust-overlay) ];
-          };
-        in crossCompileFor {
+      } (lib.optionalAttrs stdenv.isLinux (let
+        crossPkgs = import nixpkgs {
+          inherit system;
+          crossSystem.config = "x86_64-w64-mingw32";
+          overlays = [ (import rust-overlay) ];
+        };
+
+        fluxDesktopCrossWindows = crossCompileFor {
           hostPkgs = crossPkgs;
           targetTriple = "x86_64-pc-windows-gnu";
           packageName = "flux-desktop";
         };
-      }));
+      in {
+        # TODO: set linker env variable
+        devShells.crossShell = crossPkgs.mkShell {
+          inputsFrom = [ self.packages.${system}.flux-desktop ];
+          nativeBuildInputs = [ fluxDesktopCrossWindows.rustToolchain ];
+        };
+
+        # Cross-compile the Windows executable only on Linux hosts.
+        packages.flux-desktop-x86_64-pc-windows-gnu =
+          fluxDesktopCrossWindows.package;
+      })));
 }
