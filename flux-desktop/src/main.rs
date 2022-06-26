@@ -6,6 +6,9 @@ use glutin::window::Window;
 use glutin::PossiblyCurrent;
 use std::rc::Rc;
 
+#[cfg(target_os = "macos")]
+use glutin::platform::macos::WindowBuilderExtMacOS;
+
 fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
 
@@ -106,11 +109,23 @@ pub fn get_rendering_context(
     EventLoop<()>,
 ) {
     let event_loop = glutin::event_loop::EventLoop::new();
+
+    #[cfg(not(target_os = "macos"))]
     let window_builder = glutin::window::WindowBuilder::new()
         .with_title("Flux")
         .with_decorations(true)
         .with_resizable(true)
         .with_inner_size(logical_size);
+
+    #[cfg(target_os = "macos")]
+    let window_builder = glutin::window::WindowBuilder::new()
+        .with_title("Flux")
+        .with_inner_size(logical_size)
+        .with_resizable(true)
+        .with_title_hidden(true)
+        .with_titlebar_transparent(true)
+        .with_fullsize_content_view(true);
+
     let window = glutin::ContextBuilder::new()
         .with_vsync(true)
         .with_multisampling(0)
