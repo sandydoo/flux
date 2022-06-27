@@ -351,7 +351,7 @@ dependencies = [
 
 [[package]]
 name = "flux"
-version = "4.2.0"
+version = "4.3.0"
 dependencies = [
  "bytemuck",
  "crevice",
@@ -369,7 +369,7 @@ dependencies = [
 
 [[package]]
 name = "flux-desktop"
-version = "4.2.0"
+version = "4.3.0"
 dependencies = [
  "env_logger",
  "flux",
@@ -380,7 +380,7 @@ dependencies = [
 
 [[package]]
 name = "flux-wasm"
-version = "4.2.0"
+version = "4.3.0"
 dependencies = [
  "console_error_panic_hook",
  "console_log",
