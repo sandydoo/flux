@@ -1,7 +1,7 @@
 [package]
 name = "flux-desktop"
 version = "4.2.0"
-description = "An ode to the macOS Drift screensaver"
+description = "An open-source tribute to the macOS Drift screensaver"
 authors = ["Sander Melnikov <hey@sandydoo.me"]
 repository = "https://github.com/sandydoo/flux/"
 license = "MIT"

@@ -1,9 +1,9 @@
 <p align="center">
   <a href="https://flux.sandydoo.me/">
-    <img width="100%" src="https://github.com/sandydoo/gif-storage/blob/main/flux/social-header-2022-02-03.gif" alt="Flux" />
+    <img width="100%" src="https://github.com/sandydoo/gif-storage/blob/main/flux/social-header-2022-06-27.webp" alt="Flux" />
   </a>
 
-  <p align="center"><b>An ode to the macOS Drift screensaver that runs in the browser.</b></p>
+  <p align="center"><b>A open-source tribute to the macOS Drift screensaver.</b></p>
 
   <p align="center">
     <a href="https://sandydoo.gumroad.com/l/flux">Buy&nbsp;a&nbsp;screensaver</a>
@@ -23,8 +23,8 @@
 
 ## Screensavers
 
-#### [You can now buy Flux as a Windows screensaver →][store]
-Enjoy staring at it for hours as your computer idles and help support development. More platforms coming soon! Source code at [sandydoo/flux-screensavers][flux-screensavers-url].
+#### [Buy Flux as a Windows screensaver →][store]
+Help support development by letting your PC idle with style. More platforms coming soon! Source code at [sandydoo/flux-screensavers][flux-screensavers-url].
 
 ## Backstory
 

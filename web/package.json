@@ -1,6 +1,6 @@
 {
   "name": "flux",
-  "description": "An ode to the macOS Drift screensaver that runs in the browser",
+  "description": "An open-source tribute to the macOS Drift screensaver that runs in the browser",
   "version": "4.2.0",
   "author": "Sander Melnikov <hey@sandydoo.me>",
   "license": "MIT",
