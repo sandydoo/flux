@@ -60,19 +60,19 @@ impl Drawer {
         log::debug!("Line count: {}", grid.line_count);
 
         let basepoint_buffer = Buffer::from_f32(
-            &context,
+            context,
             &grid.basepoints,
             glow::ARRAY_BUFFER,
             glow::STATIC_DRAW,
         )?;
         let line_vertices = Buffer::from_f32(
-            &context,
-            &bytemuck::cast_slice(&LINE_VERTICES),
+            context,
+            bytemuck::cast_slice(&LINE_VERTICES),
             glow::ARRAY_BUFFER,
             glow::STATIC_DRAW,
         )?;
         let plane_vertices = Buffer::from_f32(
-            &context,
+            context,
             &data::PLANE_VERTICES,
             glow::ARRAY_BUFFER,
             glow::STATIC_DRAW,
@@ -81,7 +81,7 @@ impl Drawer {
         // Programs
 
         let place_lines_pass = render::Program::new_with_transform_feedback(
-            &context,
+            context,
             (PLACE_LINES_VERT_SHADER, PLACE_LINES_FRAG_SHADER),
             &render::TransformFeedbackInfo {
                 // The order here must match the order in the buffer!
@@ -95,11 +95,11 @@ impl Drawer {
                 mode: glow::INTERLEAVED_ATTRIBS,
             },
         )?;
-        let draw_lines_pass = render::Program::new(&context, (LINE_VERT_SHADER, LINE_FRAG_SHADER))?;
+        let draw_lines_pass = render::Program::new(context, (LINE_VERT_SHADER, LINE_FRAG_SHADER))?;
         let draw_endpoints_pass =
-            render::Program::new(&context, (ENDPOINT_VERT_SHADER, ENDPOINT_FRAG_SHADER))?;
+            render::Program::new(context, (ENDPOINT_VERT_SHADER, ENDPOINT_FRAG_SHADER))?;
         let draw_texture_pass =
-            render::Program::new(&context, (TEXTURE_VERT_SHADER, TEXTURE_FRAG_SHADER))?;
+            render::Program::new(context, (TEXTURE_VERT_SHADER, TEXTURE_FRAG_SHADER))?;
 
         // Vertex buffers
 
@@ -131,7 +131,7 @@ impl Drawer {
                             size: 2,
                             type_: glow::FLOAT,
                             stride,
-                            offset: 0 * 4,
+                            offset: 0,
                             divisor,
                         },
                     ),
@@ -227,7 +227,7 @@ impl Drawer {
         }
 
         let draw_texture_buffer = VertexArrayObject::new(
-            &context,
+            context,
             &draw_texture_pass,
             &[(
                 &plane_vertices,
@@ -249,7 +249,7 @@ impl Drawer {
                 logical_width as f32,
                 logical_height as f32,
                 &grid.scaling_ratio,
-                &settings,
+                settings,
             ),
             0,
             glow::DYNAMIC_DRAW,
@@ -301,7 +301,7 @@ impl Drawer {
         })
     }
 
-    pub fn update(&mut self, new_settings: &Rc<Settings>) -> () {
+    pub fn update(&mut self, new_settings: &Rc<Settings>) {
         self.line_uniforms
             .update(|line_uniforms| {
                 line_uniforms.update(
@@ -355,7 +355,7 @@ impl Drawer {
         velocity_texture: &Framebuffer,
         elapsed_time: f32,
         timestep: f32,
-    ) -> () {
+    ) {
         self.line_uniforms
             .update(|line_uniforms| {
                 line_uniforms.tick(elapsed_time).set_timestep(timestep);
@@ -386,7 +386,7 @@ impl Drawer {
         }
     }
 
-    pub fn draw_lines(&self) -> () {
+    pub fn draw_lines(&self) {
         unsafe {
             self.context.viewport(
                 0,
@@ -409,7 +409,7 @@ impl Drawer {
         }
     }
 
-    pub fn draw_endpoints(&self) -> () {
+    pub fn draw_endpoints(&self) {
         unsafe {
             self.context.viewport(
                 0,
@@ -432,7 +432,7 @@ impl Drawer {
         }
     }
 
-    pub fn draw_texture(&self, texture: &Framebuffer) -> () {
+    pub fn draw_texture(&self, texture: &Framebuffer) {
         unsafe {
             self.context.viewport(
                 0,
@@ -656,21 +656,17 @@ impl Grid {
     }
 }
 
-static LINE_VERT_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/line.vert"));
-static LINE_FRAG_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/line.frag"));
-static ENDPOINT_VERT_SHADER: &'static str =
+static LINE_VERT_SHADER: &str = include_str!(concat!(env!("OUT_DIR"), "/shaders/line.vert"));
+static LINE_FRAG_SHADER: &str = include_str!(concat!(env!("OUT_DIR"), "/shaders/line.frag"));
+static ENDPOINT_VERT_SHADER: &str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/endpoint.vert"));
-static ENDPOINT_FRAG_SHADER: &'static str =
+static ENDPOINT_FRAG_SHADER: &str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/endpoint.frag"));
-static TEXTURE_VERT_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/texture.vert"));
-static TEXTURE_FRAG_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/texture.frag"));
-static PLACE_LINES_VERT_SHADER: &'static str =
+static TEXTURE_VERT_SHADER: &str = include_str!(concat!(env!("OUT_DIR"), "/shaders/texture.vert"));
+static TEXTURE_FRAG_SHADER: &str = include_str!(concat!(env!("OUT_DIR"), "/shaders/texture.frag"));
+static PLACE_LINES_VERT_SHADER: &str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/place_lines.vert"));
-static PLACE_LINES_FRAG_SHADER: &'static str =
+static PLACE_LINES_FRAG_SHADER: &str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/place_lines.frag"));
 
 #[rustfmt::skip]

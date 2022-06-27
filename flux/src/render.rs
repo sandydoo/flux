@@ -30,7 +30,7 @@ pub enum Problem {
 
     #[error("{}", match .0 {
         Some(n) => format!("Cannot create shader: {}", n),
-        None => format!("Cannot create shader"),
+        None => "Cannot create shader".to_string(),
     })]
     CannotCreateShader(Option<String>),
 
@@ -183,7 +183,7 @@ impl Framebuffer {
         height: u32,
         options: TextureOptions,
     ) -> Result<Self> {
-        Self::with_params(&context, width, height, options)
+        Self::with_params(context, width, height, options)
     }
 
     fn with_params(
@@ -290,30 +290,9 @@ impl Framebuffer {
         Ok(())
     }
 
-    pub fn zero_out(&self) -> Result<()> {
-        self.clear_color_with(&[0.0, 0.0, 0.0, 0.0])
-    }
-
-    pub fn clear_color_with(&self, color: &[f32; 4]) -> Result<()> {
-        unsafe {
-            self.context
-                .bind_framebuffer(glow::FRAMEBUFFER, Some(self.id));
-
-            self.context
-                .viewport(0, 0, self.width as i32, self.height as i32);
-            self.context
-                .clear_color(color[0], color[1], color[2], color[3]);
-            self.context.clear(glow::COLOR_BUFFER_BIT);
-
-            self.context.bind_framebuffer(glow::FRAMEBUFFER, None);
-        }
-
-        Ok(())
-    }
-
     pub fn draw_to<T>(&self, context: &Context, draw_call: T)
     where
-        T: Fn() -> (),
+        T: Fn(),
     {
         unsafe {
             context.bind_framebuffer(glow::DRAW_FRAMEBUFFER, Some(self.id));
@@ -360,8 +339,8 @@ impl DoubleFramebuffer {
         height: u32,
         options: TextureOptions,
     ) -> Result<Self> {
-        let front = Framebuffer::new(&context, width, height, options)?;
-        let back = Framebuffer::new(&context, width, height, options)?;
+        let front = Framebuffer::new(context, width, height, options)?;
+        let back = Framebuffer::new(context, width, height, options)?;
         Ok(Self {
             width,
             height,
@@ -377,22 +356,6 @@ impl DoubleFramebuffer {
         Ok(())
     }
 
-    pub fn with_f32_data(&self, data: &[f32]) -> Result<()> {
-        self.with_data(Some(&data))
-    }
-
-    pub fn zero_out(&self) -> Result<()> {
-        self.current().zero_out()?;
-        self.next().zero_out()?;
-        Ok(())
-    }
-
-    pub fn clear_color_with(&self, color: &[f32; 4]) -> Result<()> {
-        self.current().clear_color_with(color)?;
-        self.next().clear_color_with(color)?;
-        Ok(())
-    }
-
     pub fn current(&self) -> Ref<Framebuffer> {
         self.front.borrow()
     }
@@ -401,13 +364,13 @@ impl DoubleFramebuffer {
         self.back.borrow()
     }
 
-    pub fn swap(&self) -> () {
+    pub fn swap(&self) {
         self.front.swap(&self.back);
     }
 
     pub fn draw_to<T>(&self, context: &Context, draw_call: T)
     where
-        T: Fn(&Framebuffer) -> (),
+        T: Fn(&Framebuffer),
     {
         let framebuffer = self.next();
 
@@ -478,7 +441,7 @@ impl TransformFeedback {
 
     pub fn draw_to<T>(&self, draw_call: T)
     where
-        T: Fn() -> (),
+        T: Fn(),
     {
         unsafe {
             self.context
@@ -533,7 +496,7 @@ impl DoubleTransformFeedback {
 
     pub fn draw_to<T>(&mut self, draw_call: T)
     where
-        T: Fn() -> (),
+        T: Fn(),
     {
         self.next_buffer().draw_to(draw_call);
         self.swap();
@@ -558,7 +521,7 @@ impl Drop for Program {
 
 impl Program {
     pub fn new(context: &Context, shaders: (&str, &str)) -> Result<Self> {
-        Self::new_impl(&context, shaders, None, None)
+        Self::new_impl(context, shaders, None, None)
     }
 
     pub fn new_with_transform_feedback(
@@ -566,7 +529,7 @@ impl Program {
         shaders: (&str, &str),
         transform_feedback: &TransformFeedbackInfo,
     ) -> Result<Self> {
-        Self::new_impl(&context, shaders, None, Some(&transform_feedback))
+        Self::new_impl(context, shaders, None, Some(transform_feedback))
     }
 
     pub fn new_with_variables(
@@ -574,7 +537,7 @@ impl Program {
         shaders: (&str, &str),
         variables: &[(&'static str, &str)],
     ) -> Result<Self> {
-        Self::new_impl(&context, shaders, Some(&variables), None)
+        Self::new_impl(context, shaders, Some(variables), None)
     }
 
     pub fn new_impl(
@@ -584,12 +547,12 @@ impl Program {
         transform_feedback: Option<&TransformFeedbackInfo>,
     ) -> Result<Self> {
         let vertex_shader = compile_shader(
-            &context,
+            context,
             glow::VERTEX_SHADER,
             &preprocess_shader(shaders.0, optional_variables),
         )?;
         let fragment_shader = compile_shader(
-            &context,
+            context,
             glow::FRAGMENT_SHADER,
             &preprocess_shader(shaders.1, optional_variables),
         )?;
@@ -670,7 +633,7 @@ impl Program {
         })
     }
 
-    pub fn use_program(&self) -> () {
+    pub fn use_program(&self) {
         unsafe {
             self.context.use_program(Some(self.program));
         }
@@ -689,53 +652,51 @@ impl Program {
         unsafe {
             match uniform.value {
                 UniformValue::UnsignedInt(value) => {
-                    context.uniform_1_u32(self.get_uniform_location(&uniform.name).as_ref(), value)
+                    context.uniform_1_u32(self.get_uniform_location(uniform.name).as_ref(), value)
                 }
 
                 UniformValue::SignedInt(value) => {
-                    context.uniform_1_i32(self.get_uniform_location(&uniform.name).as_ref(), value)
+                    context.uniform_1_i32(self.get_uniform_location(uniform.name).as_ref(), value)
                 }
 
                 UniformValue::Float(value) => {
-                    context.uniform_1_f32(self.get_uniform_location(&uniform.name).as_ref(), value)
+                    context.uniform_1_f32(self.get_uniform_location(uniform.name).as_ref(), value)
                 }
 
                 UniformValue::Vec2(value) => context.uniform_2_f32(
-                    self.get_uniform_location(&uniform.name).as_ref(),
+                    self.get_uniform_location(uniform.name).as_ref(),
                     value[0],
                     value[1],
                 ),
 
                 UniformValue::Vec3(value) => context.uniform_3_f32(
-                    self.get_uniform_location(&uniform.name).as_ref(),
+                    self.get_uniform_location(uniform.name).as_ref(),
                     value[0],
                     value[1],
                     value[2],
                 ),
 
-                UniformValue::Vec3Array(ref value) => context
-                    .uniform_3_f32_slice(self.get_uniform_location(&uniform.name).as_ref(), &value),
+                UniformValue::Vec3Array(value) => context
+                    .uniform_3_f32_slice(self.get_uniform_location(uniform.name).as_ref(), value),
 
-                UniformValue::Vec4Array(ref value) => context
-                    .uniform_4_f32_slice(self.get_uniform_location(&uniform.name).as_ref(), &value),
+                UniformValue::Vec4Array(value) => context
+                    .uniform_4_f32_slice(self.get_uniform_location(uniform.name).as_ref(), value),
 
-                UniformValue::Mat4(ref value) => context.uniform_matrix_4_f32_slice(
-                    self.get_uniform_location(&uniform.name).as_ref(),
+                UniformValue::Mat4(value) => context.uniform_matrix_4_f32_slice(
+                    self.get_uniform_location(uniform.name).as_ref(),
                     false,
-                    &value,
+                    value,
                 ),
 
                 UniformValue::Texture2D(id) => {
-                    context.uniform_1_i32(
-                        self.get_uniform_location(&uniform.name).as_ref(),
-                        id as i32,
-                    );
+                    context
+                        .uniform_1_i32(self.get_uniform_location(uniform.name).as_ref(), id as i32);
                 }
             }
         }
     }
 
-    pub fn set_uniform_block(&self, name: &str, index: u32) -> () {
+    pub fn set_uniform_block(&self, name: &str, index: u32) {
         if let Some(location) = self.get_uniform_block_location(name) {
             unsafe {
                 self.context
@@ -765,7 +726,7 @@ fn preprocess_shader<'a>(
     if let Some(variables) = optional_variables {
         let mut preamble = String::new();
         for (name, value) in variables.iter() {
-            write!(&mut preamble, "#define {} {}\n", name, value).unwrap();
+            writeln!(&mut preamble, "#define {} {}", name, value).unwrap();
         }
 
         if source.starts_with("#version") {
@@ -779,14 +740,16 @@ fn preprocess_shader<'a>(
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
+#[allow(dead_code)]
 struct AttributeInfo {
     type_: u32,
     size: u32,
     location: u32,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
+#[allow(dead_code)]
 struct UniformInfo {
     type_: u32,
     size: i32,
@@ -947,7 +910,7 @@ where
 
     pub fn update<F>(&mut self, update_closure: F) -> &Self
     where
-        F: Fn(&mut T) -> (),
+        F: Fn(&mut T),
     {
         update_closure(&mut self.data);
         self
@@ -1024,7 +987,7 @@ impl VertexArrayObject {
             self.context.bind_vertex_array(Some(self.id));
 
             for (vertex, attribute) in vertices.iter() {
-                bind_attributes(&self.context, &program, vertex, attribute)?;
+                bind_attributes(&self.context, program, vertex, attribute)?;
             }
 
             if indices.is_some() {
@@ -1054,7 +1017,7 @@ pub fn bind_attributes(
     unsafe {
         context.bind_buffer(glow::ARRAY_BUFFER, Some(buffer.id));
 
-        if let Some(location) = program.get_attrib_location(&buffer_layout.name) {
+        if let Some(location) = program.get_attrib_location(buffer_layout.name) {
             context.enable_vertex_attrib_array(location);
 
             match buffer_layout.type_ {

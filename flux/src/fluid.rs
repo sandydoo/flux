@@ -60,7 +60,7 @@ impl Fluid {
         let zero_array_of_rg16 = vec![half_float_zero; (2 * width * height) as usize];
 
         let velocity_textures = render::DoubleFramebuffer::new(
-            &context,
+            context,
             width,
             height,
             TextureOptions {
@@ -73,7 +73,7 @@ impl Fluid {
         velocity_textures.with_data(Some(&zero_array_of_rg16))?;
 
         let advection_forward_texture = render::Framebuffer::new(
-            &context,
+            context,
             width,
             height,
             TextureOptions {
@@ -86,7 +86,7 @@ impl Fluid {
         advection_forward_texture.with_data(Some(&zero_array_of_rg16))?;
 
         let advection_reverse_texture = render::Framebuffer::new(
-            &context,
+            context,
             width,
             height,
             TextureOptions {
@@ -99,7 +99,7 @@ impl Fluid {
         advection_reverse_texture.with_data(Some(&zero_array_of_rg16))?;
 
         let divergence_texture = render::Framebuffer::new(
-            &context,
+            context,
             width,
             height,
             TextureOptions {
@@ -112,7 +112,7 @@ impl Fluid {
         divergence_texture.with_data(Some(&zero_array_of_r16))?;
 
         let pressure_textures = render::DoubleFramebuffer::new(
-            &context,
+            context,
             width,
             height,
             TextureOptions {
@@ -126,28 +126,28 @@ impl Fluid {
 
         // Geometry
         let plane_vertices = Buffer::from_f32(
-            &context,
+            context,
             &data::PLANE_VERTICES,
             glow::ARRAY_BUFFER,
             glow::STATIC_DRAW,
         )?;
 
         let clear_pressure_to_pass = render::Program::new(
-            &context,
+            context,
             (CLEAR_PRESSURE_TO_VERT_SHADER, CLEAR_PRESSURE_TO_FRAG_SHADER),
         )?;
         let advection_pass =
-            render::Program::new(&context, (FLUID_VERT_SHADER, ADVECTION_FRAG_SHADER))?;
+            render::Program::new(context, (FLUID_VERT_SHADER, ADVECTION_FRAG_SHADER))?;
         let adjust_advection_pass =
-            render::Program::new(&context, (FLUID_VERT_SHADER, ADJUST_ADVECTION_FRAG_SHADER))?;
+            render::Program::new(context, (FLUID_VERT_SHADER, ADJUST_ADVECTION_FRAG_SHADER))?;
         let diffusion_pass =
-            render::Program::new(&context, (FLUID_VERT_SHADER, DIFFUSE_FRAG_SHADER))?;
+            render::Program::new(context, (FLUID_VERT_SHADER, DIFFUSE_FRAG_SHADER))?;
         let divergence_pass =
-            render::Program::new(&context, (FLUID_VERT_SHADER, DIVERGENCE_FRAG_SHADER))?;
+            render::Program::new(context, (FLUID_VERT_SHADER, DIVERGENCE_FRAG_SHADER))?;
         let pressure_pass =
-            render::Program::new(&context, (FLUID_VERT_SHADER, SOLVE_PRESSURE_FRAG_SHADER))?;
+            render::Program::new(context, (FLUID_VERT_SHADER, SOLVE_PRESSURE_FRAG_SHADER))?;
         let subtract_gradient_pass =
-            render::Program::new(&context, (FLUID_VERT_SHADER, SUBTRACT_GRADIENT_FRAG_SHADER))?;
+            render::Program::new(context, (FLUID_VERT_SHADER, SUBTRACT_GRADIENT_FRAG_SHADER))?;
 
         let uniforms = UniformBlock::new(
             context,
@@ -228,7 +228,7 @@ impl Fluid {
         ]);
 
         let vertex_buffer = VertexArrayObject::new(
-            &context,
+            context,
             &advection_pass,
             &[(
                 &plane_vertices,
@@ -284,7 +284,7 @@ impl Fluid {
         Ok(())
     }
 
-    pub fn update(&mut self, new_settings: &Rc<Settings>) -> () {
+    pub fn update(&mut self, new_settings: &Rc<Settings>) {
         if self.settings.fluid_size != new_settings.fluid_size {
             let (width, height) = (
                 self.scaling_ratio.rounded_x() * self.settings.fluid_size,
@@ -349,7 +349,7 @@ impl Fluid {
         Ok(())
     }
 
-    pub fn advect_forward(&self, timestep: f32) -> () {
+    pub fn advect_forward(&self, timestep: f32) {
         self.advection_forward_texture
             .draw_to(&self.context, || unsafe {
                 self.advection_pass.use_program();
@@ -371,7 +371,7 @@ impl Fluid {
             });
     }
 
-    pub fn advect_reverse(&self, timestep: f32) -> () {
+    pub fn advect_reverse(&self, timestep: f32) {
         self.advection_reverse_texture
             .draw_to(&self.context, || unsafe {
                 self.advection_pass.use_program();
@@ -393,7 +393,7 @@ impl Fluid {
             });
     }
 
-    pub fn adjust_advection(&self, timestep: f32) -> () {
+    pub fn adjust_advection(&self, timestep: f32) {
         self.velocity_textures
             .draw_to(&self.context, |velocity_texture| unsafe {
                 self.adjust_advection_pass.use_program();
@@ -424,7 +424,7 @@ impl Fluid {
             });
     }
 
-    pub fn diffuse(&self, timestep: f32) -> () {
+    pub fn diffuse(&self, timestep: f32) {
         self.diffusion_pass.use_program();
         self.vertex_buffer.bind();
 
@@ -455,7 +455,7 @@ impl Fluid {
         }
     }
 
-    pub fn calculate_divergence(&self) -> () {
+    pub fn calculate_divergence(&self) {
         self.divergence_texture.draw_to(&self.context, || unsafe {
             self.divergence_pass.use_program();
             self.vertex_buffer.bind();
@@ -489,7 +489,7 @@ impl Fluid {
             .draw_to(&self.context, draw_quad);
     }
 
-    pub fn solve_pressure(&self) -> () {
+    pub fn solve_pressure(&self) {
         use settings::ClearPressure::*;
         match self.settings.clear_pressure {
             ClearPressure(pressure) => {
@@ -518,7 +518,7 @@ impl Fluid {
         }
     }
 
-    pub fn subtract_gradient(&self) -> () {
+    pub fn subtract_gradient(&self) {
         self.velocity_textures
             .draw_to(&self.context, |velocity_texture| unsafe {
                 self.subtract_gradient_pass.use_program();
@@ -562,21 +562,21 @@ struct FluidUniforms {
     texel_size: mint::Vector2<f32>,
 }
 
-static CLEAR_PRESSURE_TO_VERT_SHADER: &'static str =
+static CLEAR_PRESSURE_TO_VERT_SHADER: &str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/clear_pressure_to.vert"));
-static CLEAR_PRESSURE_TO_FRAG_SHADER: &'static str =
+static CLEAR_PRESSURE_TO_FRAG_SHADER: &str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/clear_pressure_to.frag"));
-static FLUID_VERT_SHADER: &'static str =
+static FLUID_VERT_SHADER: &str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/fluid.vert"));
-static ADVECTION_FRAG_SHADER: &'static str =
+static ADVECTION_FRAG_SHADER: &str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/advection.frag"));
-static ADJUST_ADVECTION_FRAG_SHADER: &'static str =
+static ADJUST_ADVECTION_FRAG_SHADER: &str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/adjust_advection.frag"));
-static DIFFUSE_FRAG_SHADER: &'static str =
+static DIFFUSE_FRAG_SHADER: &str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/diffuse.frag"));
-static DIVERGENCE_FRAG_SHADER: &'static str =
+static DIVERGENCE_FRAG_SHADER: &str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/divergence.frag"));
-static SOLVE_PRESSURE_FRAG_SHADER: &'static str =
+static SOLVE_PRESSURE_FRAG_SHADER: &str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/solve_pressure.frag"));
-static SUBTRACT_GRADIENT_FRAG_SHADER: &'static str =
+static SUBTRACT_GRADIENT_FRAG_SHADER: &str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/subtract_gradient.frag"));

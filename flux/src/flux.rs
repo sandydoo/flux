@@ -1,7 +1,7 @@
 use crate::{drawer, fluid, noise, render, settings};
 use drawer::Drawer;
 use fluid::Fluid;
-use noise::NoiseGenerator;
+use noise::{NoiseGenerator, NoiseGeneratorBuilder};
 use settings::Settings;
 
 use glow::HasContext;
@@ -30,7 +30,7 @@ pub struct Flux {
 }
 
 impl Flux {
-    pub fn update(&mut self, settings: &Rc<Settings>) -> () {
+    pub fn update(&mut self, settings: &Rc<Settings>) {
         self.settings = Rc::clone(settings);
         self.fluid.update(&self.settings);
         self.drawer.update(&self.settings);
@@ -50,23 +50,23 @@ impl Flux {
         log::info!("✨ Initialising Flux");
 
         let drawer = Drawer::new(
-            &context,
+            context,
             logical_width,
             logical_height,
             physical_width,
             physical_height,
-            &settings,
+            settings,
         )
         .map_err(Problem::CannotRender)?;
 
-        let fluid = Fluid::new(&context, drawer.scaling_ratio(), &settings)
-            .map_err(Problem::CannotRender)?;
+        let fluid =
+            Fluid::new(context, drawer.scaling_ratio(), settings).map_err(Problem::CannotRender)?;
 
         let mut noise_generator_builder =
-            NoiseGenerator::new(&context, 2 * settings.fluid_size, drawer.scaling_ratio());
-        for channel in settings.noise_channels.iter() {
-            noise_generator_builder.add_channel(&channel);
-        }
+            NoiseGeneratorBuilder::new(context, 2 * settings.fluid_size, drawer.scaling_ratio());
+        settings.noise_channels.iter().for_each(|channel| {
+            noise_generator_builder.add_channel(channel);
+        });
         let noise_generator = noise_generator_builder
             .build()
             .map_err(Problem::CannotRender)?;
@@ -133,7 +133,7 @@ impl Flux {
             self.fluid.diffuse(self.settings.fluid_timestep);
 
             self.noise_generator.blend_noise_into(
-                &self.fluid.get_velocity_textures(),
+                self.fluid.get_velocity_textures(),
                 self.settings.fluid_timestep,
             );
 
@@ -170,7 +170,7 @@ impl Flux {
                 self.drawer.draw_texture(&self.fluid.get_pressure());
             }
             DebugDivergence => {
-                self.drawer.draw_texture(&self.fluid.get_divergence());
+                self.drawer.draw_texture(self.fluid.get_divergence());
             }
         };
     }
@@ -187,7 +187,7 @@ impl fmt::Display for Problem {
         use Problem::*;
         match self {
             CannotReadSettings(msg) => write!(f, "{}", msg),
-            CannotRender(render_msg) => write!(f, "{}", render_msg.to_string()),
+            CannotRender(render_msg) => write!(f, "{}", render_msg),
         }
     }
 }

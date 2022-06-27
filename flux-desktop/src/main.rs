@@ -69,9 +69,7 @@ fn main() {
         *control_flow = glutin::event_loop::ControlFlow::Wait;
 
         match event {
-            Event::LoopDestroyed => {
-                return;
-            }
+            Event::LoopDestroyed => (),
 
             Event::MainEventsCleared => {
                 window.window().request_redraw();

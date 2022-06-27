@@ -8,6 +8,7 @@ use web_sys::Window;
 #[wasm_bindgen]
 pub struct Flux {
     canvas: Canvas,
+    #[allow(dead_code)]
     context: Rc<glow::Context>,
     logical_width: u32,
     logical_height: u32,
@@ -114,7 +115,7 @@ pub fn get_rendering_context(
     html_canvas.set_width(physical_width);
     html_canvas.set_height(physical_height);
 
-    let canvas = Canvas::new(html_canvas.clone());
+    let canvas = Canvas::new(html_canvas);
 
     let options = ContextOptions {
         // Disabling alpha can lead to poor performance on some platforms.
@@ -145,7 +146,7 @@ pub fn get_rendering_context(
         glow::Context::from_webgl2_context(gl)
     } else {
         return Err(JsValue::from_str(
-            &"Can’t create the WebGl2 rendering context",
+            "Can’t create the WebGl2 rendering context",
         ));
     };
 

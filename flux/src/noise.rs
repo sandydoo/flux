@@ -25,14 +25,6 @@ pub struct NoiseGenerator {
 }
 
 impl NoiseGenerator {
-    pub fn new(
-        context: &Context,
-        size: u32,
-        scaling_ratio: drawer::ScalingRatio,
-    ) -> NoiseGeneratorBuilder {
-        NoiseGeneratorBuilder::new(context, size, scaling_ratio)
-    }
-
     pub fn resize(
         &mut self,
         size: u32,
@@ -61,19 +53,19 @@ impl NoiseGenerator {
         self.texture.with_data(None::<&[f16]>)
     }
 
-    pub fn update(&mut self, new_settings: &[settings::Noise]) -> () {
+    pub fn update(&mut self, new_settings: &[settings::Noise]) {
         for (channel, new_setting) in self.channels.iter_mut().zip(new_settings.iter()) {
             channel.settings = new_setting.clone();
         }
     }
 
-    pub fn generate(&mut self, elapsed_time: f32) -> () {
+    pub fn generate(&mut self, elapsed_time: f32) {
         self.uniforms
             .update(|noise_uniforms| {
                 *noise_uniforms = UniformArray(
                     self.channels
                         .iter()
-                        .map(|ref channel| NoiseUniforms::new(self.scaling_ratio, channel))
+                        .map(|channel| NoiseUniforms::new(self.scaling_ratio, channel))
                         .collect(),
                 )
             })
@@ -95,7 +87,7 @@ impl NoiseGenerator {
         }
     }
 
-    pub fn blend_noise_into(&mut self, target_textures: &DoubleFramebuffer, timestep: f32) -> () {
+    pub fn blend_noise_into(&mut self, target_textures: &DoubleFramebuffer, timestep: f32) {
         target_textures.draw_to(&self.context, |target_texture| {
             self.inject_noise_pass.use_program();
 
@@ -211,7 +203,7 @@ impl NoiseGeneratorBuilder {
             UniformArray(
                 self.channels
                     .iter()
-                    .map(|ref channel| NoiseUniforms::new(self.scaling_ratio, channel))
+                    .map(|channel| NoiseUniforms::new(self.scaling_ratio, channel))
                     .collect(),
             ),
             0,
@@ -255,7 +247,7 @@ pub struct NoiseChannel {
 }
 
 impl NoiseChannel {
-    pub fn tick(&mut self, elapsed_time: f32) -> () {
+    pub fn tick(&mut self, elapsed_time: f32) {
         const BLEND_THRESHOLD: f32 = 20.0;
 
         self.scale = self.settings.scale
@@ -301,9 +293,8 @@ impl NoiseUniforms {
     }
 }
 
-static NOISE_VERT_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/noise.vert"));
-static GENERATE_NOISE_FRAG_SHADER: &'static str =
+static NOISE_VERT_SHADER: &str = include_str!(concat!(env!("OUT_DIR"), "/shaders/noise.vert"));
+static GENERATE_NOISE_FRAG_SHADER: &str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/generate_noise.frag"));
-static INJECT_NOISE_FRAG_SHADER: &'static str =
+static INJECT_NOISE_FRAG_SHADER: &str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/inject_noise.frag"));
