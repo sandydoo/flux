@@ -1,4 +1,4 @@
-use crate::{data, render, settings};
+use crate::{data, drawer, render, settings};
 use render::{
     Buffer, Context, DoubleFramebuffer, Framebuffer, TextureOptions, Uniform, UniformBlock,
     UniformValue, VertexArrayObject,
@@ -11,38 +11,13 @@ use half::f16;
 use std::cell::Ref;
 use std::rc::Rc;
 
-static CLEAR_PRESSURE_TO_VERT_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/clear_pressure_to.vert"));
-static CLEAR_PRESSURE_TO_FRAG_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/clear_pressure_to.frag"));
-static FLUID_VERT_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/fluid.vert"));
-static ADVECTION_FRAG_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/advection.frag"));
-static ADJUST_ADVECTION_FRAG_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/adjust_advection.frag"));
-static DIFFUSE_FRAG_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/diffuse.frag"));
-static DIVERGENCE_FRAG_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/divergence.frag"));
-static SOLVE_PRESSURE_FRAG_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/solve_pressure.frag"));
-static SUBTRACT_GRADIENT_FRAG_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/subtract_gradient.frag"));
-
-#[derive(Copy, Clone, Debug, AsStd140)]
-struct FluidUniforms {
-    timestep: f32,
-    dissipation: f32,
-    texel_size: mint::Vector2<f32>,
-}
-
 pub struct Fluid {
     context: Context,
     settings: Rc<Settings>,
 
     pub width: u32,
     pub height: u32,
+    scaling_ratio: drawer::ScalingRatio,
     texel_size: [f32; 2],
 
     uniforms: UniformBlock<FluidUniforms>,
@@ -66,9 +41,17 @@ pub struct Fluid {
 }
 
 impl Fluid {
-    pub fn new(context: &Context, settings: &Rc<Settings>) -> Result<Self, render::Problem> {
+    pub fn new(
+        context: &Context,
+        scaling_ratio: drawer::ScalingRatio,
+        settings: &Rc<Settings>,
+    ) -> Result<Self, render::Problem> {
         log::info!("💧 Condensing fluid");
-        let (width, height) = (settings.fluid_size, settings.fluid_size);
+
+        let (width, height) = (
+            scaling_ratio.rounded_x() * settings.fluid_size,
+            scaling_ratio.rounded_y() * settings.fluid_size,
+        );
         let texel_size = [1.0 / width as f32, 1.0 / height as f32];
 
         // Framebuffers
@@ -265,6 +248,7 @@ impl Fluid {
 
             width,
             height,
+            scaling_ratio,
             texel_size,
 
             uniforms,
@@ -287,9 +271,26 @@ impl Fluid {
         })
     }
 
+    pub fn resize(&mut self, scaling_ratio: drawer::ScalingRatio) -> Result<(), render::Problem> {
+        let (width, height) = (
+            scaling_ratio.rounded_x() * self.settings.fluid_size,
+            scaling_ratio.rounded_y() * self.settings.fluid_size,
+        );
+
+        if (self.width, self.height) != (width, height) {
+            self.resize_fluid_texture(width, height)?;
+        }
+
+        Ok(())
+    }
+
     pub fn update(&mut self, new_settings: &Rc<Settings>) -> () {
         if self.settings.fluid_size != new_settings.fluid_size {
-            self.resize_fluid_texture(new_settings.fluid_size).unwrap();
+            let (width, height) = (
+                self.scaling_ratio.rounded_x() * self.settings.fluid_size,
+                self.scaling_ratio.rounded_y() * self.settings.fluid_size,
+            );
+            self.resize_fluid_texture(width, height).unwrap();
         }
 
         self.uniforms
@@ -301,10 +302,15 @@ impl Fluid {
         self.settings = Rc::clone(new_settings); // Fix
     }
 
-    pub fn resize_fluid_texture(&mut self, new_fluid_size: u32) -> Result<(), render::Problem> {
-        self.width = new_fluid_size;
-        self.height = new_fluid_size;
-        self.texel_size = [1.0 / new_fluid_size as f32, 1.0 / new_fluid_size as f32];
+    pub fn resize_fluid_texture(&mut self, width: u32, height: u32) -> Result<(), render::Problem> {
+        self.width = width;
+        self.height = height;
+        self.texel_size = [1.0 / width as f32, 1.0 / height as f32];
+        self.uniforms
+            .update(|data| {
+                data.texel_size = self.texel_size.into();
+            })
+            .buffer_data();
 
         // Create new textures and copy the old contents over
         let velocity_textures = render::DoubleFramebuffer::new(
@@ -548,3 +554,29 @@ impl Fluid {
         &self.velocity_textures
     }
 }
+
+#[derive(Copy, Clone, Debug, AsStd140)]
+struct FluidUniforms {
+    timestep: f32,
+    dissipation: f32,
+    texel_size: mint::Vector2<f32>,
+}
+
+static CLEAR_PRESSURE_TO_VERT_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/clear_pressure_to.vert"));
+static CLEAR_PRESSURE_TO_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/clear_pressure_to.frag"));
+static FLUID_VERT_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/fluid.vert"));
+static ADVECTION_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/advection.frag"));
+static ADJUST_ADVECTION_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/adjust_advection.frag"));
+static DIFFUSE_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/diffuse.frag"));
+static DIVERGENCE_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/divergence.frag"));
+static SOLVE_PRESSURE_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/solve_pressure.frag"));
+static SUBTRACT_GRADIENT_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/subtract_gradient.frag"));

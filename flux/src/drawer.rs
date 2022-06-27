@@ -10,142 +10,16 @@ use crevice::std140::AsStd140;
 use glow::HasContext;
 use std::rc::Rc;
 
-static LINE_VERT_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/line.vert"));
-static LINE_FRAG_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/line.frag"));
-static ENDPOINT_VERT_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/endpoint.vert"));
-static ENDPOINT_FRAG_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/endpoint.frag"));
-static TEXTURE_VERT_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/texture.vert"));
-static TEXTURE_FRAG_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/texture.frag"));
-static PLACE_LINES_VERT_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/place_lines.vert"));
-static PLACE_LINES_FRAG_SHADER: &'static str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/place_lines.frag"));
-
-#[rustfmt::skip]
-const LINE_VERTICES: [f32; 12] = [
-    -0.5, 0.0,
-    -0.5, 1.0,
-     0.5, 1.0,
-    -0.5, 0.0,
-     0.5, 1.0,
-     0.5, 0.0,
-];
-
-#[repr(C)]
-#[derive(Clone, Copy)]
-struct LineState {
-    endpoint: mint::Vector2<f32>,
-    velocity: mint::Vector2<f32>,
-    color: mint::Vector4<f32>,
-    color_velocity: mint::Vector3<f32>,
-    width: f32,
-}
-
-unsafe impl Zeroable for LineState {}
-unsafe impl Pod for LineState {}
-
-#[derive(AsStd140)]
-struct LineUniforms {
-    aspect: f32,
-    zoom: f32,
-    line_width: f32,
-    line_length: f32,
-    line_begin_offset: f32,
-    line_variance: f32,
-    line_noise_offset_1: f32,
-    line_noise_offset_2: f32,
-    line_noise_blend_factor: f32,
-    color_mode: u32,
-    delta_time: f32,
-}
-
-impl LineUniforms {
-    fn new(width: f32, height: f32, settings: &Rc<Settings>) -> Self {
-        let line_scale_factor = get_line_scale_factor(width, height);
-        Self {
-            aspect: width / height,
-            zoom: settings.view_scale,
-            line_width: settings.view_scale * settings.line_width / line_scale_factor,
-            line_length: settings.view_scale * settings.line_length / line_scale_factor,
-            line_begin_offset: settings.line_begin_offset,
-            line_variance: settings.line_variance,
-            line_noise_offset_1: 0.0,
-            line_noise_offset_2: 0.0,
-            line_noise_blend_factor: 0.0,
-            color_mode: Self::color_scheme_to_mode(&settings.color_scheme),
-            delta_time: 0.0,
-        }
-    }
-
-    fn update(&mut self, width: f32, height: f32, settings: &Rc<Settings>) -> &mut Self {
-        let line_scale_factor = get_line_scale_factor(width, height);
-        self.aspect = width / height;
-        self.zoom = settings.view_scale;
-        self.line_width = settings.view_scale * settings.line_width / line_scale_factor;
-        self.line_length = settings.view_scale * settings.line_length / line_scale_factor;
-        self.line_begin_offset = settings.line_begin_offset;
-        self.line_variance = settings.line_variance;
-        self.color_mode = Self::color_scheme_to_mode(&settings.color_scheme);
-        self
-    }
-
-    fn color_scheme_to_mode(color_scheme: &settings::ColorScheme) -> u32 {
-        match color_scheme {
-            settings::ColorScheme::Peacock => 0,
-            _ => 1,
-        }
-    }
-
-    fn set_timestep(&mut self, timestep: f32) -> &mut Self {
-        self.delta_time = timestep;
-        self
-    }
-
-    fn tick(&mut self, elapsed_time: f32) -> &mut Self {
-        const BLEND_THRESHOLD: f32 = 4.0;
-        const BASE_OFFSET: f32 = 0.0015;
-
-        let perturb = 1.0 + 0.2 * (0.010 * elapsed_time * std::f32::consts::TAU).sin();
-        let offset = BASE_OFFSET * perturb;
-        self.line_noise_offset_1 += offset;
-
-        if self.line_noise_offset_1 > BLEND_THRESHOLD {
-            self.line_noise_offset_2 += offset;
-            self.line_noise_blend_factor += BASE_OFFSET;
-        }
-
-        if self.line_noise_blend_factor > 1.0 {
-            self.line_noise_offset_1 = self.line_noise_offset_2;
-            self.line_noise_offset_2 = 0.0;
-            self.line_noise_blend_factor = 0.0;
-        }
-
-        self
-    }
-}
-
-fn get_line_scale_factor(width: f32, height: f32) -> f32 {
-    let aspect_ratio = width / height;
-    let p = 1.0 / aspect_ratio;
-    ((1.0 - p) * width + p * height).min(2000.0)
-}
-
 pub struct Drawer {
     context: Context,
     settings: Rc<Settings>,
+
+    pub grid: Grid,
 
     logical_width: u32,
     logical_height: u32,
     physical_width: u32,
     physical_height: u32,
-
-    pub line_count: u32,
 
     basepoint_buffer: Buffer,
     line_state_buffers: render::DoubleTransformFeedback,
@@ -180,14 +54,17 @@ impl Drawer {
         log::debug!("Physical size: {}x{}px", physical_width, physical_height);
         log::debug!("Logical size: {}x{}px", logical_width, logical_height);
 
-        let (basepoints, line_state, (cols, rows), line_count) =
-            new_line_grid(logical_width, logical_height, settings.grid_spacing);
+        let grid = Grid::new(logical_width, logical_height, settings.grid_spacing);
 
-        log::debug!("Grid size: {}x{}", cols, rows);
-        log::debug!("Line count: {}", line_count);
+        log::debug!("Grid size: {}x{}", grid.columns, grid.rows);
+        log::debug!("Line count: {}", grid.line_count);
 
-        let basepoint_buffer =
-            Buffer::from_f32(&context, &basepoints, glow::ARRAY_BUFFER, glow::STATIC_DRAW)?;
+        let basepoint_buffer = Buffer::from_f32(
+            &context,
+            &grid.basepoints,
+            glow::ARRAY_BUFFER,
+            glow::STATIC_DRAW,
+        )?;
         let line_vertices = Buffer::from_f32(
             &context,
             &bytemuck::cast_slice(&LINE_VERTICES),
@@ -227,7 +104,7 @@ impl Drawer {
         // Vertex buffers
 
         let mut line_state_buffers =
-            render::DoubleTransformFeedback::new(context, bytemuck::cast_slice(&line_state))?;
+            render::DoubleTransformFeedback::new(context, bytemuck::cast_slice(&grid.line_state))?;
         let mut place_lines_buffers = Vec::with_capacity(2);
         let mut draw_lines_buffers = Vec::with_capacity(2);
         let mut draw_endpoints_buffers = Vec::with_capacity(2);
@@ -368,7 +245,12 @@ impl Drawer {
 
         let line_uniforms = UniformBlock::new(
             context,
-            LineUniforms::new(logical_width as f32, logical_height as f32, &settings),
+            LineUniforms::new(
+                logical_width as f32,
+                logical_height as f32,
+                &grid.scaling_ratio,
+                &settings,
+            ),
             0,
             glow::DYNAMIC_DRAW,
         )?;
@@ -394,12 +276,12 @@ impl Drawer {
             context: Rc::clone(context),
             settings: Rc::clone(settings),
 
+            grid,
             logical_width,
             logical_height,
             physical_width,
             physical_height,
 
-            line_count,
             basepoint_buffer,
             line_state_buffers,
             line_vertices,
@@ -452,13 +334,12 @@ impl Drawer {
         self.logical_width = logical_width;
         self.logical_height = logical_height;
 
-        let (basepoints, line_state, _, line_count) =
-            new_line_grid(logical_width, logical_height, self.settings.grid_spacing);
-        self.line_count = line_count;
+        let grid = Grid::new(logical_width, logical_height, self.settings.grid_spacing);
         self.basepoint_buffer
-            .overwrite(bytemuck::cast_slice(&basepoints));
+            .overwrite(bytemuck::cast_slice(&grid.basepoints));
         self.line_state_buffers
-            .overwrite_buffer(bytemuck::cast_slice(&line_state))?;
+            .overwrite_buffer(bytemuck::cast_slice(&grid.line_state))?;
+        self.grid = grid;
 
         self.line_uniforms
             .update(|line_uniforms| {
@@ -500,7 +381,7 @@ impl Drawer {
 
             self.line_state_buffers.draw_to(|| {
                 self.context
-                    .draw_arrays(glow::POINTS, 0, self.line_count as i32);
+                    .draw_arrays(glow::POINTS, 0, self.grid.line_count as i32);
             });
         }
     }
@@ -522,7 +403,7 @@ impl Drawer {
             self.line_uniforms.bind();
 
             self.context
-                .draw_arrays_instanced(glow::TRIANGLES, 0, 6, self.line_count as i32);
+                .draw_arrays_instanced(glow::TRIANGLES, 0, 6, self.grid.line_count as i32);
 
             self.context.disable(glow::BLEND);
         }
@@ -545,7 +426,7 @@ impl Drawer {
             self.line_uniforms.bind();
 
             self.context
-                .draw_arrays_instanced(glow::TRIANGLES, 0, 6, self.line_count as i32);
+                .draw_arrays_instanced(glow::TRIANGLES, 0, 6, self.grid.line_count as i32);
 
             self.context.disable(glow::BLEND);
         }
@@ -570,12 +451,116 @@ impl Drawer {
             self.context.draw_arrays(glow::TRIANGLES, 0, 6);
         }
     }
+
+    pub fn scaling_ratio(&self) -> ScalingRatio {
+        self.grid.scaling_ratio
+    }
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct LineState {
+    endpoint: mint::Vector2<f32>,
+    velocity: mint::Vector2<f32>,
+    color: mint::Vector4<f32>,
+    color_velocity: mint::Vector3<f32>,
+    width: f32,
+}
+
+unsafe impl Zeroable for LineState {}
+unsafe impl Pod for LineState {}
+
+#[derive(AsStd140)]
+struct LineUniforms {
+    aspect: f32,
+    zoom: f32,
+    line_width: f32,
+    line_length: f32,
+    line_begin_offset: f32,
+    line_variance: f32,
+    line_noise_scale: mint::Vector2<f32>,
+    line_noise_offset_1: f32,
+    line_noise_offset_2: f32,
+    line_noise_blend_factor: f32,
+    color_mode: u32,
+    delta_time: f32,
+}
+
+impl LineUniforms {
+    fn new(width: f32, height: f32, scaling_ratio: &ScalingRatio, settings: &Rc<Settings>) -> Self {
+        let line_scale_factor = get_line_scale_factor(width, height);
+        Self {
+            aspect: width / height,
+            zoom: settings.view_scale,
+            line_width: settings.view_scale * settings.line_width * line_scale_factor,
+            line_length: settings.view_scale * settings.line_length * line_scale_factor,
+            line_begin_offset: settings.line_begin_offset,
+            line_variance: settings.line_variance,
+            line_noise_scale: [64.0 * scaling_ratio.x(), 64.0 * scaling_ratio.y()].into(),
+            line_noise_offset_1: 0.0,
+            line_noise_offset_2: 0.0,
+            line_noise_blend_factor: 0.0,
+            color_mode: Self::color_scheme_to_mode(&settings.color_scheme),
+            delta_time: 0.0,
+        }
+    }
+
+    fn update(&mut self, width: f32, height: f32, settings: &Rc<Settings>) -> &mut Self {
+        let line_scale_factor = get_line_scale_factor(width, height);
+        self.aspect = width / height;
+        self.zoom = settings.view_scale;
+        self.line_width = settings.view_scale * settings.line_width * line_scale_factor;
+        self.line_length = settings.view_scale * settings.line_length * line_scale_factor;
+        self.line_begin_offset = settings.line_begin_offset;
+        self.line_variance = settings.line_variance;
+        self.color_mode = Self::color_scheme_to_mode(&settings.color_scheme);
+        self
+    }
+
+    fn color_scheme_to_mode(color_scheme: &settings::ColorScheme) -> u32 {
+        match color_scheme {
+            settings::ColorScheme::Peacock => 0,
+            _ => 1,
+        }
+    }
+
+    fn set_timestep(&mut self, timestep: f32) -> &mut Self {
+        self.delta_time = timestep;
+        self
+    }
+
+    fn tick(&mut self, elapsed_time: f32) -> &mut Self {
+        const BLEND_THRESHOLD: f32 = 4.0;
+        const BASE_OFFSET: f32 = 0.0015;
+
+        let perturb = 1.0 + 0.2 * (0.010 * elapsed_time * std::f32::consts::TAU).sin();
+        let offset = BASE_OFFSET * perturb;
+        self.line_noise_offset_1 += offset;
+
+        if self.line_noise_offset_1 > BLEND_THRESHOLD {
+            self.line_noise_offset_2 += offset;
+            self.line_noise_blend_factor += BASE_OFFSET;
+        }
+
+        if self.line_noise_blend_factor > 1.0 {
+            self.line_noise_offset_1 = self.line_noise_offset_2;
+            self.line_noise_offset_2 = 0.0;
+            self.line_noise_blend_factor = 0.0;
+        }
+
+        self
+    }
+}
+
+fn get_line_scale_factor(width: f32, height: f32) -> f32 {
+    let aspect_ratio = width / height;
+    let p = 1.0 / aspect_ratio;
+    1.0 / ((1.0 - p) * width + p * height).min(2000.0)
 }
 
 fn clamp_logical_size(width: u32, height: u32) -> (u32, u32) {
     let width = width as f32;
     let height = height as f32;
-    let ratio = width / height;
 
     // TODO: Should we also clamp the upper bound?
     let minimum_dimension = 800.0;
@@ -586,42 +571,117 @@ fn clamp_logical_size(width: u32, height: u32) -> (u32, u32) {
     )
 }
 
-fn new_line_grid(
-    width: u32,
-    height: u32,
-    grid_spacing: u32,
-) -> (Vec<f32>, Vec<LineState>, (u32, u32), u32) {
-    let height = height as f32;
-    let width = width as f32;
-    let grid_spacing = grid_spacing as f32;
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ScalingRatio {
+    x: f32,
+    y: f32,
+}
 
-    let cols = (width / grid_spacing).floor() as u32;
-    let rows = ((height / width) * cols as f32).floor() as u32;
-    let line_count = (rows + 1) * (cols + 1);
-    let grid_spacing_x: f32 = 1.0 / (cols as f32);
-    let grid_spacing_y: f32 = 1.0 / (rows as f32);
-
-    let mut basepoints = Vec::with_capacity((line_count * 2) as usize);
-    let mut line_state =
-        Vec::with_capacity(std::mem::size_of::<LineState>() / 4 * line_count as usize);
-
-    for v in 0..=rows {
-        for u in 0..=cols {
-            basepoints.push(u as f32 * grid_spacing_x);
-            basepoints.push(v as f32 * grid_spacing_y);
-
-            line_state.push(LineState {
-                endpoint: [0.0, 0.0].into(),
-                velocity: [0.0, 0.0].into(),
-                color: [0.0, 0.0, 0.0, 0.0].into(),
-                color_velocity: [0.0, 0.0, 0.0].into(),
-                width: 0.0,
-            });
-        }
+impl ScalingRatio {
+    fn new(columns: u32, rows: u32) -> Self {
+        let x = (columns as f32 / 171.0).max(1.0);
+        let y = (rows as f32 / 171.0).max(1.0);
+        Self { x, y }
     }
 
-    (basepoints, line_state, (cols + 1, rows + 1), line_count)
+    pub fn x(&self) -> f32 {
+        self.x
+    }
+
+    pub fn y(&self) -> f32 {
+        self.y
+    }
+
+    pub fn rounded_x(&self) -> u32 {
+        self.x.round() as u32
+    }
+
+    pub fn rounded_y(&self) -> u32 {
+        self.y.round() as u32
+    }
 }
+
+pub struct Grid {
+    columns: u32,
+    rows: u32,
+    line_count: u32,
+    scaling_ratio: ScalingRatio,
+    basepoints: Vec<f32>,
+    line_state: Vec<LineState>,
+}
+
+impl Grid {
+    fn new(width: u32, height: u32, grid_spacing: u32) -> Self {
+        let height = height as f32;
+        let width = width as f32;
+        let grid_spacing = grid_spacing as f32;
+
+        let columns = f32::floor(width / grid_spacing);
+        let rows = f32::floor((height / width) * columns);
+        let grid_spacing_x: f32 = 1.0 / columns;
+        let grid_spacing_y: f32 = 1.0 / rows;
+
+        let columns = columns as u32 + 1;
+        let rows = rows as u32 + 1;
+        let line_count = rows * columns;
+        let scaling_ratio = ScalingRatio::new(columns, rows);
+
+        let mut basepoints = Vec::with_capacity(2 * line_count as usize);
+        let mut line_state =
+            Vec::with_capacity(std::mem::size_of::<LineState>() / 4 * line_count as usize);
+
+        for v in 0..rows {
+            for u in 0..columns {
+                basepoints.push(u as f32 * grid_spacing_x);
+                basepoints.push(v as f32 * grid_spacing_y);
+
+                line_state.push(LineState {
+                    endpoint: [0.0, 0.0].into(),
+                    velocity: [0.0, 0.0].into(),
+                    color: [0.0, 0.0, 0.0, 0.0].into(),
+                    color_velocity: [0.0, 0.0, 0.0].into(),
+                    width: 0.0,
+                });
+            }
+        }
+
+        Self {
+            columns,
+            rows,
+            scaling_ratio,
+            line_count,
+            basepoints,
+            line_state,
+        }
+    }
+}
+
+static LINE_VERT_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/line.vert"));
+static LINE_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/line.frag"));
+static ENDPOINT_VERT_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/endpoint.vert"));
+static ENDPOINT_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/endpoint.frag"));
+static TEXTURE_VERT_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/texture.vert"));
+static TEXTURE_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/texture.frag"));
+static PLACE_LINES_VERT_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/place_lines.vert"));
+static PLACE_LINES_FRAG_SHADER: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/shaders/place_lines.frag"));
+
+#[rustfmt::skip]
+const LINE_VERTICES: [f32; 12] = [
+    -0.5, 0.0,
+    -0.5, 1.0,
+     0.5, 1.0,
+    -0.5, 0.0,
+     0.5, 1.0,
+     0.5, 0.0,
+];
 
 #[cfg(test)]
 mod test {
@@ -640,9 +700,9 @@ mod test {
     }
 
     fn create_test_grid(logical_size: LogicalSize, grid_spacing: u32) -> (u32, u32) {
-        let (_, _, grid_size, _) =
-            new_line_grid(logical_size.width, logical_size.height, grid_spacing);
-        grid_size
+        let Grid { columns, rows, .. } =
+            Grid::new(logical_size.width, logical_size.height, grid_spacing);
+        (columns, rows)
     }
 
     #[test]
@@ -692,6 +752,16 @@ mod test {
         assert_eq!(
             clamp_logical_size(logical_size.width, logical_size.height),
             (3840, 1600)
+        );
+    }
+
+    #[test]
+    fn is_sane_grid_for_triple_2560_1440() {
+        let logical_size = LogicalSize::new(2560 * 3, 1440);
+        assert_eq!(create_test_grid(logical_size, 15), (513, 97));
+        assert_eq!(
+            clamp_logical_size(logical_size.width, logical_size.height),
+            (logical_size.width, logical_size.height)
         );
     }
 }
