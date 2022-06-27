@@ -59,13 +59,18 @@
           in {
             inherit rustToolchain;
 
-            package = craneLib.buildPackage {
+            package = craneLib.buildPackage rec {
               src = ./.;
               cargoExtraArgs = "-p ${packageName} --target ${targetTriple}";
-              "CARGO_TARGET_${shellEnvTriple}_LINKER" =
-                "${hostPkgs.stdenv.cc.targetPrefix}cc";
+
               # HOST_CC = "${pkgsCross.stdenv.cc.nativePrefix}cc";
+              preConfigure = ''
+                export CARGO_TARGET_${shellEnvTriple}_LINKER=${hostPkgs.stdenv.cc.targetPrefix}cc
+              '';
+
+              shellHook = preConfigure;
               doCheck = false;
+
               buildInputs = lib.optionals hostPkgs.hostPlatform.isWindows
                 (with hostPkgs; [
                   windows.mingw_w64_pthreads
@@ -98,7 +103,7 @@
             src = ./.;
 
             # By default, crane adds the `--workspace` flag to all commands.
-            # This is a bit of an issue, because it builds all the packages in
+            # This is a bit of an issue because it builds all the packages in
             # the workspace, even those that don’t support the wasm32 target (hi
             # glutin).
             cargoBuildCommand = "cargo build --release";
@@ -143,9 +148,8 @@
           packageName = "flux-desktop";
         };
       in {
-        # TODO: set linker env variable
         devShells.crossShell = crossPkgs.mkShell {
-          inputsFrom = [ self.packages.${system}.flux-desktop ];
+          inputsFrom = [ self.packages.${system}.flux-desktop-x86_64-pc-windows-gnu ];
           nativeBuildInputs = [ fluxDesktopCrossWindows.rustToolchain ];
         };
 
