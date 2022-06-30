@@ -28,7 +28,7 @@
           overlays = [ (import rust-overlay) ];
         };
 
-        inherit (pkgs) lib stdenv;
+        inherit (pkgs) lib stdenv stdenvNoCC;
 
         rustToolchain = pkgs.rust-bin.stable.latest.default.override {
           targets = [ "wasm32-unknown-unknown" ];
@@ -90,6 +90,11 @@
 
         formatter = pkgs.nixfmt;
 
+        apps.default = flake-utils.lib.mkApp {
+          name = "flux-desktop";
+          drv = packages.flux-desktop-wrapped;
+        };
+
         packages = {
           default = packages.flux-web;
 
@@ -115,6 +120,34 @@
 
           flux-web = pkgs.callPackage ./web/default.nix {
             inherit (packages) flux-wasm;
+          };
+
+          flux-desktop-wrapped = let
+            runtimeLibraries = with pkgs;
+              [ wayland
+                wayland-protocols
+                libxkbcommon
+                xorg.libX11
+                xorg.libXcursor
+                xorg.libXrandr
+                xorg.libXi
+                xorg.libxcb
+                libGL
+              ];
+          in
+          # Can’t use symlinkJoin because of the hooks are passed to the
+          # dependency-only build.
+          stdenvNoCC.mkDerivation {
+            name = "flux-desktop-wrapped";
+            inherit (packages.flux-desktop) version;
+            nativeBuildInputs = [ pkgs.makeWrapper ];
+            buildCommand = ''
+              mkdir -p $out/bin
+              cp ${packages.flux-desktop}/bin/flux-desktop $out/bin
+              wrapProgram $out/bin/flux-desktop \
+                --prefix LD_LIBRARY_PATH : ${pkgs.lib.makeLibraryPath runtimeLibraries}
+            '';
+            passthru.unwrapped = packages.flux-desktop;
           };
 
           flux-desktop = craneLib.buildPackage {
