@@ -37,6 +37,14 @@ This is an attempt at capturing that magic and bottling it up in a more portable
 > “You’re the first person I’ve seen take this much of an interest in how we made Drift and it looks like you nailed it… minus maybe one or two little elements that give it some extra magic 😉 Great work!”
 > — anonymous Apple employee
 
+## Samples
+
+![A render of Flux in all 4 default color schemes](https://assets.sandydoo.me/flux/samples/flux-all-at-1280-800-logical.webp)
+![A render of Flux in the “Original” color scheme](https://assets.sandydoo.me/flux/samples/flux-original-at-1280-800-logical.webp)
+![A render of Flux in the “Plasma” color scheme](https://assets.sandydoo.me/flux/samples/flux-plasma-at-1280-800-logical.webp)
+![A render of Flux in the “Poolside” color scheme](https://assets.sandydoo.me/flux/samples/flux-poolside-at-1280-800-logical.webp)
+![A render of Flux in the “Freedom” color scheme](https://assets.sandydoo.me/flux/samples/flux-freedom-at-1280-800-logical.webp)
+
 ## Build
 
 ### Using Nix
