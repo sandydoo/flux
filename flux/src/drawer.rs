@@ -363,14 +363,6 @@ impl Drawer {
             .buffer_data();
 
         unsafe {
-            self.context.viewport(
-                0,
-                0,
-                self.physical_width as i32,
-                self.physical_height as i32,
-            );
-            self.context.disable(glow::BLEND);
-
             self.place_lines_pass.use_program();
             self.place_lines_buffers[self.line_state_buffers.active_buffer].bind();
             self.line_uniforms.bind();
