@@ -40,6 +40,9 @@ pub enum Problem {
     #[error("Cannot link program: {0}")]
     CannotLinkProgram(String),
 
+    #[error("One of the framebuffers is incomplete")]
+    FramebufferIncomplete,
+
     #[error("Cannot write to texture")]
     CannotWriteToTexture,
 
@@ -259,7 +262,6 @@ impl Framebuffer {
             self.context
                 .bind_texture(glow::TEXTURE_2D, Some(self.texture));
 
-            // let array = js_sys::Float32Array::view(data);
             self.context.tex_image_2d(
                 glow::TEXTURE_2D,
                 0,
@@ -284,6 +286,13 @@ impl Framebuffer {
                 Some(self.texture),
                 0,
             );
+
+            if self.context.check_framebuffer_status(glow::FRAMEBUFFER)
+                != glow::FRAMEBUFFER_COMPLETE
+            {
+                return Err(Problem::FramebufferIncomplete);
+            }
+
             self.context.bind_framebuffer(glow::FRAMEBUFFER, None);
         }
 
@@ -443,14 +452,21 @@ impl TransformFeedback {
             let framebuffer = context
                 .create_framebuffer()
                 .map_err(|_| Problem::CannotCreateFramebuffer)?;
-            context.bind_framebuffer(glow::FRAMEBUFFER, Some(framebuffer));
+            context.bind_framebuffer(glow::DRAW_FRAMEBUFFER, Some(framebuffer));
             context.framebuffer_renderbuffer(
-                glow::FRAMEBUFFER,
+                glow::DRAW_FRAMEBUFFER,
                 glow::COLOR_ATTACHMENT0,
                 glow::RENDERBUFFER,
                 Some(renderbuffer),
             );
-            context.bind_framebuffer(glow::FRAMEBUFFER, None);
+
+            if context.check_framebuffer_status(glow::DRAW_FRAMEBUFFER)
+                != glow::FRAMEBUFFER_COMPLETE
+            {
+                return Err(Problem::FramebufferIncomplete);
+            }
+
+            context.bind_framebuffer(glow::DRAW_FRAMEBUFFER, None);
             context.bind_renderbuffer(glow::RENDERBUFFER, None);
 
             (renderbuffer, framebuffer)
@@ -477,7 +493,7 @@ impl TransformFeedback {
     {
         unsafe {
             self.context
-                .bind_framebuffer(glow::FRAMEBUFFER, Some(self.framebuffer));
+                .bind_framebuffer(glow::DRAW_FRAMEBUFFER, Some(self.framebuffer));
             self.context
                 .bind_transform_feedback(glow::TRANSFORM_FEEDBACK, Some(self.feedback));
 
@@ -491,7 +507,7 @@ impl TransformFeedback {
             self.context
                 .bind_transform_feedback(glow::TRANSFORM_FEEDBACK, None);
             self.context.disable(glow::RASTERIZER_DISCARD);
-            self.context.bind_framebuffer(glow::FRAMEBUFFER, None);
+            self.context.bind_framebuffer(glow::DRAW_FRAMEBUFFER, None);
         }
     }
 }
