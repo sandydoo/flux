@@ -109,6 +109,11 @@ impl Flux {
     }
 
     pub fn animate(&mut self, timestamp: f64) {
+        self.compute(timestamp);
+        self.render();
+    }
+
+    pub fn compute(&mut self, timestamp: f64) {
         // The delta time in seconds
         let timestep = f32::min(
             MAX_FRAME_TIME,
@@ -148,7 +153,9 @@ impl Flux {
         // this worth fixing?
         self.drawer
             .place_lines(&self.fluid.get_velocity(), self.elapsed_time, timestep);
+    }
 
+    pub fn render(&self) {
         unsafe {
             self.context.clear_color(0.0, 0.0, 0.0, 1.0);
             self.context.clear(glow::COLOR_BUFFER_BIT);

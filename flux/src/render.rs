@@ -395,6 +395,11 @@ pub struct TransformFeedback {
     context: Context,
     pub feedback: glow::TransformFeedback,
     pub buffer: Buffer,
+
+    // Transform feedback requires a backing store. In case we’re in a headless
+    // environment, just bind a 1x1 renderbuffer and don’t worry about it.
+    framebuffer: glow::Framebuffer,
+    renderbuffer: glow::Renderbuffer,
 }
 
 impl Drop for TransformFeedback {
@@ -407,6 +412,9 @@ impl Drop for TransformFeedback {
             self.context
                 .bind_transform_feedback(glow::TRANSFORM_FEEDBACK, None);
             self.context.delete_transform_feedback(self.feedback);
+
+            self.context.delete_framebuffer(self.framebuffer);
+            self.context.delete_renderbuffer(self.renderbuffer);
         }
     }
 }
@@ -426,10 +434,34 @@ impl TransformFeedback {
             context.bind_transform_feedback(glow::TRANSFORM_FEEDBACK, None);
         }
 
+        let (renderbuffer, framebuffer) = unsafe {
+            let renderbuffer = context
+                .create_renderbuffer()
+                .map_err(|_| Problem::CannotCreateRenderbuffer)?;
+            context.bind_renderbuffer(glow::RENDERBUFFER, Some(renderbuffer));
+            context.renderbuffer_storage(glow::RENDERBUFFER, glow::RGB8, 1, 1);
+            let framebuffer = context
+                .create_framebuffer()
+                .map_err(|_| Problem::CannotCreateFramebuffer)?;
+            context.bind_framebuffer(glow::FRAMEBUFFER, Some(framebuffer));
+            context.framebuffer_renderbuffer(
+                glow::FRAMEBUFFER,
+                glow::COLOR_ATTACHMENT0,
+                glow::RENDERBUFFER,
+                Some(renderbuffer),
+            );
+            context.bind_framebuffer(glow::FRAMEBUFFER, None);
+            context.bind_renderbuffer(glow::RENDERBUFFER, None);
+
+            (renderbuffer, framebuffer)
+        };
+
         Ok(Self {
             context: Rc::clone(context),
             feedback,
             buffer,
+            framebuffer,
+            renderbuffer,
         })
     }
 
@@ -445,6 +477,8 @@ impl TransformFeedback {
     {
         unsafe {
             self.context
+                .bind_framebuffer(glow::FRAMEBUFFER, Some(self.framebuffer));
+            self.context
                 .bind_transform_feedback(glow::TRANSFORM_FEEDBACK, Some(self.feedback));
 
             self.context.enable(glow::RASTERIZER_DISCARD);
@@ -456,6 +490,7 @@ impl TransformFeedback {
             self.context
                 .bind_transform_feedback(glow::TRANSFORM_FEEDBACK, None);
             self.context.disable(glow::RASTERIZER_DISCARD);
+            self.context.bind_framebuffer(glow::FRAMEBUFFER, None);
         }
     }
 }
