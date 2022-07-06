@@ -481,6 +481,7 @@ impl TransformFeedback {
             self.context
                 .bind_transform_feedback(glow::TRANSFORM_FEEDBACK, Some(self.feedback));
 
+            self.context.viewport(0, 0, 1, 1);
             self.context.enable(glow::RASTERIZER_DISCARD);
             self.context.begin_transform_feedback(glow::POINTS);
 
