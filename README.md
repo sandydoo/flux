@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://flux.sandydoo.me/">
-    <img width="100%" src="https://github.com/sandydoo/gif-storage/blob/main/flux/social-header-2022-06-27.webp" alt="Flux" />
+    <img width="100%" src="https://assets.sandydoo.me/flux/social-header-2022-07-07.webp" alt="Flux" />
   </a>
 
   <p align="center"><b>A open-source tribute to the macOS Drift screensaver.</b></p>
