@@ -10,7 +10,7 @@
     &nbsp;·&nbsp;
     <a href="https://flux.sandydoo.me/">Launch&nbsp;in&nbsp;browser</a>
     &nbsp;·&nbsp;
-    <a href="https://www.youtube.com/watch?v=rH_Q7kbSntM">Watch&nbsp;recording</a>
+    <a href="https://www.youtube.com/watch?v=dURktAeZDa8">Watch&nbsp;recording</a>
     &nbsp;·&nbsp;
     <a href="https://twitter.com/sandy_doo/">Follow&nbsp;me&nbsp;on&nbsp;Twitter</a>
     &nbsp;·&nbsp;
