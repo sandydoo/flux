@@ -23,3 +23,5 @@ rand = { version = "0.8.5", features = ["getrandom"] }
 rustc-hash = "1.1"
 serde = { version = "1", features = ["derive"] }
 thiserror = "1"
+rand_seeder = "0.2.3"
+rand_pcg = "0.3.1"

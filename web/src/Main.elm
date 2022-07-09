@@ -45,6 +45,7 @@ type alias Model =
 
 type alias Settings =
     { mode : Mode
+    , seed : Maybe String
     , fluidSize : Int
     , fluidFrameRate : Int
     , fluidTimestep : Float
@@ -94,6 +95,7 @@ type alias Noise =
 defaultSettings : Settings
 defaultSettings =
     { mode = Normal
+    , seed = Nothing
     , fluidSize = 128
     , fluidFrameRate = 60
     , fluidTimestep = 1.0 / 60.0
@@ -777,6 +779,7 @@ encodeSettings : Settings -> Encode.Value
 encodeSettings settings =
     Encode.object
         [ ( "mode", encodeMode settings.mode )
+        , ( "seed", settings.seed |> Maybe.map Encode.string |> Maybe.withDefault Encode.null )
         , ( "fluidSize", Encode.int settings.fluidSize )
         , ( "fluidFrameRate", Encode.int settings.fluidFrameRate )
         , ( "fluidTimestep", Encode.float settings.fluidTimestep )

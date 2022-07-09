@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
     pub mode: Mode,
+    pub seed: Option<String>,
 
     pub fluid_size: u32,
     pub fluid_frame_rate: f32,

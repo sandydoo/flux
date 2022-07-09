@@ -1,4 +1,4 @@
-use crate::{drawer, fluid, noise, render, settings};
+use crate::{drawer, fluid, noise, render, rng, settings};
 use drawer::Drawer;
 use fluid::Fluid;
 use noise::{NoiseGenerator, NoiseGeneratorBuilder};
@@ -62,8 +62,12 @@ impl Flux {
         let fluid =
             Fluid::new(context, drawer.scaling_ratio(), settings).map_err(Problem::CannotRender)?;
 
-        let mut noise_generator_builder =
-            NoiseGeneratorBuilder::new(context, 2 * settings.fluid_size, drawer.scaling_ratio());
+        let mut noise_generator_builder = NoiseGeneratorBuilder::new(
+            context,
+            rng::from_seed(&settings.seed),
+            2 * settings.fluid_size,
+            drawer.scaling_ratio(),
+        );
         settings.noise_channels.iter().for_each(|channel| {
             noise_generator_builder.add_channel(channel);
         });

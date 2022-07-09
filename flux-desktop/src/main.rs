@@ -14,6 +14,7 @@ fn main() {
 
     let settings = Settings {
         mode: Mode::Normal,
+        seed: None,
         fluid_size: 128,
         fluid_frame_rate: 60.0,
         fluid_timestep: 1.0 / 60.0,
