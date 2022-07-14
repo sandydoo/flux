@@ -1,18 +1,24 @@
-// A common module to handle anything and everything psuedo-random that happens
+// A common module to handle anything and everything pseudo-random that happens
 // in Flux.
 //
 // We want to have the option of seeding our RNGs to generate determentistic
 // output for testing.
 
-use rand::distributions::Alphanumeric;
+use rand::distributions::{Alphanumeric, Standard};
 use rand::prelude::*;
 use rand_pcg::Pcg32;
 use rand_seeder::Seeder;
+use std::cell::RefCell;
+use std::thread_local;
 
-pub use rand::Rng;
-pub type FRng = Pcg32;
+thread_local!(
+    static FLUX_RNG: RefCell<Pcg32> = {
+        let rng = Pcg32::from_rng(thread_rng()).expect("Cannot initialize random number generator");
+        RefCell::new(rng)
+    }
+);
 
-pub fn from_seed(optional_seed: &Option<String>) -> FRng {
+pub fn init_from_seed(optional_seed: &Option<String>) {
     let seed = optional_seed.as_ref().cloned().unwrap_or_else(|| {
         thread_rng()
             .sample_iter(&Alphanumeric)
@@ -21,5 +27,12 @@ pub fn from_seed(optional_seed: &Option<String>) -> FRng {
             .collect()
     });
 
-    Seeder::from(seed).make_rng()
+    FLUX_RNG.with(|rng| rng.replace(Seeder::from(seed).make_rng()));
+}
+
+pub fn gen<T>() -> T
+where
+    Standard: Distribution<T>,
+{
+    FLUX_RNG.with(|rng| rng.borrow_mut().gen::<T>())
 }
