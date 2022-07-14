@@ -3,7 +3,6 @@ use render::{
     Buffer, Context, DoubleFramebuffer, Framebuffer, Program, TextureOptions, Uniform,
     UniformArray, UniformBlock, UniformValue, VertexArrayObject, VertexBufferLayout,
 };
-use rng::Rng;
 
 use crevice::std140::AsStd140;
 use glow::HasContext;
@@ -121,22 +120,15 @@ impl NoiseGenerator {
 
 pub struct NoiseGeneratorBuilder {
     context: Context,
-    rng: rng::FRng,
     size: u32,
     scaling_ratio: drawer::ScalingRatio,
     channels: Vec<NoiseChannel>,
 }
 
 impl NoiseGeneratorBuilder {
-    pub fn new(
-        context: &Context,
-        rng: rng::FRng,
-        size: u32,
-        scaling_ratio: drawer::ScalingRatio,
-    ) -> Self {
+    pub fn new(context: &Context, size: u32, scaling_ratio: drawer::ScalingRatio) -> Self {
         NoiseGeneratorBuilder {
             context: Rc::clone(context),
-            rng,
             size,
             scaling_ratio,
             channels: Vec::new(),
@@ -147,7 +139,7 @@ impl NoiseGeneratorBuilder {
         self.channels.push(NoiseChannel {
             settings: channel.clone(),
             scale: channel.scale,
-            offset_1: 4.0 * self.rng.gen::<f32>(),
+            offset_1: 4.0 * rng::gen::<f32>(),
             offset_2: 0.0,
             blend_factor: 0.0,
         });
