@@ -81,6 +81,10 @@ fn main() {
             }
 
             Event::WindowEvent { ref event, .. } => match event {
+                WindowEvent::DroppedFile(path) => {
+                    let img = std::fs::read(path).unwrap();
+                    flux.sample_colors_from_image(&img);
+                }
                 WindowEvent::Resized(physical_size) => {
                     window.resize(*physical_size);
                     let logical_size = physical_size.to_logical(window.window().scale_factor());
@@ -127,6 +131,8 @@ pub fn get_rendering_context(
     let window = glutin::ContextBuilder::new()
         .with_vsync(true)
         .with_multisampling(0)
+        .with_srgb(true)
+        .with_pixel_format(24, 8)
         .with_double_buffer(Some(true))
         .with_gl_profile(glutin::GlProfile::Core)
         .build_windowed(window_builder, &event_loop)
@@ -135,6 +141,9 @@ pub fn get_rendering_context(
 
     let gl =
         unsafe { glow::Context::from_loader_function(|s| window.get_proc_address(s) as *const _) };
+
+    // use glow::HasContext;
+    // unsafe { gl.enable(glow::FRAMEBUFFER_SRGB) }
 
     (gl, window, event_loop)
 }

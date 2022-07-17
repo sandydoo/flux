@@ -31,9 +31,9 @@ layout(std140) uniform LineUniforms
   highp float deltaTime;
 };
 
-uniform mediump vec4 uColorWheel[6];
 
 uniform sampler2D velocityTexture;
+uniform sampler2D colorTexture;
 
 // Transform feedback output.
 //
@@ -167,23 +167,33 @@ void main() {
   vLineWidth = widthBoost * widthBoost * (3.0 - widthBoost * 2.0);
 
   vec3 color;
+  float colorMomentumBoost;
+  float colorDeltaBoost;
+
   switch (colorMode) {
     case 0u:
       color = vec3(clamp(vec2(1.0, 0.66) * (0.5 + velocity), 0.0, 1.0), 0.5);
+      colorMomentumBoost = 3.0;
+      colorDeltaBoost = 90.0;
       break;
 
     case 1u:
-      float angle = atan(velocity.x, velocity.y);
-      color = getColor(uColorWheel, angle).rgb;
+      color = texture(colorTexture, 2.0 * velocity + 0.5).rgb;
+      colorMomentumBoost = 5.0;
+      colorDeltaBoost = 10.0;
+
+      // colorMomentumBoost = 3.0;
+      // colorDeltaBoost = 90.0;
       break;
   }
-
-  float colorMomentumBoost = 3.0;
-  float colorDeltaBoost = 90.0;
 
   vColorVelocity
     = iColorVelocity * (1.0 - colorMomentumBoost * deltaTime)
     + (color.rgb - iColor.rgb) * colorDeltaBoost * deltaTime;
 
-  vColor = vec4(clamp(iColor.rgb + deltaTime * vColorVelocity, 0.0, 1.0), widthBoost);
+  vColor = vec4(
+    clamp(iColor.rgb + deltaTime * vColorVelocity, 0.0, 1.0),
+    // smoothstep(length(velocity), 0.0, 0.2)
+    widthBoost
+  );
 }

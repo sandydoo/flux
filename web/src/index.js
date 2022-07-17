@@ -1,9 +1,9 @@
 import  { Flux } from "../flux";
 import { Elm } from "./Main.elm";
 
-function setupFlux() {
-  let flux;
+let flux;
 
+function setupFlux() {
   // Set up Elm UI
   const ui = Elm.Main.init({
     node: document.getElementById("controls"),
@@ -33,4 +33,29 @@ function setupFlux() {
   });
 }
 
+async function chooseImage(input) {
+  const pickerOpts = {
+      types: [
+        {
+          description: 'Images',
+          accept: {
+            'image/*': ['.png', '.gif', '.jpeg', '.jpg']
+          }
+        },
+      ],
+      excludeAcceptAllOption: true,
+      multiple: false
+    };
+    let file = input.files[0];
+    let image = new Image();
+    image.src = URL.createObjectURL(file);
+    await image.decode();
+    let width = image.width;
+    let height = image.height;
+    console.log(width, height, file.size);
+    let buffer = new Uint8Array(await file.arrayBuffer());
+    console.log(buffer.length);
+    flux.sample_colors_from_image(buffer);
+}
+window.chooseImage = chooseImage;
 window.addEventListener("DOMContentLoaded", setupFlux());

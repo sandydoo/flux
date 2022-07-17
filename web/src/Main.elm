@@ -3,6 +3,8 @@ port module Main exposing (..)
 import Array exposing (Array)
 import Browser
 import Browser.Events as BrowserEvent
+import File exposing (File)
+import File.Select as Select
 import FormatNumber as F
 import FormatNumber.Locales as F
 import Html exposing (Html)
@@ -12,6 +14,7 @@ import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Pipeline as Decode
 import Json.Encode as Encode
 import Set exposing (Set)
+import Task
 
 
 
@@ -41,6 +44,7 @@ main =
 type alias Model =
     { isOpen : Bool
     , settings : Settings
+    , image : Maybe String
     }
 
 
@@ -83,6 +87,7 @@ type ColorScheme
     | Plasma
     | Poolside
     | Freedom
+    | FromImage String
 
 
 type alias Noise =
@@ -134,6 +139,7 @@ init _ =
         model =
             { isOpen = False
             , settings = defaultSettings
+            , image = Nothing
             }
     in
     ( model
@@ -148,6 +154,9 @@ init _ =
 type Msg
     = ToggleControls
     | SaveSetting SettingMsg
+    | ImageRequested
+    | ImageSelected File
+    | ImageLoaded String
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -164,6 +173,19 @@ update msg model =
             ( { model | settings = newSettings }
             , setSettings (encodeSettings newSettings)
             )
+
+        ImageRequested ->
+            ( model
+            , Select.file [ "image/jpg ", "image/png" ] ImageSelected
+            )
+
+        ImageSelected file ->
+            ( model
+            , Task.perform ImageLoaded (File.toUrl file)
+            )
+
+        ImageLoaded content ->
+            ( { model | image = Just content }, Cmd.none )
 
 
 type SettingMsg
@@ -333,7 +355,7 @@ view model =
             ]
             [ Html.div
                 [ HA.class "control-container" ]
-                [ viewSettings model.settings ]
+                [ viewSettings model ]
             ]
         , Html.footer []
             [ Html.ul [ HA.class "nav" ]
@@ -366,8 +388,10 @@ view model =
         ]
 
 
-viewSettings : Settings -> Html Msg
-viewSettings settings =
+viewSettings : Model -> Html Msg
+viewSettings model =
+    let settings = model.settings
+    in
     Html.ul
         [ HA.class "control-list" ]
     <|
@@ -395,6 +419,16 @@ viewSettings settings =
             , ( "Plasma", Plasma )
             , ( "Poolside", Poolside )
             , ( "🇺🇦", Freedom )
+            --, ( "Custom", FromImage )
+            ]
+        , Html.div [ HA.class "col-span-2-md" ]
+            [ Html.button [ HA.type_ "button", Event.onClick ImageRequested ] [ Html.text "Choose image" ]
+            , case model.image of
+                Just content ->
+                    Html.img [ HA.style "max-width" "100%", HA.src content ] []
+
+                Nothing ->
+                    Html.div [] []
             ]
         , Html.h2
             [ HA.class "col-span-2-md" ]
@@ -838,8 +872,11 @@ encodeClearPressure clearPressure =
 
 
 encodeColorScheme : ColorScheme -> Encode.Value
-encodeColorScheme =
-    colorSchemeToString >> Encode.string
+encodeColorScheme colorscheme =
+    case colorscheme of
+        FromImage path -> Encode.object [ ("FromImage", Encode.string path) ]
+        _ -> Encode.string "Peacock"
+    --colorSchemeToString >> Encode.string
 
 
 colorSchemeToString : ColorScheme -> String
@@ -856,6 +893,9 @@ colorSchemeToString colorscheme =
 
         Freedom ->
             "Freedom"
+
+        FromImage _ ->
+            "FromImage"
 
 
 encodeNoise : Noise -> Encode.Value

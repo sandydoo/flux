@@ -39,6 +39,10 @@ impl Flux {
         self.fluid_update_interval = 1.0 / settings.fluid_frame_rate;
     }
 
+    pub fn sample_colors_from_image(&mut self, encoded_bytes: &[u8]) {
+        self.drawer.set_color_texture(encoded_bytes).unwrap();
+    }
+
     pub fn new(
         context: &render::Context,
         logical_width: u32,

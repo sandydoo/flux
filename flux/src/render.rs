@@ -248,15 +248,26 @@ impl Framebuffer {
             size,
         } = detect_texture_format(self.options.format)?;
 
-        let expected_size = size * ((self.width * self.height) as usize);
         if let Some(buffer) = data {
-            if buffer.len() != expected_size {
-                return Err(Problem::WrongDataSize {
-                    expected: expected_size,
-                    actual: buffer.len(),
-                });
-            }
+            log::debug!("{}", buffer.len());
+            log::debug!(
+                "{}, {}, {}, {}, {}",
+                internal_format,
+                format,
+                type_,
+                size,
+                size * (self.width * self.height) as usize
+            );
         }
+        // let expected_size = size * ((self.width * self.height) as usize);
+        // if let Some(buffer) = data {
+        //     if buffer.len() != expected_size {
+        //         return Err(Problem::WrongDataSize {
+        //             expected: expected_size,
+        //             actual: buffer.len(),
+        //         });
+        //     }
+        // }
 
         unsafe {
             self.context
@@ -878,6 +889,18 @@ struct TextureFormat {
 // https://www.khronos.org/registry/webgl/specs/latest/2.0/#TEXTURE_TYPES_FORMATS_FROM_DOM_ELEMENTS_TABLE
 fn detect_texture_format(internal_format: GlDataType) -> Result<TextureFormat> {
     match internal_format {
+        glow::RGB | glow::RGB8 | glow::SRGB8 => Ok(TextureFormat {
+            internal_format,
+            format: glow::RGB,
+            type_: glow::UNSIGNED_BYTE,
+            size: 3,
+        }),
+        glow::RGBA | glow::RGBA8 => Ok(TextureFormat {
+            internal_format,
+            format: glow::RGBA,
+            type_: glow::UNSIGNED_BYTE,
+            size: 4,
+        }),
         glow::R16F => Ok(TextureFormat {
             internal_format,
             format: glow::RED,

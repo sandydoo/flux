@@ -24,6 +24,10 @@ impl Flux {
         self.instance.update(&Rc::new(settings));
     }
 
+    pub fn sample_colors_from_image(&mut self, encoded_bytes: &[u8]) {
+        self.instance.sample_colors_from_image(encoded_bytes);
+    }
+
     #[wasm_bindgen(constructor)]
     pub fn new(settings_object: &JsValue) -> Result<Flux, JsValue> {
         console_log::init_with_level(log::Level::Debug).expect("cannot enable logging");
