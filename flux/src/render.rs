@@ -381,16 +381,17 @@ impl DoubleFramebuffer {
     where
         T: Fn(&Framebuffer),
     {
-        let framebuffer = self.next();
+        {
+            let framebuffer = self.next();
 
-        unsafe {
-            context.bind_framebuffer(glow::DRAW_FRAMEBUFFER, Some(framebuffer.id));
-            context.viewport(0, 0, framebuffer.width as i32, framebuffer.height as i32);
-            draw_call(&self.current());
-            context.bind_framebuffer(glow::DRAW_FRAMEBUFFER, None);
+            unsafe {
+                context.bind_framebuffer(glow::DRAW_FRAMEBUFFER, Some(framebuffer.id));
+                context.viewport(0, 0, framebuffer.width as i32, framebuffer.height as i32);
+                draw_call(&self.current());
+                context.bind_framebuffer(glow::DRAW_FRAMEBUFFER, None);
+            }
         }
 
-        drop(framebuffer);
         self.swap();
     }
 
