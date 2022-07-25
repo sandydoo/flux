@@ -19,16 +19,18 @@ module.exports = (env, argv) => {
     },
 
     module: {
-      rules: [{
-        test: /\.elm$/,
-        exclude: [/elm-stuff/],
-        use: {
-          loader: 'elm-webpack-loader',
-          options: {
-            pathToElm,
+      rules: [
+        {
+            test: /\.elm$/,
+            exclude: [/elm-stuff/],
+            use: {
+              loader: 'elm-webpack-loader',
+              options: {
+                pathToElm,
+              },
+            },
           },
-        },
-      }],
+      ],
     },
 
     plugins: [

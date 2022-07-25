@@ -7,7 +7,8 @@ use web_sys::Window;
 
 #[wasm_bindgen]
 pub struct Flux {
-    canvas: Canvas,
+    //canvas: Canvas,
+    canvas: web_sys::OffscreenCanvas,
     #[allow(dead_code)]
     context: Rc<glow::Context>,
     logical_width: u32,
@@ -25,24 +26,26 @@ impl Flux {
     }
 
     #[wasm_bindgen(constructor)]
-    pub fn new(settings_object: &JsValue) -> Result<Flux, JsValue> {
+    pub fn new(
+        canvas: web_sys::OffscreenCanvas,
+        settings_object: &JsValue,
+    ) -> Result<Flux, JsValue> {
         console_log::init_with_level(log::Level::Debug).expect("cannot enable logging");
 
-        let (
-            canvas,
-            gl,
-            logical_width,
-            logical_height,
-            physical_width,
-            physical_height,
-            pixel_ratio,
-        ) = get_rendering_context("canvas")?;
+        use wasm_bindgen::JsCast;
+        //let canvas = *canvas.dyn_into::<web_sys::OffscreenCanvas>()?;
+        let gl = get_context(&canvas)?;
         let context = Rc::new(gl);
         let settings: Rc<settings::Settings> = match settings_object.into_serde() {
             Ok(settings) => Rc::new(settings),
             Err(msg) => return Err(JsValue::from_str(&msg.to_string())),
         };
 
+        let logical_width = 1280;
+        let logical_height = 800;
+        let physical_width = 2560;
+        let physical_height = 1600;
+        let pixel_ratio = 1.0;
         let flux = flux::Flux::new(
             &context,
             logical_width,
@@ -85,6 +88,49 @@ impl Flux {
             self.logical_width = logical_width;
             self.logical_height = logical_height;
         }
+    }
+}
+
+#[wasm_bindgen]
+pub fn startup() {
+    //let worker = Worker::new("./flux.js").unwrap();
+}
+
+pub fn get_context(canvas: &web_sys::OffscreenCanvas) -> Result<glow::Context, JsValue> {
+    use wasm_bindgen::JsCast;
+    use web_sys::WebGl2RenderingContext as GL;
+
+    let options = ContextOptions {
+        // Disabling alpha can lead to poor performance on some platforms.
+        alpha: true,
+        depth: false,
+        stencil: false,
+        desynchronized: false,
+        antialias: false,
+        fail_if_major_performance_caveat: false,
+        // TODO: Revert to high-performance once dual-GPU issues on Chrome are
+        // resolved.
+        power_preference: "default",
+        premultiplied_alpha: true,
+        preserve_drawing_buffer: false,
+    }
+    .serialize();
+
+    if let Ok(Some(gl)) = canvas.get_context_with_context_options("webgl2", &options) {
+        let gl = gl.dyn_into::<GL>()?;
+        gl.get_extension("OES_texture_float")?;
+        gl.get_extension("OES_texture_float_linear")?;
+        gl.get_extension("EXT_color_buffer_float")?;
+        gl.get_extension("EXT_float_blend")?;
+
+        gl.disable(GL::BLEND);
+        gl.disable(GL::DEPTH_TEST);
+
+        Ok(glow::Context::from_webgl2_context(gl))
+    } else {
+        Err(JsValue::from_str(
+            "Can’t create the WebGl2 rendering context",
+        ))
     }
 }
 

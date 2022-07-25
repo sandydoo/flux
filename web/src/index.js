@@ -1,36 +1,38 @@
-import  { Flux } from "../flux";
 import { Elm } from "./Main.elm";
 
-function setupFlux() {
-  let flux;
+async function setupFlux() {
+    let flux;
 
-  // Set up Elm UI
-  const ui = Elm.Main.init({
-    node: document.getElementById("controls"),
-  });
-
-  // Initialize WASM and run animation
-  ui.ports.initFlux.subscribe(function (settings) {
-    flux = new Flux(settings);
-
-    function animate(timestamp) {
-      flux.animate(timestamp);
-      window.requestAnimationFrame(animate);
-    }
-
-    const resizeObserver = new ResizeObserver(([entry]) => {
-      let { width, height } = entry.contentRect;
-      flux.resize(width, height);
+    // Set up Elm UI
+    const ui = Elm.Main.init({
+        node: document.getElementById("controls"),
     });
-    resizeObserver.observe(document.getElementById("canvas"));
 
-    window.requestAnimationFrame(animate);
-  });
+    ui.ports.initFlux.subscribe(function(settings) {
+        console.log("Elm init");
+        flux = new Worker(new URL('./flux.js', import.meta.url));
 
-  // Update settings
-  ui.ports.setSettings.subscribe(function (newSettings) {
-    flux.settings = newSettings;
-  });
+        let canvas = document.getElementById("canvas");
+        let logical_width = canvas.clientWidth;
+        let logical_height = canvas.clientHeight;
+        let pixel_ratio = window.devicePixelRatio;
+        let physical_width = logical_width * pixel_ratio;
+        let physical_height = logical_height * pixel_ratio;
+        canvas.width = physical_width;
+        canvas.height = physical_height;
+
+        let offscreen = canvas.transferControlToOffscreen();
+        console.log(offscreen);
+        setTimeout(() => {
+            flux.postMessage({ canvas: offscreen, settings }, [offscreen]);
+        }, 500);
+    });
+
+    // Update settings
+    ui.ports.setSettings.subscribe(function(settings) {
+        // console.log("Elm update");
+        flux.postMessage({ settings });
+    });
 }
 
 window.addEventListener("DOMContentLoaded", setupFlux());
