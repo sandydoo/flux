@@ -8,9 +8,10 @@ import FormatNumber.Locales as F
 import Html exposing (Html)
 import Html.Attributes as HA
 import Html.Events as Event
-import Json.Decode as Decode
+import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Pipeline as Decode
 import Json.Encode as Encode
+import Set exposing (Set)
 
 
 
@@ -254,14 +255,37 @@ updateNoise msg noise =
 
 subscriptions : Model -> Sub Msg
 subscriptions { isOpen } =
-    if isOpen then
-        Sub.batch
-            [ BrowserEvent.onKeyDown (decodeKeyCode "Escape" ToggleControls)
-            , BrowserEvent.onKeyDown (decodeKeyCode "KeyC" ToggleControls)
-            ]
+    BrowserEvent.onKeyDown
+        (Decode.field "key" Decode.string
+            |> Decode.andThen (toggleControlsOnKey isOpen)
+        )
+
+
+keysThatOpenControls : Set String
+keysThatOpenControls =
+    Set.fromList [ "c" ]
+
+
+keysThatCloseControls : Set String
+keysThatCloseControls =
+    Set.insert "escape" keysThatOpenControls
+
+
+toggleControlsOnKey : Bool -> String -> Decoder Msg
+toggleControlsOnKey isOpen key =
+    let
+        activeKeys =
+            if isOpen then
+                keysThatCloseControls
+
+            else
+                keysThatOpenControls
+    in
+    if Set.member (String.toLower key) activeKeys then
+        Decode.succeed ToggleControls
 
     else
-        BrowserEvent.onKeyDown (decodeKeyCode "KeyC" ToggleControls)
+        Decode.fail ""
 
 
 
@@ -758,19 +782,6 @@ toKebabcase =
 
 
 -- JSON
-
-
-decodeKeyCode : String -> msg -> Decode.Decoder msg
-decodeKeyCode key msg =
-    Decode.field "code" Decode.string
-        |> Decode.andThen
-            (\string ->
-                if string == key then
-                    Decode.succeed msg
-
-                else
-                    Decode.fail ""
-            )
 
 
 encodeSettings : Settings -> Encode.Value
