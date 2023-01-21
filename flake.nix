@@ -1,6 +1,7 @@
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-22.11";
+    nixpkgs-master.url = "github:NixOS/nixpkgs/master";
     flake-utils.url = "github:numtide/flake-utils";
     crane = {
       url = "github:ipetkov/crane";
@@ -18,7 +19,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, flake-utils, crane, rust-overlay }:
+  outputs = { self, nixpkgs, nixpkgs-master, flake-utils, crane, rust-overlay, ... }:
     flake-utils.lib.eachSystem [
       "aarch64-darwin"
       "aarch64-linux"
@@ -123,6 +124,9 @@
 
           flux-web = pkgs.callPackage ./web/default.nix {
             inherit (packages) flux-wasm;
+            # Remove once released
+            # https://github.com/NixOS/nixpkgs/pull/197185
+            inherit (nixpkgs-master.legacyPackages.${system}) mkYarnPackage;
           };
 
           flux-desktop-wrapped = let
