@@ -332,12 +332,25 @@ impl Drawer {
     }
 
     pub fn set_color_texture(&mut self, encoded_bytes: &[u8]) -> Result<(), render::Problem> {
+        log::debug!("Decoding image");
+
         let mut img = image::load_from_memory(encoded_bytes).unwrap();
         if u32::max(img.width(), img.height()) > 640 {
-            println!("Resizing image");
             img = img.resize(640, 400, image::imageops::FilterType::Nearest);
         }
 
+        log::debug!(
+            "Uploading image (width: {}, height: {})",
+            img.width(),
+            img.height()
+        );
+
+        // Always upload RGBA images to match the expected pixel aligment (4).
+        //
+        // Another viable option is to set the unpack alignment to 1, since we're using packed
+        // representations anyway.
+        //
+        // self.context.pixel_store_i32(glow::UNPACK_ALIGNMENT, 1);
         let color_texture = render::Framebuffer::new(
             &self.context,
             img.width(),
@@ -345,12 +358,12 @@ impl Drawer {
             render::TextureOptions {
                 mag_filter: glow::LINEAR,
                 min_filter: glow::LINEAR,
-                format: glow::RGB8,
+                format: glow::RGBA8,
                 wrap_s: glow::MIRRORED_REPEAT,
                 wrap_t: glow::MIRRORED_REPEAT,
             },
         )?;
-        color_texture.with_data(Some(&img.to_rgb8()))?;
+        color_texture.with_data(Some(&img.to_rgba8()))?;
 
         self.color_texture = Some(color_texture);
         self.line_uniforms
@@ -358,8 +371,6 @@ impl Drawer {
                 line_uniforms.color_mode = 2;
             })
             .buffer_data();
-
-        println!("DONE setting image");
 
         Ok(())
     }
