@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
     pub mode: Mode,
@@ -14,7 +14,7 @@ pub struct Settings {
     pub diffusion_iterations: u32,
     pub pressure_iterations: u32,
 
-    pub color_scheme: ColorScheme,
+    pub color_mode: ColorMode,
 
     pub line_length: f32,
     pub line_width: f32,
@@ -42,9 +42,15 @@ pub enum ClearPressure {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub enum ColorScheme {
+pub enum ColorMode {
+    Preset(ColorPreset),
+    ImageFile(std::path::PathBuf),
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub enum ColorPreset {
+    Original,
     Plasma,
-    Peacock,
     Poolside,
     Freedom,
 }
@@ -57,11 +63,14 @@ pub struct Noise {
     pub offset_increment: f32,
 }
 
-pub fn color_wheel_from_scheme(color_scheme: &ColorScheme) -> [f32; 24] {
-    match color_scheme {
-        ColorScheme::Plasma => COLOR_SCHEME_PLASMA,
-        ColorScheme::Poolside => COLOR_SCHEME_POOLSIDE,
-        ColorScheme::Freedom => COLOR_SCHEME_FREEDOM,
+pub fn color_wheel_from_mode(color_mode: &ColorMode) -> [f32; 24] {
+    match color_mode {
+        ColorMode::Preset(color_preset) => match color_preset {
+            ColorPreset::Plasma => COLOR_SCHEME_PLASMA,
+            ColorPreset::Poolside => COLOR_SCHEME_POOLSIDE,
+            ColorPreset::Freedom => COLOR_SCHEME_FREEDOM,
+            _ => [0.0; 24],
+        },
         _ => [0.0; 24],
     }
 }

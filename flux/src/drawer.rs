@@ -34,6 +34,7 @@ pub struct Drawer {
     draw_texture_buffer: VertexArrayObject,
 
     line_uniforms: UniformBlock<LineUniforms>,
+    color_texture: Option<render::Framebuffer>,
 
     place_lines_pass: render::Program,
     draw_lines_pass: render::Program,
@@ -261,9 +262,13 @@ impl Drawer {
                 value: UniformValue::Texture2D(0),
             },
             &Uniform {
+                name: "colorTexture",
+                value: UniformValue::Texture2D(1),
+            },
+            &Uniform {
                 name: "uColorWheel[0]",
-                value: UniformValue::Vec4Array(&settings::color_wheel_from_scheme(
-                    &settings.color_scheme,
+                value: UniformValue::Vec4Array(&settings::color_wheel_from_mode(
+                    &settings.color_mode,
                 )),
             },
         ]);
@@ -293,6 +298,7 @@ impl Drawer {
             draw_texture_buffer,
 
             line_uniforms,
+            color_texture: None,
 
             place_lines_pass,
             draw_lines_pass,
@@ -315,10 +321,47 @@ impl Drawer {
         // FIX: move into uniform buffer
         self.place_lines_pass.set_uniforms(&[&Uniform {
             name: "uColorWheel[0]",
-            value: UniformValue::Vec4Array(&settings::color_wheel_from_scheme(
-                &new_settings.color_scheme,
+            value: UniformValue::Vec4Array(&settings::color_wheel_from_mode(
+                &new_settings.color_mode,
             )),
         }]);
+    }
+
+    pub fn is_srgb(&self) -> bool {
+        self.line_uniforms.data.color_mode == 3
+    }
+
+    pub fn set_color_texture(&mut self, encoded_bytes: &[u8]) -> Result<(), render::Problem> {
+        let mut img = image::load_from_memory(encoded_bytes).unwrap();
+        if u32::max(img.width(), img.height()) > 640 {
+            println!("Resizing image");
+            img = img.resize(640, 400, image::imageops::FilterType::Nearest);
+        }
+
+        let color_texture = render::Framebuffer::new(
+            &self.context,
+            img.width(),
+            img.height(),
+            render::TextureOptions {
+                mag_filter: glow::LINEAR,
+                min_filter: glow::LINEAR,
+                format: glow::RGB8,
+                wrap_s: glow::MIRRORED_REPEAT,
+                wrap_t: glow::MIRRORED_REPEAT,
+            },
+        )?;
+        color_texture.with_data(Some(&img.to_rgb8()))?;
+
+        self.color_texture = Some(color_texture);
+        self.line_uniforms
+            .update(|line_uniforms| {
+                line_uniforms.color_mode = 2;
+            })
+            .buffer_data();
+
+        println!("DONE setting image");
+
+        Ok(())
     }
 
     pub fn resize(
@@ -370,6 +413,12 @@ impl Drawer {
             self.context.active_texture(glow::TEXTURE0);
             self.context
                 .bind_texture(glow::TEXTURE_2D, Some(velocity_texture.texture));
+
+            if let Some(ref color_texture) = self.color_texture {
+                self.context.active_texture(glow::TEXTURE1);
+                self.context
+                    .bind_texture(glow::TEXTURE_2D, Some(color_texture.texture));
+            }
 
             self.line_state_buffers.draw_to(|| {
                 self.context
@@ -474,7 +523,13 @@ struct LineUniforms {
     line_noise_offset_1: f32,
     line_noise_offset_2: f32,
     line_noise_blend_factor: f32,
+
+    // 0 => The "Original" color preset
+    // 1 => A color preset with a color wheel
+    // 2 => Sample colors from a texture
+    // 3 => Sample colors from a texture with SRGB (unsupported)
     color_mode: u32,
+
     delta_time: f32,
 }
 
@@ -492,7 +547,7 @@ impl LineUniforms {
             line_noise_offset_1: 0.0,
             line_noise_offset_2: 0.0,
             line_noise_blend_factor: 0.0,
-            color_mode: Self::color_scheme_to_mode(&settings.color_scheme),
+            color_mode: Self::color_mode_to_uniform(&settings.color_mode),
             delta_time: 0.0,
         }
     }
@@ -505,14 +560,17 @@ impl LineUniforms {
         self.line_length = settings.view_scale * settings.line_length * line_scale_factor;
         self.line_begin_offset = settings.line_begin_offset;
         self.line_variance = settings.line_variance;
-        self.color_mode = Self::color_scheme_to_mode(&settings.color_scheme);
+        self.color_mode = Self::color_mode_to_uniform(&settings.color_mode);
         self
     }
 
-    fn color_scheme_to_mode(color_scheme: &settings::ColorScheme) -> u32 {
-        match color_scheme {
-            settings::ColorScheme::Peacock => 0,
-            _ => 1,
+    fn color_mode_to_uniform(color_mode: &settings::ColorMode) -> u32 {
+        match color_mode {
+            settings::ColorMode::Preset(preset) => match preset {
+                settings::ColorPreset::Original => 0,
+                _ => 1,
+            },
+            settings::ColorMode::ImageFile(_) => 2,
         }
     }
 

@@ -1,4 +1,4 @@
-use flux::settings::{ClearPressure, ColorScheme, Mode, Noise, Settings};
+use flux::settings::{ClearPressure, ColorMode, ColorPreset, Mode, Noise, Settings};
 use flux::Flux;
 use glutin::event::{Event, WindowEvent};
 use glutin::event_loop::{ControlFlow, EventLoop};
@@ -22,7 +22,8 @@ fn main() {
         clear_pressure: ClearPressure::KeepPressure,
         diffusion_iterations: 3,
         pressure_iterations: 19,
-        color_scheme: ColorScheme::Peacock,
+        // color_mode: ColorMode::Preset(ColorPreset::Original),
+        color_mode: ColorMode::ImageFile(std::path::PathBuf::from("./")),
         line_length: 550.0,
         line_width: 10.0,
         line_begin_offset: 0.4,
@@ -53,13 +54,14 @@ fn main() {
     let physical_size = logical_size.to_physical(window.window().scale_factor());
 
     let context = Rc::new(context);
+    let mut settings = Rc::new(settings);
     let mut flux = Flux::new(
         &context,
         logical_size.width,
         logical_size.height,
         physical_size.width,
         physical_size.height,
-        &Rc::new(settings),
+        &settings,
     )
     .unwrap();
 
@@ -81,6 +83,16 @@ fn main() {
             }
 
             Event::WindowEvent { ref event, .. } => match event {
+                WindowEvent::DroppedFile(path) => {
+                    let img = std::fs::read(path).unwrap();
+
+                    // Rc::make_mut(&mut settings).color_mode =
+                    //     ColorMode::ImageFile(std::path::PathBuf::from("./"));
+                    // flux.update(&settings);
+
+                    flux.sample_colors_from_image(&img);
+                }
+
                 WindowEvent::Resized(physical_size) => {
                     window.resize(*physical_size);
                     let logical_size = physical_size.to_logical(window.window().scale_factor());
@@ -91,6 +103,7 @@ fn main() {
                         physical_size.height,
                     );
                 }
+
                 WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
                 _ => (),
             },

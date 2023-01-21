@@ -54,7 +54,7 @@ type alias Settings =
     , clearPressure : ClearPressure
     , diffusionIterations : Int
     , pressureIterations : Int
-    , colorScheme : ColorScheme
+    , colorMode : ColorMode
     , lineLength : Float
     , lineWidth : Float
     , lineBeginOffset : Float
@@ -78,7 +78,11 @@ type ClearPressure
     | ClearPressure Float
 
 
-type ColorScheme
+type ColorMode
+    = Preset ColorPreset
+
+
+type ColorPreset
     = Original
     | Plasma
     | Poolside
@@ -103,7 +107,7 @@ defaultSettings =
     , clearPressure = KeepPressure
     , diffusionIterations = 3
     , pressureIterations = 19
-    , colorScheme = Original
+    , colorMode = Preset Original
     , lineLength = 550.0
     , lineWidth = 10.0
     , lineBeginOffset = 0.4
@@ -173,7 +177,7 @@ type SettingMsg
     | SetClearPressure Float
     | SetDiffusionIterations Int
     | SetPressureIterations Int
-    | SetColorScheme ColorScheme
+    | SetColorPreset ColorPreset
     | SetLineLength Float
     | SetLineWidth Float
     | SetLineBeginOffset Float
@@ -208,8 +212,8 @@ updateSettings msg settings =
         SetPressureIterations newPressureIterations ->
             { settings | pressureIterations = newPressureIterations }
 
-        SetColorScheme newColorScheme ->
-            { settings | colorScheme = newColorScheme }
+        SetColorPreset newColorPreset ->
+            { settings | colorMode = Preset newColorPreset }
 
         SetLineLength newLineLength ->
             { settings | lineLength = newLineLength }
@@ -368,6 +372,12 @@ view model =
 
 viewSettings : Settings -> Html Msg
 viewSettings settings =
+    let
+        whenColorModeIsPreset colorMode f =
+            case colorMode of
+                Preset colorPreset ->
+                    f colorPreset
+    in
     Html.ul
         [ HA.class "control-list" ]
     <|
@@ -389,13 +399,15 @@ viewSettings settings =
                 ]
             ]
         , Html.h2 [ HA.class "col-span-2-md" ] [ Html.text "Colors" ]
-        , viewButtonGroup (SetColorScheme >> SaveSetting)
-            settings.colorScheme
-            [ ( "Original", Original )
-            , ( "Plasma", Plasma )
-            , ( "Poolside", Poolside )
-            , ( "🇺🇦", Freedom )
-            ]
+        , whenColorModeIsPreset settings.colorMode <|
+            \colorPreset ->
+                viewButtonGroup (SetColorPreset >> SaveSetting)
+                    colorPreset
+                    [ ( "Original", Original )
+                    , ( "Plasma", Plasma )
+                    , ( "Poolside", Poolside )
+                    , ( "🇺🇦", Freedom )
+                    ]
         , Html.h2
             [ HA.class "col-span-2-md" ]
             [ Html.text "Look" ]
@@ -782,6 +794,8 @@ toKebabcase =
 
 
 -- JSON
+-- For enums containing data, use the externally tagged representation.
+-- https://serde.rs/enum-representations.html#externally-tagged
 
 
 encodeSettings : Settings -> Encode.Value
@@ -796,7 +810,7 @@ encodeSettings settings =
         , ( "clearPressure", encodeClearPressure settings.clearPressure )
         , ( "diffusionIterations", Encode.int settings.diffusionIterations )
         , ( "pressureIterations", Encode.int settings.pressureIterations )
-        , ( "colorScheme", encodeColorScheme settings.colorScheme )
+        , ( "colorMode", encodeColorMode settings.colorMode )
         , ( "lineLength", Encode.float settings.lineLength )
         , ( "lineWidth", Encode.float settings.lineWidth )
         , ( "lineBeginOffset", Encode.float settings.lineBeginOffset )
@@ -837,16 +851,25 @@ encodeClearPressure clearPressure =
             Encode.object [ ( "ClearPressure", Encode.float pressure ) ]
 
 
-encodeColorScheme : ColorScheme -> Encode.Value
-encodeColorScheme =
-    colorSchemeToString >> Encode.string
+encodeColorMode : ColorMode -> Encode.Value
+encodeColorMode colorMode =
+    case colorMode of
+        Preset preset ->
+            Encode.object
+                [ ( "Preset", encodeColorPreset preset )
+                ]
 
 
-colorSchemeToString : ColorScheme -> String
-colorSchemeToString colorscheme =
-    case colorscheme of
+encodeColorPreset : ColorPreset -> Encode.Value
+encodeColorPreset =
+    colorPresetToString >> Encode.string
+
+
+colorPresetToString : ColorPreset -> String
+colorPresetToString colorPreset =
+    case colorPreset of
         Original ->
-            "Peacock"
+            "Original"
 
         Plasma ->
             "Plasma"

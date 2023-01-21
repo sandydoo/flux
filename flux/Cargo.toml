@@ -23,3 +23,4 @@ rand = { version = "0.8.5", features = ["getrandom"] }
 rustc-hash = "1.1"
 serde = { version = "1", features = ["derive"] }
 thiserror = "1"
+image = { version = "0.24.5", features = ["jpeg", "png"] }
