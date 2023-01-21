@@ -1,4 +1,5 @@
-use crate::{data, render, settings};
+use crate::{data, flux, render, settings};
+use flux::Problem;
 use render::{
     Buffer, Context, Framebuffer, Uniform, UniformBlock, UniformValue, VertexArrayObject,
     VertexBufferLayout,
@@ -331,10 +332,11 @@ impl Drawer {
         self.line_uniforms.data.color_mode == 3
     }
 
-    pub fn set_color_texture(&mut self, encoded_bytes: &[u8]) -> Result<(), render::Problem> {
+    pub fn set_color_texture(&mut self, encoded_bytes: &[u8]) -> Result<(), Problem> {
         log::debug!("Decoding image");
 
-        let mut img = image::load_from_memory(encoded_bytes).unwrap();
+        let mut img =
+            image::load_from_memory(encoded_bytes).map_err(Problem::DecodeColorTexture)?;
         if u32::max(img.width(), img.height()) > 640 {
             img = img.resize(640, 400, image::imageops::FilterType::Nearest);
         }
@@ -362,8 +364,11 @@ impl Drawer {
                 wrap_s: glow::MIRRORED_REPEAT,
                 wrap_t: glow::MIRRORED_REPEAT,
             },
-        )?;
-        color_texture.with_data(Some(&img.to_rgba8()))?;
+        )
+        .map_err(Problem::Render)?;
+        color_texture
+            .with_data(Some(&img.to_rgba8()))
+            .map_err(Problem::Render)?;
 
         self.color_texture = Some(color_texture);
         self.line_uniforms
