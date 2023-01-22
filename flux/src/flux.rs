@@ -1,4 +1,4 @@
-use crate::{drawer, fluid, noise, render, settings};
+use crate::{drawer, fluid, noise, render, rng, settings};
 use drawer::Drawer;
 use fluid::Fluid;
 use noise::{NoiseGenerator, NoiseGeneratorBuilder};
@@ -54,6 +54,8 @@ impl Flux {
         settings: &Rc<Settings>,
     ) -> Result<Flux, Problem> {
         log::info!("✨ Initialising Flux");
+
+        rng::init_from_seed(&settings.seed);
 
         let drawer = Drawer::new(
             context,

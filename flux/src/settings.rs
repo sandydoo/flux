@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
     pub mode: Mode,
+    pub seed: Option<String>,
 
     pub fluid_size: u32,
     pub fluid_frame_rate: f32,
@@ -30,6 +31,7 @@ impl Default for Settings {
     fn default() -> Self {
         Settings {
             mode: Mode::Normal,
+            seed: None,
             fluid_size: 128,
             fluid_frame_rate: 60.0,
             fluid_timestep: 1.0 / 60.0,

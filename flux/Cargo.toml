@@ -24,3 +24,5 @@ rustc-hash = "1.1"
 serde = { version = "1", features = ["derive"] }
 thiserror = "1"
 image = { version = "0.24.5", features = ["jpeg", "png"] }
+rand_seeder = "0.2.3"
+rand_pcg = "0.3.1"

@@ -1,4 +1,4 @@
-use crate::{data, drawer, render, settings};
+use crate::{data, drawer, render, rng, settings};
 use render::{
     Buffer, Context, DoubleFramebuffer, Framebuffer, Program, TextureOptions, Uniform,
     UniformArray, UniformBlock, UniformValue, VertexArrayObject, VertexBufferLayout,
@@ -139,7 +139,7 @@ impl NoiseGeneratorBuilder {
         self.channels.push(NoiseChannel {
             settings: channel.clone(),
             scale: channel.scale,
-            offset_1: 4.0 * rand::random::<f32>(),
+            offset_1: 4.0 * rng::gen::<f32>(),
             offset_2: 0.0,
             blend_factor: 0.0,
         });
