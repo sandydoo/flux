@@ -26,8 +26,49 @@ pub struct Settings {
     pub noise_channels: Vec<Noise>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+impl Default for Settings {
+    fn default() -> Self {
+        Settings {
+            mode: Mode::Normal,
+            fluid_size: 128,
+            fluid_frame_rate: 60.0,
+            fluid_timestep: 1.0 / 60.0,
+            viscosity: 5.0,
+            velocity_dissipation: 0.0,
+            clear_pressure: ClearPressure::KeepPressure,
+            diffusion_iterations: 3,
+            pressure_iterations: 19,
+            color_mode: ColorMode::Preset(ColorPreset::Original),
+            line_length: 550.0,
+            line_width: 10.0,
+            line_begin_offset: 0.4,
+            line_variance: 0.45,
+            grid_spacing: 15,
+            view_scale: 1.6,
+            noise_channels: vec![
+                Noise {
+                    scale: 2.5,
+                    multiplier: 1.0,
+                    offset_increment: 0.0015,
+                },
+                Noise {
+                    scale: 15.0,
+                    multiplier: 0.7,
+                    offset_increment: 0.0015 * 6.0,
+                },
+                Noise {
+                    scale: 30.0,
+                    multiplier: 0.5,
+                    offset_increment: 0.0015 * 12.0,
+                },
+            ],
+        }
+    }
+}
+
+#[derive(Clone, Default, Debug, Deserialize, Serialize)]
 pub enum Mode {
+    #[default]
     Normal,
     DebugNoise,
     DebugFluid,
@@ -41,14 +82,21 @@ pub enum ClearPressure {
     ClearPressure(f32),
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub enum ColorMode {
     Preset(ColorPreset),
     ImageFile(std::path::PathBuf),
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+impl Default for ColorMode {
+    fn default() -> Self {
+        Self::Preset(Default::default())
+    }
+}
+
+#[derive(Clone, Default, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub enum ColorPreset {
+    #[default]
     Original,
     Plasma,
     Poolside,
