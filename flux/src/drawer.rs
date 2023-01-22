@@ -355,6 +355,8 @@ impl Drawer {
                 if self.set_color_texture_from_file(path).is_ok() {
                     self.color_mode = new_settings.color_mode.clone();
                 }
+            } else {
+                self.color_mode = new_settings.color_mode.clone();
             }
         }
 
