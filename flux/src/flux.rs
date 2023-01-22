@@ -39,6 +39,12 @@ impl Flux {
         self.fluid_update_interval = 1.0 / settings.fluid_frame_rate;
     }
 
+    pub fn sample_colors_from_image(&mut self, encoded_bytes: &[u8]) {
+        if let Err(msg) = self.drawer.set_color_texture(encoded_bytes) {
+            log::error!("{}", msg);
+        }
+    }
+
     pub fn new(
         context: &render::Context,
         logical_width: u32,
@@ -57,19 +63,17 @@ impl Flux {
             physical_height,
             settings,
         )
-        .map_err(Problem::CannotRender)?;
+        .map_err(Problem::Render)?;
 
         let fluid =
-            Fluid::new(context, drawer.scaling_ratio(), settings).map_err(Problem::CannotRender)?;
+            Fluid::new(context, drawer.scaling_ratio(), settings).map_err(Problem::Render)?;
 
         let mut noise_generator_builder =
             NoiseGeneratorBuilder::new(context, 2 * settings.fluid_size, drawer.scaling_ratio());
         settings.noise_channels.iter().for_each(|channel| {
             noise_generator_builder.add_channel(channel);
         });
-        let noise_generator = noise_generator_builder
-            .build()
-            .map_err(Problem::CannotRender)?;
+        let noise_generator = noise_generator_builder.build().map_err(Problem::Render)?;
 
         Ok(Flux {
             fluid,
@@ -185,16 +189,19 @@ impl Flux {
 
 #[derive(Debug)]
 pub enum Problem {
-    CannotReadSettings(String),
-    CannotRender(render::Problem),
+    ReadSettings(String),
+    ReadImage(std::io::Error),
+    DecodeColorTexture(image::ImageError),
+    Render(render::Problem),
 }
 
 impl fmt::Display for Problem {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use Problem::*;
         match self {
-            CannotReadSettings(msg) => write!(f, "{}", msg),
-            CannotRender(render_msg) => write!(f, "{}", render_msg),
+            Problem::ReadSettings(msg) => write!(f, "{}", msg),
+            Problem::ReadImage(msg) => write!(f, "{}", msg),
+            Problem::DecodeColorTexture(msg) => write!(f, "Failed to decode image: {}", msg),
+            Problem::Render(render_msg) => write!(f, "{}", render_msg),
         }
     }
 }

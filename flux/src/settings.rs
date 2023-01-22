@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
     pub mode: Mode,
@@ -14,7 +14,7 @@ pub struct Settings {
     pub diffusion_iterations: u32,
     pub pressure_iterations: u32,
 
-    pub color_scheme: ColorScheme,
+    pub color_mode: ColorMode,
 
     pub line_length: f32,
     pub line_width: f32,
@@ -26,8 +26,49 @@ pub struct Settings {
     pub noise_channels: Vec<Noise>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+impl Default for Settings {
+    fn default() -> Self {
+        Settings {
+            mode: Mode::Normal,
+            fluid_size: 128,
+            fluid_frame_rate: 60.0,
+            fluid_timestep: 1.0 / 60.0,
+            viscosity: 5.0,
+            velocity_dissipation: 0.0,
+            clear_pressure: ClearPressure::KeepPressure,
+            diffusion_iterations: 3,
+            pressure_iterations: 19,
+            color_mode: ColorMode::Preset(ColorPreset::Original),
+            line_length: 550.0,
+            line_width: 10.0,
+            line_begin_offset: 0.4,
+            line_variance: 0.45,
+            grid_spacing: 15,
+            view_scale: 1.6,
+            noise_channels: vec![
+                Noise {
+                    scale: 2.5,
+                    multiplier: 1.0,
+                    offset_increment: 0.0015,
+                },
+                Noise {
+                    scale: 15.0,
+                    multiplier: 0.7,
+                    offset_increment: 0.0015 * 6.0,
+                },
+                Noise {
+                    scale: 30.0,
+                    multiplier: 0.5,
+                    offset_increment: 0.0015 * 12.0,
+                },
+            ],
+        }
+    }
+}
+
+#[derive(Clone, Default, Debug, Deserialize, Serialize)]
 pub enum Mode {
+    #[default]
     Normal,
     DebugNoise,
     DebugFluid,
@@ -41,10 +82,23 @@ pub enum ClearPressure {
     ClearPressure(f32),
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub enum ColorScheme {
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
+pub enum ColorMode {
+    Preset(ColorPreset),
+    ImageFile(std::path::PathBuf),
+}
+
+impl Default for ColorMode {
+    fn default() -> Self {
+        Self::Preset(Default::default())
+    }
+}
+
+#[derive(Clone, Default, Debug, Eq, PartialEq, Deserialize, Serialize)]
+pub enum ColorPreset {
+    #[default]
+    Original,
     Plasma,
-    Peacock,
     Poolside,
     Freedom,
 }
@@ -57,11 +111,14 @@ pub struct Noise {
     pub offset_increment: f32,
 }
 
-pub fn color_wheel_from_scheme(color_scheme: &ColorScheme) -> [f32; 24] {
-    match color_scheme {
-        ColorScheme::Plasma => COLOR_SCHEME_PLASMA,
-        ColorScheme::Poolside => COLOR_SCHEME_POOLSIDE,
-        ColorScheme::Freedom => COLOR_SCHEME_FREEDOM,
+pub fn color_wheel_from_mode(color_mode: &ColorMode) -> [f32; 24] {
+    match color_mode {
+        ColorMode::Preset(color_preset) => match color_preset {
+            ColorPreset::Plasma => COLOR_SCHEME_PLASMA,
+            ColorPreset::Poolside => COLOR_SCHEME_POOLSIDE,
+            ColorPreset::Freedom => COLOR_SCHEME_FREEDOM,
+            _ => [0.0; 24],
+        },
         _ => [0.0; 24],
     }
 }

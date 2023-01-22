@@ -1,10 +1,10 @@
-{ pkgs, lib, stdenv, flux-wasm }:
+{ pkgs, lib, stdenv, flux-wasm, mkYarnPackage }:
 
 let
   packageJSON = builtins.fromJSON (builtins.readFile ./package.json);
   version = packageJSON.version;
 
-  nodeModules = pkgs.mkYarnPackage {
+  nodeModules = mkYarnPackage {
     name = "flux-dependencies";
     src = lib.cleanSourceWith {
       src = ./.;
