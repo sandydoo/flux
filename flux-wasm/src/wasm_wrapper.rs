@@ -1,4 +1,5 @@
 use flux::{self, settings};
+use gloo_utils::format::JsValueSerdeExt;
 use serde::Serialize;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
