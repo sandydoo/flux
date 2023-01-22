@@ -190,6 +190,7 @@ impl Flux {
 #[derive(Debug)]
 pub enum Problem {
     ReadSettings(String),
+    ReadImage(std::io::Error),
     DecodeColorTexture(image::ImageError),
     Render(render::Problem),
 }
@@ -198,6 +199,7 @@ impl fmt::Display for Problem {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Problem::ReadSettings(msg) => write!(f, "{}", msg),
+            Problem::ReadImage(msg) => write!(f, "{}", msg),
             Problem::DecodeColorTexture(msg) => write!(f, "Failed to decode image: {}", msg),
             Problem::Render(render_msg) => write!(f, "{}", render_msg),
         }

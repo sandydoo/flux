@@ -9,6 +9,7 @@ use settings::Settings;
 use bytemuck::{Pod, Zeroable};
 use crevice::std140::AsStd140;
 use glow::HasContext;
+use std::path;
 use std::rc::Rc;
 
 pub struct Drawer {
@@ -35,6 +36,10 @@ pub struct Drawer {
     draw_texture_buffer: VertexArrayObject,
 
     line_uniforms: UniformBlock<LineUniforms>,
+
+    // Keep track of this setting separately.
+    // If sampling from an image, we may fail to read, decode, or upload the image.
+    color_mode: settings::ColorMode,
     color_texture: Option<render::Framebuffer>,
 
     place_lines_pass: render::Program,
@@ -251,6 +256,7 @@ impl Drawer {
                 logical_width as f32,
                 logical_height as f32,
                 &grid.scaling_ratio,
+                &settings.color_mode,
                 settings,
             ),
             0,
@@ -278,7 +284,7 @@ impl Drawer {
         draw_lines_pass.set_uniform_block("LineUniforms", line_uniforms.index);
         draw_endpoints_pass.set_uniform_block("LineUniforms", line_uniforms.index);
 
-        Ok(Self {
+        let mut drawer = Self {
             context: Rc::clone(context),
             settings: Rc::clone(settings),
 
@@ -299,26 +305,43 @@ impl Drawer {
             draw_texture_buffer,
 
             line_uniforms,
+
+            color_mode: settings.color_mode.clone(),
             color_texture: None,
 
             place_lines_pass,
             draw_lines_pass,
             draw_endpoints_pass,
             draw_texture_pass,
-        })
+        };
+
+        if let settings::ColorMode::ImageFile(ref path) = settings.color_mode {
+            if drawer.set_color_texture_from_file(path).is_err() {
+                // Reset the color mode if we fail to process the image
+                drawer.color_mode = Default::default();
+                drawer
+                    .line_uniforms
+                    .update(|line_uniforms| {
+                        line_uniforms.update(
+                            logical_width as f32,
+                            logical_height as f32,
+                            &drawer.color_mode,
+                            settings,
+                        );
+                    })
+                    .buffer_data();
+
+                log::info!(
+                    "Falling back to the default color mode: {:?}",
+                    drawer.color_mode
+                );
+            }
+        }
+
+        Ok(drawer)
     }
 
     pub fn update(&mut self, new_settings: &Rc<Settings>) {
-        self.line_uniforms
-            .update(|line_uniforms| {
-                line_uniforms.update(
-                    self.logical_width as f32,
-                    self.logical_height as f32,
-                    new_settings,
-                );
-            })
-            .buffer_data();
-
         // FIX: move into uniform buffer
         self.place_lines_pass.set_uniforms(&[&Uniform {
             name: "uColorWheel[0]",
@@ -326,10 +349,36 @@ impl Drawer {
                 &new_settings.color_mode,
             )),
         }]);
+
+        if self.color_mode != new_settings.color_mode {
+            if let settings::ColorMode::ImageFile(ref path) = new_settings.color_mode {
+                if self.set_color_texture_from_file(path).is_ok() {
+                    self.color_mode = new_settings.color_mode.clone();
+                }
+            }
+        }
+
+        // Update uniforms last
+        self.line_uniforms
+            .update(|line_uniforms| {
+                line_uniforms.update(
+                    self.logical_width as f32,
+                    self.logical_height as f32,
+                    &self.color_mode,
+                    new_settings,
+                );
+            })
+            .buffer_data();
     }
 
-    pub fn is_srgb(&self) -> bool {
-        self.line_uniforms.data.color_mode == 3
+    fn set_color_texture_from_file(&mut self, path: &path::PathBuf) -> Result<(), Problem> {
+        std::fs::read(path)
+            .map_err(Problem::ReadImage)
+            .and_then(|ref encoded_bytes| self.set_color_texture(encoded_bytes))
+            .map_err(|err| {
+                log::error!("Failed to load image from {}: {}", path.display(), err);
+                err
+            })
     }
 
     pub fn set_color_texture(&mut self, encoded_bytes: &[u8]) -> Result<(), Problem> {
@@ -371,11 +420,6 @@ impl Drawer {
             .map_err(Problem::Render)?;
 
         self.color_texture = Some(color_texture);
-        self.line_uniforms
-            .update(|line_uniforms| {
-                line_uniforms.color_mode = 2;
-            })
-            .buffer_data();
 
         Ok(())
     }
@@ -402,7 +446,12 @@ impl Drawer {
 
         self.line_uniforms
             .update(|line_uniforms| {
-                line_uniforms.update(logical_width as f32, logical_height as f32, &self.settings);
+                line_uniforms.update(
+                    logical_width as f32,
+                    logical_height as f32,
+                    &self.color_mode,
+                    &self.settings,
+                );
             })
             .buffer_data();
 
@@ -550,7 +599,13 @@ struct LineUniforms {
 }
 
 impl LineUniforms {
-    fn new(width: f32, height: f32, scaling_ratio: &ScalingRatio, settings: &Rc<Settings>) -> Self {
+    fn new(
+        width: f32,
+        height: f32,
+        scaling_ratio: &ScalingRatio,
+        color_mode: &settings::ColorMode,
+        settings: &Rc<Settings>,
+    ) -> Self {
         let line_scale_factor = get_line_scale_factor(width, height);
         Self {
             aspect: width / height,
@@ -563,12 +618,18 @@ impl LineUniforms {
             line_noise_offset_1: 0.0,
             line_noise_offset_2: 0.0,
             line_noise_blend_factor: 0.0,
-            color_mode: Self::color_mode_to_uniform(&settings.color_mode),
+            color_mode: Self::color_mode_to_uniform(color_mode),
             delta_time: 0.0,
         }
     }
 
-    fn update(&mut self, width: f32, height: f32, settings: &Rc<Settings>) -> &mut Self {
+    fn update(
+        &mut self,
+        width: f32,
+        height: f32,
+        color_mode: &settings::ColorMode,
+        settings: &Rc<Settings>,
+    ) -> &mut Self {
         let line_scale_factor = get_line_scale_factor(width, height);
         self.aspect = width / height;
         self.zoom = settings.view_scale;
@@ -576,7 +637,7 @@ impl LineUniforms {
         self.line_length = settings.view_scale * settings.line_length * line_scale_factor;
         self.line_begin_offset = settings.line_begin_offset;
         self.line_variance = settings.line_variance;
-        self.color_mode = Self::color_mode_to_uniform(&settings.color_mode);
+        self.color_mode = Self::color_mode_to_uniform(color_mode);
         self
     }
 
