@@ -1,4 +1,4 @@
-use flux::settings::{ClearPressure, ColorMode, ColorPreset, Mode, Noise, Settings};
+use flux::settings::{ColorMode, Settings};
 use flux::Flux;
 use glutin::event::{Event, WindowEvent};
 use glutin::event_loop::{ControlFlow, EventLoop};
@@ -12,56 +12,18 @@ use glutin::platform::macos::WindowBuilderExtMacOS;
 fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
 
-    let settings = Settings {
-        mode: Mode::Normal,
-        fluid_size: 128,
-        fluid_frame_rate: 60.0,
-        fluid_timestep: 1.0 / 60.0,
-        viscosity: 5.0,
-        velocity_dissipation: 0.0,
-        clear_pressure: ClearPressure::KeepPressure,
-        diffusion_iterations: 3,
-        pressure_iterations: 19,
-        // color_mode: ColorMode::Preset(ColorPreset::Original),
-        color_mode: ColorMode::ImageFile(std::path::PathBuf::from("./")),
-        line_length: 550.0,
-        line_width: 10.0,
-        line_begin_offset: 0.4,
-        line_variance: 0.45,
-        grid_spacing: 15,
-        view_scale: 1.6,
-        noise_channels: vec![
-            Noise {
-                scale: 2.5,
-                multiplier: 1.0,
-                offset_increment: 0.0015,
-            },
-            Noise {
-                scale: 15.0,
-                multiplier: 0.7,
-                offset_increment: 0.0015 * 6.0,
-            },
-            Noise {
-                scale: 30.0,
-                multiplier: 0.5,
-                offset_increment: 0.0015 * 12.0,
-            },
-        ],
-    };
-
     let logical_size = glutin::dpi::LogicalSize::new(1280, 800);
     let (context, window, event_loop) = get_rendering_context(logical_size);
     let physical_size = logical_size.to_physical(window.window().scale_factor());
 
     let context = Rc::new(context);
-    let mut settings = Rc::new(settings);
     let mut flux = Flux::new(
         &context,
         logical_size.width,
         logical_size.height,
         physical_size.width,
         physical_size.height,
-        &settings,
+        &Default::default(),
     )
     .unwrap();
 
@@ -84,13 +46,11 @@ fn main() {
 
             Event::WindowEvent { ref event, .. } => match event {
                 WindowEvent::DroppedFile(path) => {
-                    let img = std::fs::read(path).unwrap();
-
-                    // Rc::make_mut(&mut settings).color_mode =
-                    //     ColorMode::ImageFile(std::path::PathBuf::from("./"));
-                    // flux.update(&settings);
-
-                    flux.sample_colors_from_image(&img);
+                    let settings = Settings {
+                        color_mode: ColorMode::ImageFile(path.into()),
+                        ..Default::default()
+                    };
+                    flux.update(&Rc::new(settings));
                 }
 
                 WindowEvent::Resized(physical_size) => {
