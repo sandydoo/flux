@@ -51,7 +51,7 @@ type alias Settings =
     , fluidTimestep : Float
     , viscosity : Float
     , velocityDissipation : Float
-    , clearPressure : ClearPressure
+    , pressureMode : PressureMode
     , diffusionIterations : Int
     , pressureIterations : Int
     , colorMode : ColorMode
@@ -73,9 +73,9 @@ type Mode
     | DebugDivergence
 
 
-type ClearPressure
-    = KeepPressure
-    | ClearPressure Float
+type PressureMode
+    = Retain
+    | ClearWith Float
 
 
 type ColorMode
@@ -104,7 +104,7 @@ defaultSettings =
     , fluidTimestep = 1.0 / 60.0
     , viscosity = 5.0
     , velocityDissipation = 0.0
-    , clearPressure = KeepPressure
+    , pressureMode = Retain
     , diffusionIterations = 3
     , pressureIterations = 19
     , colorMode = Preset Original
@@ -174,7 +174,7 @@ type SettingMsg
     = SetMode Mode
     | SetViscosity Float
     | SetVelocityDissipation Float
-    | SetClearPressure Float
+    | SetPressureMode Float
     | SetDiffusionIterations Int
     | SetPressureIterations Int
     | SetColorPreset ColorPreset
@@ -203,8 +203,8 @@ updateSettings msg settings =
         SetVelocityDissipation newVelocityDissipation ->
             { settings | velocityDissipation = newVelocityDissipation }
 
-        SetClearPressure _ ->
-            { settings | clearPressure = KeepPressure }
+        SetPressureMode _ ->
+            { settings | pressureMode = Retain }
 
         SetDiffusionIterations newDiffusionIterations ->
             { settings | diffusionIterations = newDiffusionIterations }
@@ -807,7 +807,7 @@ encodeSettings settings =
         , ( "fluidTimestep", Encode.float settings.fluidTimestep )
         , ( "viscosity", Encode.float settings.viscosity )
         , ( "velocityDissipation", Encode.float settings.velocityDissipation )
-        , ( "clearPressure", encodeClearPressure settings.clearPressure )
+        , ( "pressureMode", encodePressureMode settings.pressureMode )
         , ( "diffusionIterations", Encode.int settings.diffusionIterations )
         , ( "pressureIterations", Encode.int settings.pressureIterations )
         , ( "colorMode", encodeColorMode settings.colorMode )
@@ -841,14 +841,14 @@ encodeMode mode =
                 "DebugDivergence"
 
 
-encodeClearPressure : ClearPressure -> Encode.Value
-encodeClearPressure clearPressure =
-    case clearPressure of
-        KeepPressure ->
-            Encode.string "KeepPressure"
+encodePressureMode : PressureMode -> Encode.Value
+encodePressureMode pressureMode =
+    case pressureMode of
+        Retain ->
+            Encode.string "Retain"
 
-        ClearPressure pressure ->
-            Encode.object [ ( "ClearPressure", Encode.float pressure ) ]
+        ClearWith pressure ->
+            Encode.object [ ( "ClearWith", Encode.float pressure ) ]
 
 
 encodeColorMode : ColorMode -> Encode.Value
