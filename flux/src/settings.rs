@@ -10,7 +10,7 @@ pub struct Settings {
     pub fluid_timestep: f32,
     pub viscosity: f32,
     pub velocity_dissipation: f32,
-    pub clear_pressure: ClearPressure,
+    pub pressure_mode: PressureMode,
     pub diffusion_iterations: u32,
     pub pressure_iterations: u32,
 
@@ -35,7 +35,7 @@ impl Default for Settings {
             fluid_timestep: 1.0 / 60.0,
             viscosity: 5.0,
             velocity_dissipation: 0.0,
-            clear_pressure: ClearPressure::KeepPressure,
+            pressure_mode: PressureMode::Retain,
             diffusion_iterations: 3,
             pressure_iterations: 19,
             color_mode: ColorMode::Preset(ColorPreset::Original),
@@ -77,9 +77,9 @@ pub enum Mode {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub enum ClearPressure {
-    KeepPressure,
-    ClearPressure(f32),
+pub enum PressureMode {
+    Retain,
+    ClearWith(f32),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]

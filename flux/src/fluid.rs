@@ -490,12 +490,12 @@ impl Fluid {
     }
 
     pub fn solve_pressure(&self) {
-        use settings::ClearPressure::*;
-        match self.settings.clear_pressure {
-            ClearPressure(pressure) => {
+        use settings::PressureMode::*;
+        match self.settings.pressure_mode {
+            ClearWith(pressure) => {
                 self.clear_pressure(pressure);
             }
-            KeepPressure => (),
+            Retain => (),
         }
 
         self.pressure_pass.use_program();
@@ -566,14 +566,12 @@ static CLEAR_PRESSURE_TO_VERT_SHADER: &str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/clear_pressure_to.vert"));
 static CLEAR_PRESSURE_TO_FRAG_SHADER: &str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/clear_pressure_to.frag"));
-static FLUID_VERT_SHADER: &str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/fluid.vert"));
+static FLUID_VERT_SHADER: &str = include_str!(concat!(env!("OUT_DIR"), "/shaders/fluid.vert"));
 static ADVECTION_FRAG_SHADER: &str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/advection.frag"));
 static ADJUST_ADVECTION_FRAG_SHADER: &str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/adjust_advection.frag"));
-static DIFFUSE_FRAG_SHADER: &str =
-    include_str!(concat!(env!("OUT_DIR"), "/shaders/diffuse.frag"));
+static DIFFUSE_FRAG_SHADER: &str = include_str!(concat!(env!("OUT_DIR"), "/shaders/diffuse.frag"));
 static DIVERGENCE_FRAG_SHADER: &str =
     include_str!(concat!(env!("OUT_DIR"), "/shaders/divergence.frag"));
 static SOLVE_PRESSURE_FRAG_SHADER: &str =
