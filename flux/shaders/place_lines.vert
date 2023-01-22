@@ -184,8 +184,7 @@ void main() {
       break;
 
     case 2u:
-      // color = texture(colorTexture, 2.0 * velocity + 0.5).rgb;
-      color = texture(colorTexture, basepoint).rgb;
+      color = texture(colorTexture, 0.5 * velocity + 0.5).rgb;
       colorMomentumBoost = 5.0;
       colorDeltaBoost = 10.0;
       break;
