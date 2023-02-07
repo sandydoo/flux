@@ -96,7 +96,7 @@ impl Default for ColorMode {
     }
 }
 
-#[derive(Clone, Default, Debug, Eq, PartialEq, Deserialize, Serialize)]
+#[derive(Copy, Clone, Default, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub enum ColorPreset {
     #[default]
     Original,
