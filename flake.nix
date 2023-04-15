@@ -34,7 +34,15 @@
 
         inherit (pkgs) lib stdenv stdenvNoCC;
 
+        rustExtensions = [
+          "cargo"
+          "rust-src"
+          "rust-analyzer"
+          "rustfmt"
+        ];
+
         rustToolchain = pkgs.rust-bin.stable.latest.default.override {
+          extensions = rustExtensions;
           targets = [ "wasm32-unknown-unknown" ];
         };
 
@@ -49,6 +57,7 @@
             rustToolchain =
               hostPkgs.pkgsBuildHost.rust-bin.stable.latest.default.override {
                 targets = [ targetTriple ];
+                rustExtensions = rustExtensions ++ [ "rustc" ];
               };
 
             craneLib = (crane.mkLib hostPkgs).overrideScope' (final: prev: {
