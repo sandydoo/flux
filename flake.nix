@@ -19,93 +19,104 @@
     };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-master, flake-utils, crane, rust-overlay, ... }:
+  outputs = {
+    self,
+    nixpkgs,
+    nixpkgs-master,
+    flake-utils,
+    crane,
+    rust-overlay,
+    ...
+  }:
     flake-utils.lib.eachSystem [
       "aarch64-darwin"
       "aarch64-linux"
       "x86_64-darwin"
       "x86_64-linux"
-    ] (system:
-      let
-        pkgs = import nixpkgs {
-          inherit system;
-          overlays = [ (import rust-overlay) ];
+    ] (system: let
+      pkgs = import nixpkgs {
+        inherit system;
+        overlays = [(import rust-overlay)];
+      };
+
+      inherit (pkgs) lib stdenv stdenvNoCC;
+
+      rustExtensions = [
+        "cargo"
+        "rust-src"
+        "rust-analyzer"
+        "rustfmt"
+      ];
+
+      rustToolchain = pkgs.rust-bin.stable.latest.default.override {
+        extensions = rustExtensions;
+        targets = ["wasm32-unknown-unknown"];
+      };
+
+      craneLib = (crane.mkLib pkgs).overrideScope' (final: prev: {
+        rustc = rustToolchain;
+        cargo = rustToolchain;
+        rustfmt = rustToolchain;
+      });
+
+      crateNameFromCargoToml = packageName: craneLib.crateNameFromCargoToml {cargoToml = ./${packageName}/Cargo.toml;};
+
+      crossCompileFor = {
+        hostPkgs,
+        targetTriple,
+        packageName,
+      }: let
+        rustToolchain = hostPkgs.pkgsBuildHost.rust-bin.stable.latest.default.override {
+          targets = [targetTriple];
+          rustExtensions = rustExtensions ++ ["rustc"];
         };
 
-        inherit (pkgs) lib stdenv stdenvNoCC;
-
-        rustExtensions = [
-          "cargo"
-          "rust-src"
-          "rust-analyzer"
-          "rustfmt"
-        ];
-
-        rustToolchain = pkgs.rust-bin.stable.latest.default.override {
-          extensions = rustExtensions;
-          targets = [ "wasm32-unknown-unknown" ];
-        };
-
-        craneLib = (crane.mkLib pkgs).overrideScope' (final: prev: {
+        craneLib = (crane.mkLib hostPkgs).overrideScope' (final: prev: {
           rustc = rustToolchain;
           cargo = rustToolchain;
           rustfmt = rustToolchain;
         });
 
-        crateNameFromCargoToml = 
-          packageName: craneLib.crateNameFromCargoToml { cargoToml = ./${packageName}/Cargo.toml; };
+        # Uppercase and replace `-` with `_`.
+        shellEnvTriple =
+          builtins.replaceStrings (["-"] ++ lib.lowerChars)
+          (["_"] ++ lib.upperChars)
+          targetTriple;
+      in {
+        inherit rustToolchain;
 
-        crossCompileFor = { hostPkgs, targetTriple, packageName }:
-          let
-            rustToolchain =
-              hostPkgs.pkgsBuildHost.rust-bin.stable.latest.default.override {
-                targets = [ targetTriple ];
-                rustExtensions = rustExtensions ++ [ "rustc" ];
-              };
+        package = craneLib.buildPackage rec {
+          inherit (crateNameFromCargoToml packageName) pname version;
+          src = ./.;
+          cargoExtraArgs = "-p ${packageName} --target ${targetTriple}";
 
-            craneLib = (crane.mkLib hostPkgs).overrideScope' (final: prev: {
-              rustc = rustToolchain;
-              cargo = rustToolchain;
-              rustfmt = rustToolchain;
-            });
+          # HOST_CC = "${pkgsCross.stdenv.cc.nativePrefix}cc";
+          preConfigure = ''
+            export CARGO_TARGET_${shellEnvTriple}_LINKER=${hostPkgs.stdenv.cc.targetPrefix}cc
+          '';
 
-            # Uppercase and replace `-` with `_`.
-            shellEnvTriple = builtins.replaceStrings ([ "-" ] ++ lib.lowerChars)
-              ([ "_" ] ++ lib.upperChars) targetTriple;
-          in {
-            inherit rustToolchain;
+          shellHook = preConfigure;
+          doCheck = false;
 
-            package = craneLib.buildPackage rec {
-              inherit (crateNameFromCargoToml packageName) pname version;
-              src = ./.;
-              cargoExtraArgs = "-p ${packageName} --target ${targetTriple}";
-
-              # HOST_CC = "${pkgsCross.stdenv.cc.nativePrefix}cc";
-              preConfigure = ''
-                export CARGO_TARGET_${shellEnvTriple}_LINKER=${hostPkgs.stdenv.cc.targetPrefix}cc
-              '';
-
-              shellHook = preConfigure;
-              doCheck = false;
-
-              buildInputs = lib.optionals hostPkgs.hostPlatform.isWindows
-                (with hostPkgs; [
-                  windows.mingw_w64_pthreads
-                  windows.pthreads
-                ]);
-            };
-          };
-
-      in lib.recursiveUpdate rec {
+          buildInputs =
+            lib.optionals hostPkgs.hostPlatform.isWindows
+            (with hostPkgs; [
+              windows.mingw_w64_pthreads
+              windows.pthreads
+            ]);
+        };
+      };
+    in
+      lib.recursiveUpdate rec {
         devShells = {
           default = pkgs.mkShell {
-            packages = with pkgs; [ nixfmt wasm-pack ];
-            inputsFrom = with packages; [ flux-web flux-desktop ];
-            nativeBuildInputs = [ rustToolchain ];
+            packages = with pkgs; [nixfmt wasm-pack];
+            inputsFrom = with packages; [flux-web flux-desktop];
+            nativeBuildInputs = [rustToolchain];
           };
         };
 
-        formatter = pkgs.nixfmt;
+        formatter = pkgs.alejandra;
 
         apps.default = flake-utils.lib.mkApp {
           name = "flux-desktop";
@@ -132,8 +143,7 @@
             # glutin).
             cargoBuildCommand = "cargo build --release";
             cargoCheckCommand = "cargo check --release";
-            cargoExtraArgs =
-              "--package flux-wasm --target wasm32-unknown-unknown";
+            cargoExtraArgs = "--package flux-wasm --target wasm32-unknown-unknown";
             doCheck = false; # This doesn’t disable the checks…
           };
 
@@ -145,30 +155,30 @@
           };
 
           flux-desktop-wrapped = let
-            runtimeLibraries = with pkgs;
-              [ wayland
-                wayland-protocols
-                xorg.libX11
-                xorg.libXcursor
-                xorg.libXrandr
-                xorg.libXi
-                libGL
-              ];
+            runtimeLibraries = with pkgs; [
+              wayland
+              wayland-protocols
+              xorg.libX11
+              xorg.libXcursor
+              xorg.libXrandr
+              xorg.libXi
+              libGL
+            ];
           in
-          # Can’t use symlinkJoin because of the hooks are passed to the
-          # dependency-only build.
-          stdenvNoCC.mkDerivation {
-            name = "flux-desktop-wrapped";
-            inherit (packages.flux-desktop) version;
-            nativeBuildInputs = [ pkgs.makeWrapper ];
-            buildCommand = ''
-              mkdir -p $out/bin
-              cp ${packages.flux-desktop}/bin/flux-desktop $out/bin
-              wrapProgram $out/bin/flux-desktop \
-                --prefix LD_LIBRARY_PATH : ${pkgs.lib.makeLibraryPath runtimeLibraries}
-            '';
-            passthru.unwrapped = packages.flux-desktop;
-          };
+            # Can’t use symlinkJoin because of the hooks are passed to the
+            # dependency-only build.
+            stdenvNoCC.mkDerivation {
+              name = "flux-desktop-wrapped";
+              inherit (packages.flux-desktop) version;
+              nativeBuildInputs = [pkgs.makeWrapper];
+              buildCommand = ''
+                mkdir -p $out/bin
+                cp ${packages.flux-desktop}/bin/flux-desktop $out/bin
+                wrapProgram $out/bin/flux-desktop \
+                  --prefix LD_LIBRARY_PATH : ${pkgs.lib.makeLibraryPath runtimeLibraries}
+              '';
+              passthru.unwrapped = packages.flux-desktop;
+            };
 
           flux-desktop = craneLib.buildPackage {
             inherit (crateNameFromCargoToml "flux-desktop") pname version;
@@ -176,7 +186,8 @@
             release = true;
             cargoExtraArgs = "-p flux-desktop";
             doCheck = true;
-            nativeBuildInputs = lib.optionals stdenv.isDarwin
+            nativeBuildInputs =
+              lib.optionals stdenv.isDarwin
               (with pkgs.darwin.apple_sdk.frameworks; [
                 AppKit
                 ApplicationServices
@@ -193,7 +204,7 @@
         crossPkgs = import nixpkgs {
           inherit system;
           crossSystem.config = "x86_64-w64-mingw32";
-          overlays = [ (import rust-overlay) ];
+          overlays = [(import rust-overlay)];
         };
 
         fluxDesktopCrossWindows = crossCompileFor {
@@ -203,8 +214,8 @@
         };
       in {
         devShells.crossShell = crossPkgs.mkShell {
-          inputsFrom = [ self.packages.${system}.flux-desktop-x86_64-pc-windows-gnu ];
-          nativeBuildInputs = [ fluxDesktopCrossWindows.rustToolchain ];
+          inputsFrom = [self.packages.${system}.flux-desktop-x86_64-pc-windows-gnu];
+          nativeBuildInputs = [fluxDesktopCrossWindows.rustToolchain];
         };
 
         # Cross-compile the Windows executable only on Linux hosts.
