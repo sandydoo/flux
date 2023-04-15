@@ -7,4 +7,8 @@ members = [
 ]
 
 [profile.release]
-lto = true
+codegen-units = 1 # Allow further optimisations by disabling parallel compilation
+lto = true # Enable link-time optimisations
+opt-level = "s" # Optimise for size
+panic = "abort" # Strip expensive panic unwinding code
+strip = true # Remove debug symbols
