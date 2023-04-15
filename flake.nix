@@ -52,6 +52,9 @@
           rustfmt = rustToolchain;
         });
 
+        crateNameFromCargoToml = 
+          packageName: craneLib.crateNameFromCargoToml { cargoToml = ./${packageName}/Cargo.toml; };
+
         crossCompileFor = { hostPkgs, targetTriple, packageName }:
           let
             rustToolchain =
@@ -73,6 +76,7 @@
             inherit rustToolchain;
 
             package = craneLib.buildPackage rec {
+              inherit (crateNameFromCargoToml packageName) pname version;
               src = ./.;
               cargoExtraArgs = "-p ${packageName} --target ${targetTriple}";
 
@@ -112,12 +116,14 @@
           default = packages.flux-web;
 
           flux = craneLib.buildPackage {
+            inherit (crateNameFromCargoToml "flux") pname version;
             src = ./.;
             cargoExtraArgs = "-p flux";
             doCheck = true;
           };
 
-          flux-wasm = craneLib.buildPackage rec {
+          flux-wasm = craneLib.buildPackage {
+            inherit (crateNameFromCargoToml "flux-wasm") pname version;
             src = ./.;
 
             # By default, crane adds the `--workspace` flag to all commands.
@@ -165,6 +171,7 @@
           };
 
           flux-desktop = craneLib.buildPackage {
+            inherit (crateNameFromCargoToml "flux-desktop") pname version;
             src = ./.;
             release = true;
             cargoExtraArgs = "-p flux-desktop";
