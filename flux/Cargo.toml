@@ -14,7 +14,7 @@ build = "build.rs"
 bytemuck = { version = "1.4", features = ["derive"] }
 crevice = { version  = "0.12", features = [ "std", "nalgebra" ] }
 getrandom = { version = "0.2", features = ["js"] }
-glow = "0.11.2"
+glow = "0.12.1"
 half = { version = "2", features = ["bytemuck"] }
 log = "0.4"
 nalgebra = { version = "0.32", features = [ "mint" ] }

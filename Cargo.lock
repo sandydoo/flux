@@ -487,7 +487,7 @@ dependencies = [
 
 [[package]]
 name = "flux"
-version = "4.4.0"
+version = "4.5.0"
 dependencies = [
  "bytemuck",
  "crevice",
@@ -508,7 +508,7 @@ dependencies = [
 
 [[package]]
 name = "flux-desktop"
-version = "4.4.0"
+version = "4.5.0"
 dependencies = [
  "env_logger",
  "flux",
@@ -519,7 +519,7 @@ dependencies = [
 
 [[package]]
 name = "flux-wasm"
-version = "4.4.0"
+version = "4.5.0"
 dependencies = [
  "console_error_panic_hook",
  "console_log",
@@ -615,9 +615,9 @@ dependencies = [
 
 [[package]]
 name = "glow"
-version = "0.11.2"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8bd5877156a19b8ac83a29b2306fe20537429d318f3ff0a1a2119f8d9c61919"
+checksum = "4e007a07a24de5ecae94160f141029e9a347282cfe25d1d58d85d845cf3130f1"
 dependencies = [
  "js-sys",
  "slotmap",
