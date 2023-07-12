@@ -92,7 +92,6 @@ impl Flux {
 pub fn get_rendering_context(
     element_id: &str,
 ) -> Result<(Canvas, glow::Context, u32, u32, u32, u32, f64), JsValue> {
-    use wasm_bindgen::JsCast;
     use web_sys::WebGl2RenderingContext as GL;
 
     set_panic_hook();
