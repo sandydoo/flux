@@ -34,18 +34,23 @@
 
   gitignoreSource = pkgs.nix-gitignore.gitignoreSource;
 in
-  stdenv.mkDerivation rec {
+  stdenv.mkDerivation {
     pname = "flux-web";
     inherit version;
     src = gitignoreSource [] ./.;
 
+    nativeBuildInputs = with pkgs; [
+      openssl
+      pkg-config
+    ];
+
     buildInputs = with pkgs; [
       nodeModules
-      pkgs.yarn
+      yarn
+      nodePackages.pnpm
       elmPackages.elm
       wasm-bindgen-cli
       binaryen
-      flux-wasm
     ];
 
     passthru = {

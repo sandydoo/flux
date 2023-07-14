@@ -92,7 +92,6 @@ impl Flux {
 pub fn get_rendering_context(
     element_id: &str,
 ) -> Result<(Canvas, glow::Context, u32, u32, u32, u32, f64), JsValue> {
-    use wasm_bindgen::JsCast;
     use web_sys::WebGl2RenderingContext as GL;
 
     set_panic_hook();
@@ -193,9 +192,19 @@ pub enum Canvas {
 
 impl Canvas {
     pub fn new(html_canvas: web_sys::HtmlCanvasElement) -> Self {
-        match html_canvas.transfer_control_to_offscreen() {
-            Ok(offscreen_canvas) => Canvas::OffscreenCanvas(html_canvas, offscreen_canvas),
-            Err(_) => Canvas::OnscreenCanvas(html_canvas),
+        // WARN: Panics in Safari.
+        // match html_canvas.transfer_control_to_offscreen() {
+        //     Ok(offscreen_canvas) => Canvas::OffscreenCanvas(html_canvas, offscreen_canvas),
+        //     Err(_) => Canvas::OnscreenCanvas(html_canvas),
+        // }
+
+        Canvas::OnscreenCanvas(html_canvas)
+    }
+
+    pub fn get_context(&self, context_id: &str) -> Result<Option<js_sys::Object>, JsValue> {
+        match self {
+            Canvas::OnscreenCanvas(ref canvas) => canvas.get_context(context_id),
+            Canvas::OffscreenCanvas(_, ref canvas) => canvas.get_context(context_id),
         }
     }
 
