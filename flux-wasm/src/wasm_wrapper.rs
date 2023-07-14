@@ -3,7 +3,7 @@ use gloo_utils::format::JsValueSerdeExt;
 use serde::Serialize;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsValue;
+use wasm_bindgen::{JsValue, JsCast};
 use web_sys::Window;
 
 #[wasm_bindgen]
