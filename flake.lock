@@ -79,32 +79,16 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1689048911,
-        "narHash": "sha256-pODI2CkjWbSLo5nPMZoLtkRNJU/Nr3VSITXZqqmNtIk=",
+        "lastModified": 1689282004,
+        "narHash": "sha256-VNhuyb10c9SV+3hZOlxwJwzEGytZ31gN9w4nPCnNvdI=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "8163a64662b43848802092d52015ef60777d6129",
+        "rev": "e74e68449c385db82de3170288a28cd0f608544f",
         "type": "github"
       },
       "original": {
         "owner": "NixOS",
-        "ref": "nixos-23.05",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
-    "nixpkgs-master": {
-      "locked": {
-        "lastModified": 1689161029,
-        "narHash": "sha256-UadIzr9nLgNAr5ceyB19s7R/ZchRWogwNVuN7JVRuNU=",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "5efffcd7d77fb1b8be9199bb2aa7816796c72c31",
-        "type": "github"
-      },
-      "original": {
-        "owner": "NixOS",
-        "ref": "master",
+        "ref": "nixos-unstable",
         "repo": "nixpkgs",
         "type": "github"
       }
@@ -114,7 +98,6 @@
         "crane": "crane",
         "flake-utils": "flake-utils_2",
         "nixpkgs": "nixpkgs",
-        "nixpkgs-master": "nixpkgs-master",
         "rust-overlay": "rust-overlay"
       }
     },
