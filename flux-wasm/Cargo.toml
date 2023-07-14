@@ -23,7 +23,7 @@ js-sys = "0.3"
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
 gloo-utils = { version = "0.1", features = ["serde"] }
-wasm-bindgen = { version = "=0.2.84" }
+wasm-bindgen = { version = "=0.2.83" }
 
 [dependencies.web-sys]
 version = "0.3"
