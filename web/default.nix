@@ -102,7 +102,7 @@ in
         ${flux-wasm}/lib/flux_wasm.wasm
 
       mv flux/flux_wasm_bg.wasm flux/flux_wasm_bg_unoptimized.wasm
-      wasm-opt -O3 -o flux/flux_wasm_bg.wasm flux/flux_wasm_bg_unoptimized.wasm
+      wasm-opt -Os -o flux/flux_wasm_bg.wasm flux/flux_wasm_bg_unoptimized.wasm
       echo '${packageJson}' > ./flux/package.json
 
       webpack \
