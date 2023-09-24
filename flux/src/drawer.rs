@@ -9,6 +9,7 @@ use settings::Settings;
 use bytemuck::{Pod, Zeroable};
 use crevice::std140::AsStd140;
 use glow::HasContext;
+use image::{DynamicImage, GenericImage, Rgba, GenericImageView, Pixel};
 use std::path;
 use std::rc::Rc;
 
@@ -398,6 +399,8 @@ impl Drawer {
             img.height()
         );
 
+        let mapped = increase_black_level(&img, 25);
+
         // Always upload RGBA images to match the expected pixel aligment (4).
         //
         // Another viable option is to set the unpack alignment to 1, since we're using packed
@@ -418,7 +421,7 @@ impl Drawer {
         )
         .map_err(Problem::Render)?;
         color_texture
-            .with_data(Some(&img.to_rgba8()))
+            .with_data(Some(&mapped.to_rgba8()))
             .map_err(Problem::Render)?;
 
         self.color_texture = Some(color_texture);
@@ -564,6 +567,33 @@ impl Drawer {
         self.grid.scaling_ratio
     }
 }
+
+fn increase_black_level(img: &DynamicImage, threshold: u8) -> DynamicImage {
+    // Create an empty buffer to store the modified image
+    let mut modified_img = DynamicImage::new_rgba8(img.width(), img.height());
+
+    // Iterate over the pixels of the input image
+    for (x, y, pixel) in img.pixels() {
+        let Rgba([r, g, b, a]) = pixel;
+
+        // Check if the pixel is below the threshold
+        if r < threshold && g < threshold && b < threshold {
+            // Increase the black level to the threshhold
+            let new_r = r.max(threshold);
+            let new_g = g.max(threshold);
+            let new_b = b.max(threshold);
+
+            // Set the modified pixel in the output image
+            modified_img.put_pixel(x, y, Rgba([new_r, new_g, new_b, a]));
+        } else {
+            // Pixel is not too dark, keep it unchanged
+            modified_img.put_pixel(x, y, Rgba([r, g, b, a]));
+        }
+    }
+
+    modified_img
+}
+
 
 #[repr(C)]
 #[derive(Clone, Copy)]
