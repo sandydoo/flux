@@ -1,0 +1,6 @@
+[workspace]
+
+members = [
+    "flux-next",
+    "flux-next-desktop",
+]
