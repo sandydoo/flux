@@ -164,25 +164,6 @@ async fn run(
                     flux.compute(start.elapsed().as_secs_f64() * 1000.0);
                     flux.render(&device, &mut encoder, &view);
 
-                    // {
-                    //     let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                    //         label: None,
-                    //         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    //             view: &view,
-                    //             resolve_target: None,
-                    //             ops: wgpu::Operations {
-                    //                 load: wgpu::LoadOp::Clear(wgpu::Color::GREEN),
-                    //                 store: wgpu::StoreOp::Store,
-                    //             },
-                    //         })],
-                    //         depth_stencil_attachment: None,
-                    //         timestamp_writes: None,
-                    //         occlusion_query_set: None,
-                    //     });
-                    //     rpass.set_pipeline(&render_pipeline);
-                    //     rpass.draw(0..3, 0..1);
-                    // }
-
                     command_queue.submit(Some(encoder.finish()));
                     frame.present();
                 }

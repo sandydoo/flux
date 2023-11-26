@@ -1,11 +1,9 @@
 // use crate::{drawer, fluid, noise, render, rng, settings};
-use crate::settings;
-// use drawer::Drawer;
+use crate::{rng, settings};
 // use fluid::Fluid;
 // use noise::{NoiseGenerator, NoiseGeneratorBuilder};
 use settings::Settings;
 
-use std::fmt;
 use std::rc::Rc;
 
 // The time at which the animation timer will reset to zero.
@@ -38,11 +36,11 @@ impl Flux {
         self.fluid_update_interval = 1.0 / settings.fluid_frame_rate;
     }
 
-    // pub fn sample_colors_from_image(&mut self, encoded_bytes: &[u8]) {
-    //     if let Err(msg) = self.drawer.set_color_texture(encoded_bytes) {
-    //         log::error!("{}", msg);
-    //     }
-    // }
+    pub fn sample_colors_from_image(&mut self, encoded_bytes: &[u8]) {
+        if let Err(msg) = self.drawer.set_color_texture(encoded_bytes) {
+            log::error!("{}", msg);
+        }
+    }
 
     pub fn new(
         device: &wgpu::Device,
@@ -55,10 +53,10 @@ impl Flux {
     ) -> Result<Flux, String> {
         log::info!("✨ Initialising Flux");
 
-        // rng::init_from_seed(&settings.seed);
+        rng::init_from_seed(&settings.seed);
 
         // let drawer = Drawer::new(
-        //     context,
+        //     queue,
         //     logical_width,
         //     logical_height,
         //     physical_width,
@@ -166,13 +164,13 @@ impl Flux {
         encoder: &mut wgpu::CommandEncoder,
         view: &wgpu::TextureView,
     ) {
-        let _ = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        let _rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: None,
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: &view,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLUE),
                     store: wgpu::StoreOp::Store,
                 },
             })],
@@ -184,13 +182,13 @@ impl Flux {
         // rpass.set_pipeline(&render_pipeline);
 
         // use settings::Mode::*;
-        // match &self.settings.mode { f
+        // match &self.settings.mode {
         //     Normal => {
         //         self.drawer.draw_lines();
         //         self.drawer.draw_endpoints();
         //     }
         //     DebugNoise => {
-        //         self.drawer.draw_texture(self.noise_generator.get_noise());
+        //       self.drawer.draw_texture(self.noise_generator.get_noise());
         //     }
         //     DebugFluid => {
         //         self.drawer.draw_texture(&self.fluid.get_velocity());
