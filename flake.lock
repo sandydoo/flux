@@ -114,15 +114,16 @@
         ]
       },
       "locked": {
-        "lastModified": 1699882606,
-        "narHash": "sha256-GOsLgTdyWt0LG0yBrwz/0AJikOZdzlZq7X/ZOE8L888=",
-        "owner": "wgsl-analyzer",
+        "lastModified": 1701639430,
+        "narHash": "sha256-8LnXx4kkRg88AcELZFUd+LBHS563n5OMB9edm5BW8BQ=",
+        "owner": "sandydoo",
         "repo": "wgsl-analyzer",
-        "rev": "d3310a408d4446c8f666eaed8ae0efcea799e926",
+        "rev": "61a50c354e6d2616fa90a95ae16f9bd785f671c8",
         "type": "github"
       },
       "original": {
-        "owner": "wgsl-analyzer",
+        "owner": "sandydoo",
+        "ref": "fix/darwin-build",
         "repo": "wgsl-analyzer",
         "type": "github"
       }

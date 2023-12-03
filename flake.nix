@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-23.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-23.11";
     flake-utils.url = "github:numtide/flake-utils";
     crane = {
       url = "github:ipetkov/crane";
@@ -16,6 +16,14 @@
         flake-utils.follows = "flake-utils";
       };
     };
+    wgsl-analyzer-flake = {
+      url = "github:sandydoo/wgsl-analyzer/fix/darwin-build";
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+        crane.follows = "crane";
+        flake-utils.follows = "flake-utils";
+      };
+    };
   };
 
   outputs = {
@@ -24,6 +32,7 @@
     flake-utils,
     crane,
     rust-overlay,
+    wgsl-analyzer-flake,
     ...
   }:
     flake-utils.lib.eachSystem [
@@ -34,7 +43,10 @@
     ] (system: let
       pkgs = import nixpkgs {
         inherit system;
-        overlays = [(import rust-overlay)];
+        overlays = [
+          (import rust-overlay)
+          wgsl-analyzer-flake.overlays.${system}.default
+        ];
       };
 
       inherit (pkgs) lib stdenv stdenvNoCC;
@@ -108,7 +120,7 @@
       lib.recursiveUpdate rec {
         devShells = {
           default = pkgs.mkShell {
-            packages = with pkgs; [nixfmt wasm-pack];
+            packages = with pkgs; [nixfmt wasm-pack wgsl-analyzer];
             inputsFrom = with packages; [flux-web flux-desktop];
             nativeBuildInputs = [rustToolchain];
           };
