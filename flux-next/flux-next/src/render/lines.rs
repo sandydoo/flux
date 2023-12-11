@@ -1,9 +1,7 @@
-use crate::render::GraphicsContext;
-
 pub struct Context {}
 
 impl Context {
-    pub fn new(ctx: &GraphicsContext) -> Self {
+    pub fn new(device: &wgpu::Device) -> Self {
         Self {}
     }
 }

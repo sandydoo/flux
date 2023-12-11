@@ -1,6 +1,5 @@
 // use crate::{drawer, fluid, noise, render, rng, settings};
-use crate::{rng, settings};
-// use fluid::Fluid;
+use crate::{render, rng, settings};
 // use noise::{NoiseGenerator, NoiseGeneratorBuilder};
 use settings::Settings;
 
@@ -11,9 +10,10 @@ const MAX_ELAPSED_TIME: f32 = 1000.0;
 const MAX_FRAME_TIME: f32 = 1.0 / 10.0;
 
 pub struct Flux {
-    // fluid: Fluid,
+    fluid: render::fluid::Context,
     // drawer: Drawer,
     // noise_generator: NoiseGenerator,
+    debug_texture: render::texture::Context,
     settings: Rc<Settings>,
 
     // A timestamp in milliseconds. Either host or video time.
@@ -37,14 +37,15 @@ impl Flux {
     }
 
     pub fn sample_colors_from_image(&mut self, encoded_bytes: &[u8]) {
-        if let Err(msg) = self.drawer.set_color_texture(encoded_bytes) {
-            log::error!("{}", msg);
-        }
+        // if let Err(msg) = self.drawer.set_color_texture(encoded_bytes) {
+        //     log::error!("{}", msg);
+        // }
     }
 
     pub fn new(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
+        swapchain_format: wgpu::TextureFormat,
         logical_width: u32,
         logical_height: u32,
         physical_width: u32,
@@ -54,6 +55,12 @@ impl Flux {
         log::info!("✨ Initialising Flux");
 
         rng::init_from_seed(&settings.seed);
+
+        let screen_size = wgpu::Extent3d {
+            width: physical_width,
+            height: physical_height,
+            depth_or_array_layers: 1,
+        };
 
         // let drawer = Drawer::new(
         //     queue,
@@ -65,8 +72,13 @@ impl Flux {
         // )
         // .map_err(Problem::Render)?;
 
-        // let fluid =
-        //     Fluid::new(context, drawer.scaling_ratio(), settings).map_err(Problem::Render)?;
+        let fluid = render::fluid::Context::new(device, queue, settings);
+
+        let debug_texture = render::texture::Context::new(
+            device,
+            swapchain_format,
+            fluid.get_advection_forward_texture_view(),
+        );
 
         // let mut noise_generator_builder =
         //     NoiseGeneratorBuilder::new(context, 2 * settings.fluid_size, drawer.scaling_ratio());
@@ -76,9 +88,10 @@ impl Flux {
         // let noise_generator = noise_generator_builder.build().map_err(Problem::Render)?;
 
         Ok(Flux {
-            // fluid,
+            fluid,
             // drawer,
             // noise_generator,
+            debug_texture,
             settings: Rc::clone(settings),
 
             last_timestamp: 0.0,
@@ -111,12 +124,23 @@ impl Flux {
         //     .unwrap();
     }
 
-    pub fn animate(&mut self, timestamp: f64) {
-        self.compute(timestamp);
-        // self.render();
+    pub fn animate(
+        &mut self,
+        device: &wgpu::Device,
+        encoder: &mut wgpu::CommandEncoder,
+        view: &wgpu::TextureView,
+        timestamp: f64,
+    ) {
+        self.compute(device, encoder, timestamp);
+        self.render(device, encoder, view);
     }
 
-    pub fn compute(&mut self, timestamp: f64) {
+    pub fn compute(
+        &mut self,
+        device: &wgpu::Device,
+        encoder: &mut wgpu::CommandEncoder,
+        timestamp: f64,
+    ) {
         // The delta time in seconds
         let timestep = f32::min(
             MAX_FRAME_TIME,
@@ -132,24 +156,31 @@ impl Flux {
             self.elapsed_time = timer_overflow;
         }
 
-        while self.fluid_frame_time >= self.fluid_update_interval {
-            // self.noise_generator.generate(self.elapsed_time);
-            //
-            // self.fluid.advect_forward(self.settings.fluid_timestep);
-            // self.fluid.advect_reverse(self.settings.fluid_timestep);
-            // self.fluid.adjust_advection(self.settings.fluid_timestep);
-            // self.fluid.diffuse(self.settings.fluid_timestep);
-            //
-            // self.noise_generator.blend_noise_into(
-            //     self.fluid.get_velocity_textures(),
-            //     self.settings.fluid_timestep,
-            // );
-            //
-            // self.fluid.calculate_divergence();
-            // self.fluid.solve_pressure();
-            // self.fluid.subtract_gradient();
+        {
+            let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("flux::compute"),
+                timestamp_writes: None,
+            });
 
-            self.fluid_frame_time -= self.fluid_update_interval;
+            while self.fluid_frame_time >= self.fluid_update_interval {
+                // self.noise_generator.generate(self.elapsed_time);
+
+                // self.fluid.advect_forward(&mut cpass);
+                // self.fluid.advect_reverse(&mut cpass);
+                // self.fluid.adjust_advection(self.settings.fluid_timestep);
+                // self.fluid.diffuse(self.settings.fluid_timestep);
+                //
+                // self.noise_generator.blend_noise_into(
+                //     self.fluid.get_velocity_textures(),
+                //     self.settings.fluid_timestep,
+                // );
+                //
+                // self.fluid.calculate_divergence();
+                // self.fluid.solve_pressure();
+                // self.fluid.subtract_gradient();
+
+                self.fluid_frame_time -= self.fluid_update_interval;
+            }
         }
 
         // TODO: the line animation is still dependent on the client’s fps. Is
@@ -164,13 +195,13 @@ impl Flux {
         encoder: &mut wgpu::CommandEncoder,
         view: &wgpu::TextureView,
     ) {
-        let _rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: None,
+        let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("flux::render"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &view,
+                view,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLUE),
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
                     store: wgpu::StoreOp::Store,
                 },
             })],
@@ -178,6 +209,8 @@ impl Flux {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
+
+        self.debug_texture.draw_texture(device, &mut rpass);
 
         // rpass.set_pipeline(&render_pipeline);
 

@@ -52,53 +52,34 @@ async fn run(
         })
         .await
         .expect("Failed to find an appropiate adapter");
+    print!(
+        "{:?}\n{:?}",
+        adapter.features(),
+        adapter.limits().max_push_constant_size
+    );
+
+    // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
+    let mut limits = wgpu::Limits::default().using_resolution(adapter.limits());
+    // Request push constants for the shaders
+    let required_push_constant_size = 8;
+    limits.max_push_constant_size = required_push_constant_size;
+    let features =
+        wgpu::Features::PUSH_CONSTANTS | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES;
 
     let (device, command_queue) = adapter
         .request_device(
             &wgpu::DeviceDescriptor {
                 label: None,
-                features: wgpu::Features::empty(),
-                // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
-                limits: wgpu::Limits::default().using_resolution(adapter.limits()),
+                features,
+                limits,
             },
             None,
         )
         .await
         .expect("Failed to create device");
 
-    // Load the shaders from disk
-    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: None,
-        source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shader.wgsl"))),
-    });
-
-    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        label: None,
-        bind_group_layouts: &[],
-        push_constant_ranges: &[],
-    });
-
     let swapchain_capabilities = window_surface.get_capabilities(&adapter);
     let swapchain_format = swapchain_capabilities.formats[0];
-
-    let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-        label: None,
-        layout: Some(&pipeline_layout),
-        vertex: wgpu::VertexState {
-            module: &shader,
-            entry_point: "vs_main",
-            buffers: &[],
-        },
-        fragment: Some(wgpu::FragmentState {
-            module: &shader,
-            entry_point: "fs_main",
-            targets: &[Some(swapchain_format.into())],
-        }),
-        primitive: wgpu::PrimitiveState::default(),
-        depth_stencil: None,
-        multisample: wgpu::MultisampleState::default(),
-        multiview: None,
-    });
 
     let physical_size = window.inner_size();
     let mut config = wgpu::SurfaceConfiguration {
@@ -117,6 +98,7 @@ async fn run(
     let mut flux = Flux::new(
         &device,
         &command_queue,
+        swapchain_format,
         logical_size.width,
         logical_size.height,
         physical_size.width,
@@ -131,7 +113,7 @@ async fn run(
         // Have the closure take ownership of the resources.
         // `event_loop.run` never returns, therefore we must do this to ensure
         // the resources are properly cleaned up.
-        let _ = (&wgpu_instance, &adapter, &shader, &pipeline_layout, &flux);
+        let _ = (&wgpu_instance, &adapter, &flux);
 
         match event {
             Event::WindowEvent { event, window_id } if window_id == window.id() => match event {
@@ -158,11 +140,17 @@ async fn run(
                     let view = frame
                         .texture
                         .create_view(&wgpu::TextureViewDescriptor::default());
-                    let mut encoder = device
-                        .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+                    let mut encoder =
+                        device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                            label: Some("flux:render"),
+                        });
 
-                    flux.compute(start.elapsed().as_secs_f64() * 1000.0);
-                    flux.render(&device, &mut encoder, &view);
+                    flux.animate(
+                        &device,
+                        &mut encoder,
+                        &view,
+                        start.elapsed().as_secs_f64() * 1000.0,
+                    );
 
                     command_queue.submit(Some(encoder.finish()));
                     frame.present();

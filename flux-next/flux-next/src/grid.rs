@@ -8,8 +8,8 @@ struct LineState {
     width: f32,
 }
 
-unsafe impl Zeroable for LineState {}
-unsafe impl Pod for LineState {}
+unsafe impl bytemuck::Zeroable for LineState {}
+unsafe impl bytemuck::Pod for LineState {}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ScalingRatio {
