@@ -34,19 +34,19 @@
 
   gitignoreSource = pkgs.nix-gitignore.gitignoreSource;
 
-  wasm-bindgen-cli-0_2_83 = pkgs.wasm-bindgen-cli.overrideAttrs (drv: rec {
+  wasm-bindgen-cli-0_2_89 = pkgs.wasm-bindgen-cli.overrideAttrs (drv: rec {
     name = "wasm-bindgen-cli-${version}";
-    version = "0.2.83";
+    version = "0.2.89";
     src = pkgs.fetchCrate {
       inherit (drv) pname;
       inherit version;
-      sha256 = "sha256-+PWxeRL5MkIfJtfN3/DjaDlqRgBgWZMa6dBt1Q+lpd0=";
+      sha256 = "sha256-IPxP68xtNSpwJjV2yNMeepAS0anzGl02hYlSTvPocz8=";
     };
 
     cargoDeps = drv.cargoDeps.overrideAttrs (lib.const {
       inherit src;
       name = "${drv.pname}-vendor.tar.gz";
-      outputHash = "sha256-snrU0D7YSDsF/NjckStk2wvqu1xNFXMJ9UxSAVK06pE=";
+      outputHash = "sha256-JJl9ufudSIjlC9dx7OUjk4LISf29drDKi8bBI313Tns=";
     });
 
     doCheck = false;
@@ -67,7 +67,7 @@ in
       yarn
       nodePackages.pnpm
       elmPackages.elm
-      wasm-bindgen-cli-0_2_83
+      wasm-bindgen-cli-0_2_89
       binaryen
     ];
 

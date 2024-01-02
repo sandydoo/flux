@@ -18,12 +18,12 @@ default = ["console_error_panic_hook"]
 console_error_panic_hook = { version = "0.1", optional = true }
 console_log = "1.0"
 flux = { version = "4", path = "../flux" }
-glow = "0.12.1"
+glow = "0.13"
 js-sys = "0.3"
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
-gloo-utils = { version = "0.1", features = ["serde"] }
-wasm-bindgen = { version = "=0.2.83" }
+gloo-utils = { version = "0.2", features = ["serde"] }
+wasm-bindgen = { version = "=0.2.89" }
 
 [dependencies.web-sys]
 version = "0.3"
