@@ -6,7 +6,6 @@
       url = "github:ipetkov/crane";
       inputs = {
         nixpkgs.follows = "nixpkgs";
-        rust-overlay.follows = "rust-overlay";
       };
     };
     rust-overlay = {
@@ -17,7 +16,7 @@
       };
     };
     wgsl-analyzer-flake = {
-      url = "github:sandydoo/wgsl-analyzer/fix/darwin-build";
+      url = "github:wgsl-analyzer/wgsl-analyzer";
       inputs = {
         nixpkgs.follows = "nixpkgs";
         crane.follows = "crane";
@@ -120,7 +119,7 @@
       lib.recursiveUpdate rec {
         devShells = {
           default = pkgs.mkShell {
-            packages = with pkgs; [nixfmt wasm-pack wgsl-analyzer];
+            packages = with pkgs; [nixfmt wasm-pack wgsl-analyzer cargo-outdated];
             inputsFrom = with packages; [flux-web flux-desktop];
             nativeBuildInputs = [rustToolchain];
           };
