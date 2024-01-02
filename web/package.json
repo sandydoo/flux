@@ -14,16 +14,23 @@
     "type": "git",
     "url": "https://github.com/sandydoo/flux/web/"
   },
+  "overrides": {
+    "elm": "npm:@lydell/elm@0.19.1-14"
+  },
   "devDependencies": {
     "@wasm-tool/wasm-pack-plugin": "1.7.0",
     "copy-webpack-plugin": "^11.0.0",
-    "elm": "0.19.1-5",
     "elm-hot": "^1.1.6",
     "elm-webpack-loader": "^8.0.0",
-    "gh-pages": "^5.0.0",
-    "html-webpack-plugin": "^5.5.3",
-    "webpack": "^5.88.1",
+    "gh-pages": "^6.0.0",
+    "html-webpack-plugin": "^5.6.0",
+    "webpack": "^5.89.0",
     "webpack-cli": "^5.1.4",
     "webpack-dev-server": "^4.15.1"
+  },
+  "pnpm": {
+    "peerDependencyRules": {
+      "ignoreMissing": ["elm"]
+    }
   }
 }
