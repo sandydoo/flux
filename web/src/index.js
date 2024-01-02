@@ -1,4 +1,4 @@
-import  { Flux } from "../flux";
+import { Flux } from "../flux";
 import { Elm } from "./Main.elm";
 
 function setupFlux() {
@@ -10,7 +10,7 @@ function setupFlux() {
   });
 
   // Initialize WASM and run animation
-  ui.ports.initFlux.subscribe(function (settings) {
+  ui.ports.initFlux.subscribe(function(settings) {
     flux = new Flux(settings);
 
     function animate(timestamp) {
@@ -28,7 +28,7 @@ function setupFlux() {
   });
 
   // Update settings
-  ui.ports.setSettings.subscribe(function (newSettings) {
+  ui.ports.setSettings.subscribe(function(newSettings) {
     flux.settings = newSettings;
   });
 }
