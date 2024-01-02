@@ -6,3 +6,6 @@ mutagen.*
 
 # Release
 /result*
+
+# Dev shell
+/.direnv
