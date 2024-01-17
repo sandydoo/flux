@@ -120,12 +120,10 @@ fn main(
   let texel_position = (vec2<f32>(global_id.xy) / dims) * 2.0 - 1.0;
   
   var noise = vec2(0.0);
-  // for (var i = 0; i < 3; i = i + 1) {
-  //   let channel = global.channels[i];
-  //   noise += make_noise(texel_position, channel);  
-  // }
-  let channel = global.channels[0];
-  noise += make_noise(texel_position, channel);  
+  for (var i = 0; i < 3; i = i + 1) {
+    let channel = global.channels[i];
+    noise += make_noise(texel_position, channel);
+  }
 
   // TODO: make strength factor configurable
   textureStore(out_texture, global_id.xy, vec4<f32>(noise * 0.45, 0.0, 0.0));
