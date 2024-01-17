@@ -87,7 +87,7 @@ async fn run(
         format: swapchain_format,
         width: physical_size.width,
         height: physical_size.height,
-        present_mode: wgpu::PresentMode::Fifo,
+        present_mode: wgpu::PresentMode::AutoVsync,
         alpha_mode: swapchain_capabilities.alpha_modes[0],
         view_formats: vec![],
     };
@@ -115,7 +115,12 @@ async fn run(
         // the resources are properly cleaned up.
         let _ = (&wgpu_instance, &adapter, &flux);
 
+        elwt.set_control_flow(winit::event_loop::ControlFlow::Poll);
+
         match event {
+            Event::AboutToWait => {
+                window.request_redraw();
+            }
             Event::WindowEvent { event, window_id } if window_id == window.id() => match event {
                 WindowEvent::CloseRequested
                 | WindowEvent::KeyboardInput {
