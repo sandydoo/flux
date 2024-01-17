@@ -11,6 +11,8 @@ struct FluidUniforms {
     dissipation: f32,
     alpha: f32,
     r_beta: f32,
+    center_factor: f32,
+    stencil_factor: f32,
     texel_size: [f32; 2],
 }
 
@@ -33,7 +35,7 @@ pub struct Context {
     clear_pressure_pipeline: wgpu::ComputePipeline,
     advection_pipeline: wgpu::ComputePipeline,
     // adjust_advection_pipeline: wgpu::ComputePipeline,
-    // diffusion_pipeline: wgpu::ComputePipeline,
+    diffusion_pipeline: wgpu::ComputePipeline,
     // divergence_pipeline: wgpu::ComputePipeline,
     // pressure_pipeline: wgpu::ComputePipeline,
     // subtract_gradient_pipeline: wgpu::ComputePipeline,
@@ -56,11 +58,17 @@ impl Context {
 
         // Uniforms
 
+        // dx^2 / (rho * dt)
+        let center_factor = 1.0 / (settings.viscosity * settings.fluid_timestep);
+        let stencil_factor = 1.0 / (4.0 + center_factor);
+
         let fluid_uniforms = FluidUniforms {
             timestep: 1.0 / settings.fluid_timestep,
             dissipation: settings.velocity_dissipation,
             alpha: -1.0,
             r_beta: 0.25,
+            center_factor,
+            stencil_factor,
             texel_size,
         };
         let fluid_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -313,6 +321,7 @@ impl Context {
                         size: None,
                     }),
                 },
+                // TODO: needs to switch between velocity textures
                 wgpu::BindGroupEntry {
                     binding: 1,
                     resource: wgpu::BindingResource::TextureView(&velocity_texture_views[0]),
@@ -321,6 +330,7 @@ impl Context {
                     binding: 2,
                     resource: wgpu::BindingResource::Sampler(&linear_sampler),
                 },
+                // TODO: this needs to handle both reverse and forward
                 wgpu::BindGroupEntry {
                     binding: 3,
                     resource: wgpu::BindingResource::TextureView(&advection_forward_texture_view),
@@ -352,6 +362,13 @@ impl Context {
             entry_point: "main",
         });
 
+        let diffusion_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some("Diffusion"),
+            layout: Some(&advection_pipeline_layout),
+            module: &advection_shader,
+            entry_point: "main",
+        });
+
         Self {
             fluid_size: [width as f32, height as f32],
             fluid_uniforms,
@@ -370,6 +387,7 @@ impl Context {
 
             clear_pressure_pipeline,
             advection_pipeline,
+            diffusion_pipeline,
         }
     }
 
@@ -396,7 +414,12 @@ impl Context {
 
     pub fn adjust_advection(&self) {}
 
-    pub fn diffuse(&self) {}
+    pub fn diffuse<'cpass>(&'cpass self, cpass: &mut wgpu::ComputePass<'cpass>) {
+        let workgroup = self.get_workgroup_size();
+        cpass.set_pipeline(&self.diffusion_pipeline);
+        cpass.set_bind_group(0, &self.advection_bind_group, &[]);
+        cpass.dispatch_workgroups(workgroup.0, workgroup.1, workgroup.2);
+    }
 
     pub fn calculate_divergence(&self) {}
 

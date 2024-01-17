@@ -18,7 +18,7 @@ pub struct ScalingRatio {
 }
 
 impl ScalingRatio {
-    fn new(columns: u32, rows: u32) -> Self {
+    pub fn new(columns: u32, rows: u32) -> Self {
         let x = (columns as f32 / 171.0).max(1.0);
         let y = (rows as f32 / 171.0).max(1.0);
         Self { x, y }
@@ -41,16 +41,16 @@ impl ScalingRatio {
     }
 }
 pub struct Grid {
-    columns: u32,
-    rows: u32,
-    line_count: u32,
-    scaling_ratio: ScalingRatio,
+    pub columns: u32,
+    pub rows: u32,
+    pub line_count: u32,
+    pub scaling_ratio: ScalingRatio,
     basepoints: Vec<f32>,
     line_state: Vec<LineState>,
 }
 
 impl Grid {
-    fn new(width: u32, height: u32, grid_spacing: u32) -> Self {
+    pub fn new(width: u32, height: u32, grid_spacing: u32) -> Self {
         let height = height as f32;
         let width = width as f32;
         let grid_spacing = grid_spacing as f32;

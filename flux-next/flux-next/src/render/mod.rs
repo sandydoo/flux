@@ -1,5 +1,6 @@
 pub mod fluid;
 pub mod lines;
+pub mod noise;
 pub mod texture;
 
 // pub struct GraphicsContext {

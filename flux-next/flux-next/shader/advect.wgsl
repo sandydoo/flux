@@ -2,6 +2,10 @@
 struct FluidUniforms {
   timestep: f32,
   dissipation: f32,
+  alpha: f32,
+  r_beta: f32,
+  center_factor: f32,
+  stencil_factor: f32,
   texel_size: vec2<f32>,
 }
 

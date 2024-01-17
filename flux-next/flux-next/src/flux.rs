@@ -1,6 +1,4 @@
-// use crate::{drawer, fluid, noise, render, rng, settings};
-use crate::{render, rng, settings};
-// use noise::{NoiseGenerator, NoiseGeneratorBuilder};
+use crate::{grid, render, rng, settings};
 use settings::Settings;
 
 use std::rc::Rc;
@@ -12,7 +10,7 @@ const MAX_FRAME_TIME: f32 = 1.0 / 10.0;
 pub struct Flux {
     fluid: render::fluid::Context,
     // drawer: Drawer,
-    // noise_generator: NoiseGenerator,
+    noise_generator: render::noise::NoiseGenerator,
     debug_texture: render::texture::Context,
     settings: Rc<Settings>,
 
@@ -74,23 +72,26 @@ impl Flux {
 
         let fluid = render::fluid::Context::new(device, queue, settings);
 
+        let grid = grid::Grid::new(logical_width, logical_height, settings.grid_spacing);
+
+        let mut noise_generator_builder =
+            render::noise::NoiseGeneratorBuilder::new(2 * settings.fluid_size, grid.scaling_ratio);
+        settings.noise_channels.iter().for_each(|channel| {
+            noise_generator_builder.add_channel(channel);
+        });
+        let noise_generator = noise_generator_builder.build(device, queue);
+
         let debug_texture = render::texture::Context::new(
             device,
             swapchain_format,
-            fluid.get_advection_forward_texture_view(),
+            // fluid.get_advection_forward_texture_view(),
+            noise_generator.get_noise_texture_view(),
         );
-
-        // let mut noise_generator_builder =
-        //     NoiseGeneratorBuilder::new(context, 2 * settings.fluid_size, drawer.scaling_ratio());
-        // settings.noise_channels.iter().for_each(|channel| {
-        //     noise_generator_builder.add_channel(channel);
-        // });
-        // let noise_generator = noise_generator_builder.build().map_err(Problem::Render)?;
 
         Ok(Flux {
             fluid,
             // drawer,
-            // noise_generator,
+            noise_generator,
             debug_texture,
             settings: Rc::clone(settings),
 
@@ -163,18 +164,15 @@ impl Flux {
             });
 
             while self.fluid_frame_time >= self.fluid_update_interval {
-                // self.noise_generator.generate(self.elapsed_time);
+                self.noise_generator.generate(&mut cpass, self.elapsed_time);
 
-                // self.fluid.advect_forward(&mut cpass);
-                // self.fluid.advect_reverse(&mut cpass);
+                self.fluid.advect_forward(&mut cpass);
+                self.fluid.advect_reverse(&mut cpass);
                 // self.fluid.adjust_advection(self.settings.fluid_timestep);
-                // self.fluid.diffuse(self.settings.fluid_timestep);
-                //
-                // self.noise_generator.blend_noise_into(
-                //     self.fluid.get_velocity_textures(),
-                //     self.settings.fluid_timestep,
-                // );
-                //
+                self.fluid.diffuse(&mut cpass);
+
+                // self.noise_generator.blend_noise_into(&mut cpass, self.settings.fluid_timestep);
+
                 // self.fluid.calculate_divergence();
                 // self.fluid.solve_pressure();
                 // self.fluid.subtract_gradient();
