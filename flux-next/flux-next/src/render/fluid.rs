@@ -50,7 +50,7 @@ pub struct Context {
     diffusion_pipeline: wgpu::ComputePipeline,
     divergence_pipeline: wgpu::ComputePipeline,
     pressure_pipeline: wgpu::ComputePipeline,
-    // subtract_gradient_pipeline: wgpu::ComputePipeline,
+    subtract_gradient_pipeline: wgpu::ComputePipeline,
 }
 
 impl Context {
@@ -131,23 +131,6 @@ impl Context {
                 | wgpu::TextureUsages::COPY_DST,
         });
 
-        queue.write_texture(
-            wgpu::ImageCopyTexture {
-                texture: &advection_forward_texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::All,
-            },
-            // TODO: remove debugging values
-            bytemuck::cast_slice(&vec![0.5f32; (2 * width * height) as usize]),
-            wgpu::ImageDataLayout {
-                offset: 0,
-                bytes_per_row: Some(2 * 4 * width),
-                rows_per_image: Some(height),
-            },
-            size,
-        );
-
         let advection_reverse_texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("texture:advection_reverse"),
             size,
@@ -200,6 +183,23 @@ impl Context {
                     | wgpu::TextureUsages::COPY_DST,
             }),
         ];
+
+        // queue.write_texture(
+        //     wgpu::ImageCopyTexture {
+        //         texture: &advection_forward_texture,
+        //         mip_level: 0,
+        //         origin: wgpu::Origin3d::ZERO,
+        //         aspect: wgpu::TextureAspect::All,
+        //     },
+        //     // TODO: remove debugging values
+        //     bytemuck::cast_slice(&vec![0.0f32; (2 * width * height) as usize]),
+        //     wgpu::ImageDataLayout {
+        //         offset: 0,
+        //         bytes_per_row: Some(2 * 4 * width),
+        //         rows_per_image: Some(height),
+        //     },
+        //     size,
+        // );
 
         // Texture views
 
@@ -735,6 +735,33 @@ impl Context {
             entry_point: "main",
         });
 
+        let subtract_gradient_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("shader:subtract_gradient"),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!(
+                "../../shader/subtract_gradient.comp.wgsl"
+            ))),
+        });
+
+        let subtract_gradient_pipeline_layout = device.create_pipeline_layout(
+            &wgpu::PipelineLayoutDescriptor {
+                label: Some("pipeline_layout:subtract_gradient"),
+                bind_group_layouts: &[
+                    &uniform_bind_group_layout,
+                    &pressure_bind_group_layout,
+                    &velocity_bind_group_layout,
+                ],
+                push_constant_ranges: &[],
+            },
+        );
+            
+        let subtract_gradient_pipeline =
+            device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some("pipeline:subtract_gradient"),
+                layout: Some(&subtract_gradient_pipeline_layout),
+                module: &subtract_gradient_shader,
+                entry_point: "main",
+            });
+
         Self {
             fluid_size: [width as f32, height as f32],
             fluid_size_3d: size,
@@ -769,6 +796,7 @@ impl Context {
             diffusion_pipeline,
             divergence_pipeline,
             pressure_pipeline,
+            subtract_gradient_pipeline,
         }
     }
 
@@ -816,7 +844,7 @@ impl Context {
         let workgroup = self.get_workgroup_size();
         cpass.set_pipeline(&self.divergence_pipeline);
         cpass.set_bind_group(0, &self.divergence_bind_group, &[]);
-        cpass.set_bind_group(1, &self.velocity_bind_groups[0], &[]);
+        cpass.set_bind_group(1, &self.velocity_bind_groups[1], &[]);
         cpass.dispatch_workgroups(workgroup.0, workgroup.1, workgroup.2);
     }
 
@@ -869,7 +897,14 @@ impl Context {
         }
     }
 
-    pub fn subtract_gradient(&self) {}
+    pub fn subtract_gradient<'cpass>(&'cpass self, cpass: &mut wgpu::ComputePass<'cpass>) {
+        let workgroup = self.get_workgroup_size();
+        cpass.set_pipeline(&self.subtract_gradient_pipeline);
+        cpass.set_bind_group(0, &self.uniform_bind_group, &[]);
+        cpass.set_bind_group(1, &self.pressure_bind_groups[0], &[]); // TODO: get correct index
+        cpass.set_bind_group(2, &self.velocity_bind_groups[1], &[]);
+        cpass.dispatch_workgroups(workgroup.0, workgroup.1, workgroup.2);
+    }
 
     pub fn get_fluid_size(&self) -> wgpu::Extent3d {
         self.fluid_size_3d
@@ -877,7 +912,7 @@ impl Context {
 
     // TODO: fix texture
     pub fn get_velocity_texture_view(&self) -> &wgpu::TextureView {
-        &self.velocity_texture_views[1]
+        &self.velocity_texture_views[0]
     }
 
     pub fn get_advection_forward_texture_view(&self) -> &wgpu::TextureView {

@@ -184,7 +184,7 @@ impl Flux {
 
                 self.fluid.calculate_divergence(&mut cpass); // 1
                 self.fluid.solve_pressure(queue, &mut cpass);
-                // self.fluid.subtract_gradient(); // 1 -> 0
+                self.fluid.subtract_gradient(&mut cpass); // 1 -> 0
 
                 self.fluid_frame_time -= self.fluid_update_interval;
             }
