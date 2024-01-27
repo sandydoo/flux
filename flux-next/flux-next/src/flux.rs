@@ -180,9 +180,9 @@ impl Flux {
                     self.settings.fluid_timestep,
                 ); // 0 -> 1
 
-                // self.fluid.calculate_divergence(); // 1
-                // self.fluid.solve_pressure();
-                // self.fluid.subtract_gradient(); // 1 -> 0
+                self.fluid.calculate_divergence(&mut cpass); // 1
+                                                             // self.fluid.solve_pressure();
+                                                             // self.fluid.subtract_gradient(); // 1 -> 0
 
                 self.fluid_frame_time -= self.fluid_update_interval;
             }

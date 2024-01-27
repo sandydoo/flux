@@ -12,10 +12,11 @@ struct FluidUniforms {
 @group(0) @binding(0) var<uniform> uniforms: FluidUniforms;
 @group(0) @binding(1) var linear_sampler: sampler;
 
-@group(1) @binding(0) var velocity_texture: texture_2d<f32>;
-@group(1) @binding(1) var forward_advected_texture: texture_2d<f32>;
-@group(1) @binding(2) var reverse_advected_texture: texture_2d<f32>;
-@group(1) @binding(3) var out_velocity_texture: texture_storage_2d<rg32float, write>;
+@group(1) @binding(0) var forward_advected_texture: texture_2d<f32>;
+@group(1) @binding(1) var reverse_advected_texture: texture_2d<f32>;
+
+@group(2) @binding(0) var velocity_texture: texture_2d<f32>;
+@group(2) @binding(1) var out_velocity_texture: texture_storage_2d<rg32float, write>;
 
 @compute
 @workgroup_size(8, 8, 1)
