@@ -167,22 +167,22 @@ impl Flux {
             while self.fluid_frame_time >= self.fluid_update_interval {
                 self.noise_generator.generate(&mut cpass, self.elapsed_time);
 
-                self.fluid.advect_forward(&mut cpass);
-                self.fluid.advect_reverse(&mut cpass);
-                // self.fluid.adjust_advection(self.settings.fluid_timestep);
-                self.fluid.diffuse(&mut cpass);
+                self.fluid.advect_forward(&mut cpass); // 0
+                self.fluid.advect_reverse(&mut cpass); // 0
+                self.fluid.adjust_advection(&mut cpass); // 0 -> 1
+                self.fluid.diffuse(&mut cpass); // 1 -> 0
 
-                let velocity_bind_group = self.fluid.get_velocity_bind_group();
+                let velocity_bind_group = self.fluid.get_velocity_bind_group(0);
                 self.noise_generator.inject_noise_into(
                     &mut cpass,
                     velocity_bind_group,
                     self.fluid.get_fluid_size(),
                     self.settings.fluid_timestep,
-                );
+                ); // 0 -> 1
 
-                // self.fluid.calculate_divergence();
+                // self.fluid.calculate_divergence(); // 1
                 // self.fluid.solve_pressure();
-                // self.fluid.subtract_gradient();
+                // self.fluid.subtract_gradient(); // 1 -> 0
 
                 self.fluid_frame_time -= self.fluid_update_interval;
             }

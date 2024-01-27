@@ -10,9 +10,10 @@ struct FluidUniforms {
 }
 
 @group(0) @binding(0) var<uniform> uniforms: FluidUniforms;
-@group(0) @binding(1) var velocity_texture: texture_2d<f32>;
-@group(0) @binding(2) var velocity_sampler: sampler;
-@group(0) @binding(3) var out_texture: texture_storage_2d<rg32float, write>;
+@group(0) @binding(1) var linear_sampler: sampler;
+
+@group(1) @binding(0) var velocity_texture: texture_2d<f32>;
+@group(1) @binding(1) var out_texture: texture_storage_2d<rg32float, write>;
 
 @compute
 @workgroup_size(8, 8, 1)
@@ -27,5 +28,5 @@ fn main(
     let t = textureLoad(velocity_texture, texel_position + vec2<i32>(0, 1), 0).xy;
     let b = textureLoad(velocity_texture, texel_position + vec2<i32>(0, -1), 0).xy;
 
-    textureStore(out_texture, texel_position, uniforms.stencil_factor * (l + r + b + t + uniforms.center_factor * velocity));
+    textureStore(out_texture, texel_position, vec4<f32>(uniforms.stencil_factor * (l + r + b + t + uniforms.center_factor * velocity), 0.0, 0.0));
 }
