@@ -1,4 +1,4 @@
-use crate::settings::Settings;
+use crate::settings::{self, Settings};
 
 use std::borrow::Cow;
 use std::rc::Rc;
@@ -19,6 +19,10 @@ struct FluidUniforms {
 pub struct Context {
     fluid_size: [f32; 2],
     fluid_size_3d: wgpu::Extent3d,
+
+    pressure_mode: settings::PressureMode,
+    pressure_iterations: u32,
+
     fluid_uniforms: FluidUniforms,
     fluid_uniform_buffer: wgpu::Buffer,
 
@@ -37,13 +41,15 @@ pub struct Context {
     advection_reverse_bind_group: wgpu::BindGroup,
     adjust_advection_bind_group: wgpu::BindGroup,
     divergence_bind_group: wgpu::BindGroup,
+    divergence_sample_bind_group: wgpu::BindGroup,
+    pressure_bind_groups: [wgpu::BindGroup; 2],
 
     clear_pressure_pipeline: wgpu::ComputePipeline,
     advection_pipeline: wgpu::ComputePipeline,
     adjust_advection_pipeline: wgpu::ComputePipeline,
     diffusion_pipeline: wgpu::ComputePipeline,
     divergence_pipeline: wgpu::ComputePipeline,
-    // pressure_pipeline: wgpu::ComputePipeline,
+    pressure_pipeline: wgpu::ComputePipeline,
     // subtract_gradient_pipeline: wgpu::ComputePipeline,
 }
 
@@ -87,7 +93,7 @@ impl Context {
 
         let velocity_textures = [
             device.create_texture(&wgpu::TextureDescriptor {
-                label: Some("texture:velocity_1"),
+                label: Some("texture:velocity_0"),
                 size,
                 mip_level_count: 1,
                 sample_count: 1,
@@ -99,7 +105,7 @@ impl Context {
                     | wgpu::TextureUsages::COPY_DST,
             }),
             device.create_texture(&wgpu::TextureDescriptor {
-                label: Some("texture:velocity_2"),
+                label: Some("texture:velocity_1"),
                 size,
                 mip_level_count: 1,
                 sample_count: 1,
@@ -170,7 +176,7 @@ impl Context {
 
         let pressure_textures = [
             device.create_texture(&wgpu::TextureDescriptor {
-                label: Some("texture:pressure_1"),
+                label: Some("texture:pressure_0"),
                 size,
                 mip_level_count: 1,
                 sample_count: 1,
@@ -182,7 +188,7 @@ impl Context {
                     | wgpu::TextureUsages::COPY_DST,
             }),
             device.create_texture(&wgpu::TextureDescriptor {
-                label: Some("texture:pressure_2"),
+                label: Some("texture:pressure_1"),
                 size,
                 mip_level_count: 1,
                 sample_count: 1,
@@ -199,11 +205,11 @@ impl Context {
 
         let velocity_texture_views = [
             velocity_textures[0].create_view(&wgpu::TextureViewDescriptor {
-                label: Some("view:velocity_1"),
+                label: Some("view:velocity_0"),
                 ..Default::default()
             }),
             velocity_textures[1].create_view(&wgpu::TextureViewDescriptor {
-                label: Some("view:velocity_2"),
+                label: Some("view:velocity_1"),
                 ..Default::default()
             }),
         ];
@@ -225,6 +231,17 @@ impl Context {
                 label: Some("view:divergence"),
                 ..Default::default()
             });
+
+        let pressure_texture_views = [
+            pressure_textures[0].create_view(&wgpu::TextureViewDescriptor {
+                label: Some("view:pressure_0"),
+                ..Default::default()
+            }),
+            pressure_textures[1].create_view(&wgpu::TextureViewDescriptor {
+                label: Some("view:pressure_1"),
+                ..Default::default()
+            }),
+        ];
 
         // Samplers
 
@@ -606,9 +623,125 @@ impl Context {
                 entry_point: "main",
             });
 
+        let divergence_sample_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("bind_group_layout:divergence_sample"),
+                entries: &[
+                    // divergence_texture
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                ],
+            });
+
+        let divergence_sample_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("bind_group:divergence_sample"),
+            layout: &divergence_sample_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::TextureView(&divergence_texture_view),
+            }],
+        });
+
+        let pressure_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("bind_group_layout:pressure"),
+                entries: &[
+                    // pressure_texture
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    // out_pressure_texture
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::StorageTexture {
+                            access: wgpu::StorageTextureAccess::WriteOnly,
+                            format: wgpu::TextureFormat::R32Float,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                        },
+                        count: None,
+                    },
+                ],
+            });
+
+        let pressure_bind_groups = [
+            device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("bind_group:pressure_0"),
+                layout: &pressure_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(&pressure_texture_views[0]),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::TextureView(&pressure_texture_views[1]),
+                    },
+                ],
+            }),
+            device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("bind_group:pressure_1"),
+                layout: &pressure_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(&pressure_texture_views[1]),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::TextureView(&pressure_texture_views[0]),
+                    },
+                ],
+            }),
+        ];
+
+        let pressure_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("shader:pressure"),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!(
+                "../../shader/solve_pressure.comp.wgsl"
+            ))),
+        });
+
+        let pressure_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("pipeline_layout:pressure"),
+                bind_group_layouts: &[
+                    &uniform_bind_group_layout,
+                    &divergence_sample_bind_group_layout,
+                    &pressure_bind_group_layout,
+                ],
+                push_constant_ranges: &[],
+            });
+
+        let pressure_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some("pipeline:pressure"),
+            layout: Some(&pressure_pipeline_layout),
+            module: &pressure_shader,
+            entry_point: "main",
+        });
+
         Self {
             fluid_size: [width as f32, height as f32],
             fluid_size_3d: size,
+
+            pressure_mode: settings.pressure_mode,
+            pressure_iterations: settings.pressure_iterations,
+
             fluid_uniforms,
             fluid_uniform_buffer,
 
@@ -627,12 +760,15 @@ impl Context {
             advection_reverse_bind_group,
             adjust_advection_bind_group,
             divergence_bind_group,
+            divergence_sample_bind_group,
+            pressure_bind_groups,
 
             clear_pressure_pipeline,
             advection_pipeline,
             adjust_advection_pipeline,
             diffusion_pipeline,
             divergence_pipeline,
+            pressure_pipeline,
         }
     }
 
@@ -684,9 +820,54 @@ impl Context {
         cpass.dispatch_workgroups(workgroup.0, workgroup.1, workgroup.2);
     }
 
-    pub fn clear_pressure(&self) {}
+    pub fn clear_pressure(&self, queue: &wgpu::Queue, pressure: f32) {
+        let (width, height) = (self.fluid_size[0] as u32, self.fluid_size[1] as u32);
 
-    pub fn solve_pressure(&self) {}
+        for pressure_texture in self.pressure_textures.iter() {
+            queue.write_texture(
+                wgpu::ImageCopyTexture {
+                    texture: &pressure_texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
+                },
+                bytemuck::cast_slice(&vec![pressure; (width * height) as usize]),
+                wgpu::ImageDataLayout {
+                    offset: 0,
+                    bytes_per_row: Some(4 * width),
+                    rows_per_image: Some(height),
+                },
+                self.fluid_size_3d,
+            );
+        }
+    }
+
+    pub fn solve_pressure<'cpass>(
+        &'cpass self,
+        queue: &wgpu::Queue,
+        cpass: &mut wgpu::ComputePass<'cpass>,
+    ) {
+        use settings::PressureMode::*;
+        match self.pressure_mode {
+            ClearWith(pressure) => {
+                self.clear_pressure(queue, pressure);
+            }
+            Retain => (),
+        }
+
+        let workgroup = self.get_workgroup_size();
+        cpass.set_pipeline(&self.pressure_pipeline);
+        cpass.set_bind_group(0, &self.uniform_bind_group, &[]);
+        cpass.set_bind_group(1, &self.divergence_sample_bind_group, &[]);
+
+        let mut index = 0;
+
+        for _ in 0..self.pressure_iterations {
+            cpass.set_bind_group(2, &self.pressure_bind_groups[index], &[]);
+            cpass.dispatch_workgroups(workgroup.0, workgroup.1, workgroup.2);
+            index = 1 - index;
+        }
+    }
 
     pub fn subtract_gradient(&self) {}
 

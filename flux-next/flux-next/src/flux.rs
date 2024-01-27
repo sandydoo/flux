@@ -129,17 +129,19 @@ impl Flux {
     pub fn animate(
         &mut self,
         device: &wgpu::Device,
+        queue: &wgpu::Queue,
         encoder: &mut wgpu::CommandEncoder,
         view: &wgpu::TextureView,
         timestamp: f64,
     ) {
-        self.compute(device, encoder, timestamp);
-        self.render(device, encoder, view);
+        self.compute(device, queue, encoder, timestamp);
+        self.render(device, queue, encoder, view);
     }
 
     pub fn compute(
         &mut self,
         device: &wgpu::Device,
+        queue: &wgpu::Queue,
         encoder: &mut wgpu::CommandEncoder,
         timestamp: f64,
     ) {
@@ -181,8 +183,8 @@ impl Flux {
                 ); // 0 -> 1
 
                 self.fluid.calculate_divergence(&mut cpass); // 1
-                                                             // self.fluid.solve_pressure();
-                                                             // self.fluid.subtract_gradient(); // 1 -> 0
+                self.fluid.solve_pressure(queue, &mut cpass);
+                // self.fluid.subtract_gradient(); // 1 -> 0
 
                 self.fluid_frame_time -= self.fluid_update_interval;
             }
@@ -197,6 +199,7 @@ impl Flux {
     pub fn render(
         &self,
         device: &wgpu::Device,
+        queue: &wgpu::Queue,
         encoder: &mut wgpu::CommandEncoder,
         view: &wgpu::TextureView,
     ) {

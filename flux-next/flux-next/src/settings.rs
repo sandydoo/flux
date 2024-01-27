@@ -78,7 +78,7 @@ pub enum Mode {
     DebugDivergence,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
 pub enum PressureMode {
     Retain,
     ClearWith(f32),

@@ -147,11 +147,12 @@ async fn run(
                         .create_view(&wgpu::TextureViewDescriptor::default());
                     let mut encoder =
                         device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                            label: Some("flux:render"),
+                          label: Some("flux:render"),
                         });
 
                     flux.animate(
                         &device,
+                        &command_queue,
                         &mut encoder,
                         &view,
                         start.elapsed().as_secs_f64() * 1000.0,
