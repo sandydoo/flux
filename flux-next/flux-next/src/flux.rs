@@ -84,8 +84,9 @@ impl Flux {
         let debug_texture = render::texture::Context::new(
             device,
             swapchain_format,
+            fluid.get_velocity_texture_view(),
             // fluid.get_advection_forward_texture_view(),
-            noise_generator.get_noise_texture_view(),
+            // noise_generator.get_noise_texture_view(),
         );
 
         Ok(Flux {
@@ -171,7 +172,13 @@ impl Flux {
                 // self.fluid.adjust_advection(self.settings.fluid_timestep);
                 self.fluid.diffuse(&mut cpass);
 
-                // self.noise_generator.blend_noise_into(&mut cpass, self.settings.fluid_timestep);
+                let velocity_bind_group = self.fluid.get_velocity_bind_group();
+                self.noise_generator.inject_noise_into(
+                    &mut cpass,
+                    velocity_bind_group,
+                    self.fluid.get_fluid_size(),
+                    self.settings.fluid_timestep,
+                );
 
                 // self.fluid.calculate_divergence();
                 // self.fluid.solve_pressure();

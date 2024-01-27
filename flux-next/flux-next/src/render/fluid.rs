@@ -18,6 +18,7 @@ struct FluidUniforms {
 
 pub struct Context {
     fluid_size: [f32; 2],
+    fluid_size_3d: wgpu::Extent3d,
     fluid_uniforms: FluidUniforms,
     fluid_uniform_buffer: wgpu::Buffer,
 
@@ -30,6 +31,7 @@ pub struct Context {
     divergence_texture: wgpu::Texture,
     pressure_textures: [wgpu::Texture; 2],
 
+    velocity_bind_groups: [wgpu::BindGroup; 2],
     advection_bind_group: wgpu::BindGroup,
 
     clear_pressure_pipeline: wgpu::ComputePipeline,
@@ -262,6 +264,66 @@ impl Context {
                 entry_point: "main",
             });
 
+        let velocity_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Velocity bind group layout"),
+                entries: &[
+                    // velocity_texture
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    // out_velocity_texture
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::StorageTexture {
+                            access: wgpu::StorageTextureAccess::WriteOnly,
+                            format: wgpu::TextureFormat::Rg32Float,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                        },
+                        count: None,
+                    },
+                ],
+            });
+
+        let velocity_bind_groups = [
+            device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("bind_group:velocity_0"),
+                layout: &velocity_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(&velocity_texture_views[0]),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::TextureView(&velocity_texture_views[1]),
+                    },
+                ],
+            }),
+            device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("bind_group:velocity_1"),
+                layout: &velocity_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(&velocity_texture_views[1]),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::TextureView(&velocity_texture_views[0]),
+                    },
+                ],
+            }),
+        ];
+
         let advection_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("Advection bind group layout"),
@@ -371,6 +433,7 @@ impl Context {
 
         Self {
             fluid_size: [width as f32, height as f32],
+            fluid_size_3d: size,
             fluid_uniforms,
             fluid_uniform_buffer,
 
@@ -383,6 +446,7 @@ impl Context {
             divergence_texture,
             pressure_textures,
 
+            velocity_bind_groups,
             advection_bind_group,
 
             clear_pressure_pipeline,
@@ -429,12 +493,21 @@ impl Context {
 
     pub fn subtract_gradient(&self) {}
 
+    pub fn get_fluid_size(&self) -> wgpu::Extent3d {
+        self.fluid_size_3d
+    }
+
     // TODO: fix texture
     pub fn get_velocity_texture_view(&self) -> &wgpu::TextureView {
-        &self.velocity_texture_views[0]
+        &self.velocity_texture_views[1]
     }
 
     pub fn get_advection_forward_texture_view(&self) -> &wgpu::TextureView {
         &self.advection_forward_texture_view
+    }
+
+    pub fn get_velocity_bind_group(&self) -> &wgpu::BindGroup {
+        // TODO: fix indexing
+        &self.velocity_bind_groups[0]
     }
 }
