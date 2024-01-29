@@ -165,7 +165,7 @@ fn main(
   switch uniforms.color_mode {
     // Original
     case 0u, default: {
-      color = vec3<f32>(clamp(vec2<f32>(1.0, 0.66) * (0.5 + velocity), vec2<f32>(0.0), vec2<f32>(1.0)), 1.0);
+      color = vec3<f32>(clamp(vec2<f32>(1.0, 0.66) * (0.5 + velocity), vec2<f32>(0.0), vec2<f32>(1.0)), 0.5);
     }
 
     // Preset with color wheel
