@@ -42,5 +42,5 @@ fn main(
 
     let adjusted_velocity = forward + 0.5 * (velocity - reverse);
     let new_velocity = clamp(adjusted_velocity, min_velocity, max_velocity);
-    textureStore(out_velocity_texture, texel_position, vec4<f32>(new_velocity, 0., 0.));
+    textureStore(out_velocity_texture, texel_position, vec4<f32>(new_velocity, 0.0, 0.0));
 }

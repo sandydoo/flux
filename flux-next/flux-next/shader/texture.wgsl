@@ -24,6 +24,9 @@ fn vs(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
 
 @fragment
 fn fs(fs_input: VertexOutput) -> @location(0) vec4<f32> {
-  let color = textureSample(texture, texture_sampler, fs_input.frag_uv);
-  return vec4<f32>(color.r, color.g, 0.0, 1.0);
+  // let color = textureSample(texture, texture_sampler, fs_input.frag_uv);
+  // return vec4<f32>(color.r, color.g, 0.0, 1.0);
+  let contrast_factor = 2.0;
+  let color = 0.5 + 0.5 * textureSample(texture, texture_sampler, fs_input.frag_uv).rgb;
+  return vec4<f32>(clamp(contrast_factor * (color - 0.5) + 0.5, vec3<f32>(0.0), vec3<f32>(1.0)), 1.0);
 }

@@ -22,8 +22,9 @@ struct FluidUniforms {
 fn main(
     @builtin(global_invocation_id) global_id: vec3<u32>,
 ) {
+  let size = vec2<f32>(textureDimensions(pressure_texture));
   let texel_position = vec2<i32>(global_id.xy);
-  let sample_position = vec2<f32>(global_id.xy);
+  let sample_position = vec2<f32>(global_id.xy) / size;
 
   let pressure = textureLoad(pressure_texture, texel_position, 0).x;
   let divergence = textureLoad(divergence_texture, texel_position, 0).x;

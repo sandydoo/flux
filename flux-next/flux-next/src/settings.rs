@@ -41,11 +41,14 @@ impl Default for Settings {
             diffusion_iterations: 3,
             pressure_iterations: 19,
             color_mode: ColorMode::Preset(ColorPreset::Original),
-            line_length: 550.0,
-            line_width: 10.0,
+            // line_length: 550.0,
+            // line_width: 10.0,
+            line_length: 1000.0,
+            line_width: 20.0,
             line_begin_offset: 0.4,
             line_variance: 0.45,
-            grid_spacing: 15,
+            // grid_spacing: 15,
+            grid_spacing: 30,
             view_scale: 1.6,
             noise_channels: vec![
                 Noise {
@@ -93,6 +96,16 @@ pub enum ColorMode {
 impl Default for ColorMode {
     fn default() -> Self {
         Self::Preset(Default::default())
+    }
+}
+
+impl Into<u32> for ColorMode {
+    fn into(self) -> u32 {
+        match self {
+            ColorMode::Preset(ColorPreset::Original) => 0,
+            ColorMode::Preset(_) => 1,
+            ColorMode::ImageFile(_) => 2,
+        }
     }
 }
 

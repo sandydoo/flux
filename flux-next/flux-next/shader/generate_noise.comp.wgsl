@@ -113,8 +113,6 @@ fn make_noise(texel_position: vec2<f32>, channel: Channel) -> vec2<f32> {
 @workgroup_size(8, 8, 1)
 fn main(
   @builtin(global_invocation_id) global_id: vec3<u32>,
-  @builtin(workgroup_id) workgroup_id : vec3<u32>,
-  @builtin(local_invocation_id) local_id : vec3<u32>
 ) {
   let dims = vec2<f32>(textureDimensions(out_texture));
   let texel_position = (vec2<f32>(global_id.xy) / dims) * 2.0 - 1.0;

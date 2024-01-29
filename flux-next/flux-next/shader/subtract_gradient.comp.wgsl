@@ -23,8 +23,9 @@ struct FluidUniforms {
 fn main(
     @builtin(global_invocation_id) global_id: vec3<u32>,
 ) {
+  let size = vec2<f32>(textureDimensions(pressure_texture));
   let texel_position = vec2<i32>(global_id.xy);
-  let sample_position = vec2<f32>(global_id.xy);
+  let sample_position = vec2<f32>(global_id.xy) / size;
 
   let l = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(-1, 0)).x;
   let r = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(1, 0)).x;

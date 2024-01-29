@@ -9,6 +9,7 @@ const MAX_FRAME_TIME: f32 = 1.0 / 10.0;
 
 pub struct Flux {
     fluid: render::fluid::Context,
+    lines: render::lines::Context,
     // drawer: Drawer,
     noise_generator: render::noise::NoiseGenerator,
     debug_texture: render::texture::Context,
@@ -73,6 +74,14 @@ impl Flux {
         let fluid = render::fluid::Context::new(device, queue, settings);
 
         let grid = grid::Grid::new(logical_width, logical_height, settings.grid_spacing);
+        let lines = render::lines::Context::new(
+            device,
+            queue,
+            swapchain_format,
+            &grid,
+            settings,
+            fluid.get_velocity_texture_view(),
+        );
 
         let mut noise_generator_builder =
             render::noise::NoiseGeneratorBuilder::new(2 * settings.fluid_size, grid.scaling_ratio);
@@ -91,6 +100,7 @@ impl Flux {
 
         Ok(Flux {
             fluid,
+            lines,
             // drawer,
             noise_generator,
             debug_texture,
@@ -150,6 +160,7 @@ impl Flux {
             MAX_FRAME_TIME,
             0.001 * (timestamp - self.last_timestamp) as f32,
         );
+
         self.last_timestamp = timestamp;
         self.elapsed_time += timestep;
         self.fluid_frame_time += timestep;
@@ -160,12 +171,12 @@ impl Flux {
             self.elapsed_time = timer_overflow;
         }
 
-        {
-            let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                label: Some("flux::compute"),
-                timestamp_writes: None,
-            });
+        let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+            label: Some("flux::compute"),
+            timestamp_writes: None,
+        });
 
+        {
             while self.fluid_frame_time >= self.fluid_update_interval {
                 self.noise_generator.generate(&mut cpass, self.elapsed_time);
 
@@ -189,11 +200,16 @@ impl Flux {
                 self.fluid_frame_time -= self.fluid_update_interval;
             }
         }
+        // encoder.pop_debug_group();
 
-        // TODO: the line animation is still dependent on the client’s fps. Is
-        // this worth fixing?
-        // self.drawer
-        //     .place_lines(&self.fluid.get_velocity(), self.elapsed_time, timestep);
+        // encoder.push_debug_group("place lines");
+        {
+            // TODO: the line animation is still dependent on the client’s fps. Is
+            // this worth fixing?
+            self.lines
+                .place_lines(&mut cpass, self.elapsed_time, timestep);
+        }
+        // encoder.pop_debug_group();
     }
 
     pub fn render(
@@ -203,44 +219,49 @@ impl Flux {
         encoder: &mut wgpu::CommandEncoder,
         view: &wgpu::TextureView,
     ) {
-        let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("flux::render"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                    store: wgpu::StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
+        encoder.push_debug_group("render lines");
 
-        self.debug_texture.draw_texture(device, &mut rpass);
+        {
+            let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("flux::render"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
 
-        // rpass.set_pipeline(&render_pipeline);
+            self.lines.draw_lines(&mut rpass);
 
-        // use settings::Mode::*;
-        // match &self.settings.mode {
-        //     Normal => {
-        //         self.drawer.draw_lines();
-        //         self.drawer.draw_endpoints();
-        //     }
-        //     DebugNoise => {
-        //       self.drawer.draw_texture(self.noise_generator.get_noise());
-        //     }
-        //     DebugFluid => {
-        //         self.drawer.draw_texture(&self.fluid.get_velocity());
-        //     }
-        //     DebugPressure => {
-        //         self.drawer.draw_texture(&self.fluid.get_pressure());
-        //     }
-        //     DebugDivergence => {
-        //         self.drawer.draw_texture(self.fluid.get_divergence());
-        //     }
-        // };
+            use settings::Mode::*;
+            match &self.settings.mode {
+                Normal => {
+                    // self.debug_texture.draw_texture(device, &mut rpass);
+                    self.lines.draw_lines(&mut rpass);
+                    // self.drawer.draw_endpoints();
+                }
+                DebugNoise => {
+                    // self.debug_texture.draw_texture(device, &mut rpass);
+                }
+                DebugFluid => {
+                    // self.drawer.draw_texture(&self.fluid.get_velocity());
+                }
+                DebugPressure => {
+                    // self.drawer.draw_texture(&self.fluid.get_pressure());
+                }
+                DebugDivergence => {
+                    // self.drawer.draw_texture(self.fluid.get_divergence());
+                }
+            };
+        }
+
+        encoder.pop_debug_group();
     }
 }
 

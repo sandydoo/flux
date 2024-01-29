@@ -16,5 +16,6 @@ fn main(
   // let velocity = textureLoad(velocity_texture, global_id.xy).xy;
   let velocity = textureSampleLevel(velocity_texture, linear_sampler, texel_position, 0.0).xy;
   let noise = textureSampleLevel(noise_texture, linear_sampler, texel_position, 0.0).xy;
-  textureStore(out_velocity_texture, global_id.xy, vec4<f32>(velocity + timestep * noise, 0.0, 0.0));
+  let newVelocity = velocity + timestep * noise;
+  textureStore(out_velocity_texture, global_id.xy, vec4<f32>(newVelocity, 0.0, 0.0));
 }

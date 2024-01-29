@@ -41,18 +41,21 @@ impl ScalingRatio {
     }
 }
 pub struct Grid {
+    pub width: u32,
+    pub height: u32,
+    pub aspect_ratio: f32,
     pub columns: u32,
     pub rows: u32,
     pub line_count: u32,
     pub scaling_ratio: ScalingRatio,
-    basepoints: Vec<f32>,
-    line_state: Vec<LineState>,
+    pub basepoints: Vec<f32>,
 }
 
 impl Grid {
-    pub fn new(width: u32, height: u32, grid_spacing: u32) -> Self {
-        let height = height as f32;
-        let width = width as f32;
+    pub fn new(uwidth: u32, uheight: u32, grid_spacing: u32) -> Self {
+        let height = uheight as f32;
+        let width = uwidth as f32;
+        let aspect_ratio = width / height;
         let grid_spacing = grid_spacing as f32;
 
         let columns = f32::floor(width / grid_spacing);
@@ -66,31 +69,23 @@ impl Grid {
         let scaling_ratio = ScalingRatio::new(columns, rows);
 
         let mut basepoints = Vec::with_capacity(2 * line_count as usize);
-        let mut line_state =
-            Vec::with_capacity(std::mem::size_of::<LineState>() / 4 * line_count as usize);
 
         for v in 0..rows {
             for u in 0..columns {
-                basepoints.push(u as f32 * grid_spacing_x);
-                basepoints.push(v as f32 * grid_spacing_y);
-
-                line_state.push(LineState {
-                    endpoint: [0.0, 0.0].into(),
-                    velocity: [0.0, 0.0].into(),
-                    color: [0.0, 0.0, 0.0, 0.0].into(),
-                    color_velocity: [0.0, 0.0, 0.0].into(),
-                    width: 0.0,
-                });
+                basepoints.push((u as f32 * grid_spacing_x));
+                basepoints.push((v as f32 * grid_spacing_y));
             }
         }
 
         Self {
+            width: uwidth,
+            height: uheight,
+            aspect_ratio,
             columns,
             rows,
             scaling_ratio,
             line_count,
             basepoints,
-            line_state,
         }
     }
 }

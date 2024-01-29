@@ -75,7 +75,8 @@ impl Context {
         let stencil_factor = 1.0 / (4.0 + center_factor);
 
         let fluid_uniforms = FluidUniforms {
-            timestep: 1.0 / settings.fluid_timestep,
+            // timestep: 1.0 / settings.fluid_timestep,
+            timestep: settings.fluid_timestep,
             dissipation: settings.velocity_dissipation,
             alpha: -1.0,
             r_beta: 0.25,
@@ -742,8 +743,8 @@ impl Context {
             ))),
         });
 
-        let subtract_gradient_pipeline_layout = device.create_pipeline_layout(
-            &wgpu::PipelineLayoutDescriptor {
+        let subtract_gradient_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("pipeline_layout:subtract_gradient"),
                 bind_group_layouts: &[
                     &uniform_bind_group_layout,
@@ -751,9 +752,8 @@ impl Context {
                     &velocity_bind_group_layout,
                 ],
                 push_constant_ranges: &[],
-            },
-        );
-            
+            });
+
         let subtract_gradient_pipeline =
             device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
                 label: Some("pipeline:subtract_gradient"),

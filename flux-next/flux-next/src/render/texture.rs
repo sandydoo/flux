@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::num::NonZeroU64;
 use wgpu::util::DeviceExt;
 
 pub struct Context {
@@ -81,6 +82,12 @@ impl Context {
             },
             Vertex {
                 position: [1.0, -1.0],
+            },
+            Vertex {
+                position: [0.0, 0.0], // padding
+            },
+            Vertex {
+                position: [0.0, 0.0], // padding
             },
         ];
 

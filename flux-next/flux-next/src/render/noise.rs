@@ -97,7 +97,7 @@ impl NoiseGenerator {
         cpass: &mut wgpu::ComputePass<'cpass>,
         target_texture_bind_group: &'cpass wgpu::BindGroup,
         target_texture_size: wgpu::Extent3d,
-        elapsed_time: f32,
+        timestep: f32,
     ) {
         let workgroup = (
             target_texture_size.width / 8,
@@ -107,7 +107,7 @@ impl NoiseGenerator {
         cpass.set_pipeline(&self.inject_noise_pipeline);
         cpass.set_bind_group(0, &self.inject_noise_bind_group, &[]);
         cpass.set_bind_group(1, target_texture_bind_group, &[]);
-        cpass.set_push_constants(0, bytemuck::cast_slice(&[elapsed_time]));
+        cpass.set_push_constants(0, bytemuck::cast_slice(&[timestep]));
         cpass.dispatch_workgroups(workgroup.0, workgroup.1, workgroup.2);
     }
 

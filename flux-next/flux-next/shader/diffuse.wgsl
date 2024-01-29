@@ -19,7 +19,6 @@ struct FluidUniforms {
 @workgroup_size(8, 8, 1)
 fn main(
     @builtin(global_invocation_id) global_id: vec3<u32>,
-    @builtin(num_workgroups) num_workgroups: vec3<u32>,
 ) {
     let texel_position = vec2<i32>(global_id.xy);
     let velocity = textureLoad(velocity_texture, texel_position, 0).xy;
