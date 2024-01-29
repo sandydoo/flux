@@ -182,7 +182,8 @@ fn main(
     }
   }
 
-  let new_color_velocity = line.color_velocity * (1.0 - color_momentum_boost * uniforms.delta_time)
+  let new_color_velocity
+    = line.color_velocity * (1.0 - color_momentum_boost * uniforms.delta_time)
     + (color.rgb - line.color.rgb) * color_delta_boost * uniforms.delta_time;
 
   let new_color = vec4(

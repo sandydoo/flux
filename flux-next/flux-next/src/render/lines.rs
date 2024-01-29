@@ -54,6 +54,7 @@ pub struct Context {
 
     place_lines_pipeline: wgpu::ComputePipeline,
     draw_line_pipeline: wgpu::RenderPipeline,
+    draw_endpoint_pipeline: wgpu::RenderPipeline,
 }
 
 impl Context {
@@ -323,57 +324,95 @@ impl Context {
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("../../shader/line.wgsl"))),
         });
 
+        let vertex_buffer_layouts = [
+            wgpu::VertexBufferLayout {
+                array_stride: std::mem::size_of::<Line>() as wgpu::BufferAddress,
+                step_mode: wgpu::VertexStepMode::Instance,
+                attributes: &wgpu::vertex_attr_array![
+                            0 => Float32x2, 1 => Float32x2, 2 => Float32x4, 3 => Float32x3, 4 => Float32],
+            },
+            wgpu::VertexBufferLayout {
+                array_stride: 2 * std::mem::size_of::<f32>() as wgpu::BufferAddress,
+                step_mode: wgpu::VertexStepMode::Vertex,
+                attributes: &wgpu::vertex_attr_array![5 => Float32x2],
+            },
+            wgpu::VertexBufferLayout {
+                array_stride: 2 * std::mem::size_of::<f32>() as wgpu::BufferAddress,
+                step_mode: wgpu::VertexStepMode::Instance,
+                attributes: &wgpu::vertex_attr_array![6 => Float32x2],
+            },
+        ];
+
+        let color_targets = [Some(wgpu::ColorTargetState {
+            format: swapchain_format,
+            blend: Some(wgpu::BlendState {
+                color: wgpu::BlendComponent {
+                    src_factor: wgpu::BlendFactor::SrcAlpha,
+                    dst_factor: wgpu::BlendFactor::One,
+                    operation: wgpu::BlendOperation::Add,
+                },
+                alpha: wgpu::BlendComponent {
+                    src_factor: wgpu::BlendFactor::SrcAlpha,
+                    dst_factor: wgpu::BlendFactor::One,
+                    operation: wgpu::BlendOperation::Add,
+                },
+            }),
+            write_mask: wgpu::ColorWrites::ALL,
+        })];
+
         let draw_line_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("pipeline:draw_line"),
             layout: Some(&draw_line_pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &draw_line_shader,
                 entry_point: "main_vs",
-                buffers: &[
-                    wgpu::VertexBufferLayout {
-                        array_stride: std::mem::size_of::<Line>() as wgpu::BufferAddress,
-                        step_mode: wgpu::VertexStepMode::Instance,
-                        attributes: &wgpu::vertex_attr_array![
-                            0 => Float32x2, 1 => Float32x2, 2 => Float32x4, 3 => Float32x3, 4 => Float32],
-                    },
-                    wgpu::VertexBufferLayout {
-                        array_stride: 2 * std::mem::size_of::<f32>() as wgpu::BufferAddress,
-                        step_mode: wgpu::VertexStepMode::Vertex,
-                        attributes: &wgpu::vertex_attr_array![5 => Float32x2],
-                    },
-                    wgpu::VertexBufferLayout {
-                        array_stride: 2 * std::mem::size_of::<f32>() as wgpu::BufferAddress,
-                        step_mode: wgpu::VertexStepMode::Instance,
-                        attributes: &wgpu::vertex_attr_array![6 => Float32x2],
-                    },
-                ],
+                buffers: &vertex_buffer_layouts,
             },
             fragment: Some(wgpu::FragmentState {
                 module: &draw_line_shader,
                 entry_point: "main_fs",
-                // TODO: verify these values
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: swapchain_format,
-                    blend: Some(wgpu::BlendState {
-                        color: wgpu::BlendComponent {
-                            src_factor: wgpu::BlendFactor::SrcAlpha,
-                            dst_factor: wgpu::BlendFactor::One,
-                            operation: wgpu::BlendOperation::Add,
-                        },
-                        alpha: wgpu::BlendComponent {
-                            src_factor: wgpu::BlendFactor::SrcAlpha,
-                            dst_factor: wgpu::BlendFactor::One,
-                            operation: wgpu::BlendOperation::Add,
-                        },
-                    }),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
+                targets: &color_targets,
             }),
             primitive: wgpu::PrimitiveState::default(),
             depth_stencil: None,
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
         });
+
+        let draw_endpoint_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("pipeline_layout:draw_endpoint"),
+                bind_group_layouts: &[&uniform_bind_group_layout],
+                push_constant_ranges: &[],
+            });
+
+        let draw_endpoint_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("shader:draw_endpoint"),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!(
+                "../../shader/endpoint.wgsl"
+            ))),
+        });
+
+        // TODO: reuse draw_line layout
+        let draw_endpoint_pipeline =
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("pipeline:draw_endpoint"),
+                layout: Some(&draw_endpoint_pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &draw_endpoint_shader,
+                    entry_point: "main_vs",
+                    buffers: &vertex_buffer_layouts,
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &draw_endpoint_shader,
+                    entry_point: "main_fs",
+                    targets: &color_targets,
+                }),
+                primitive: wgpu::PrimitiveState::default(),
+                depth_stencil: None,
+                multisample: wgpu::MultisampleState::default(),
+                multiview: None,
+            });
 
         let work_group_count = ((grid.line_count as f32) / 64.0).ceil() as u32;
 
@@ -392,6 +431,7 @@ impl Context {
 
             place_lines_pipeline,
             draw_line_pipeline,
+            draw_endpoint_pipeline,
         }
     }
 
@@ -406,6 +446,15 @@ impl Context {
 
     pub fn draw_lines<'rpass>(&'rpass self, rpass: &mut wgpu::RenderPass<'rpass>) {
         rpass.set_pipeline(&self.draw_line_pipeline);
+        rpass.set_bind_group(0, &self.uniform_bind_group, &[]);
+        rpass.set_vertex_buffer(0, self.line_buffers[self.frame_num].slice(..));
+        rpass.set_vertex_buffer(1, self.vertices_buffer.slice(..));
+        rpass.set_vertex_buffer(2, self.basepoints_buffer.slice(..));
+        rpass.draw(0..6, 0..self.line_count);
+    }
+
+    pub fn draw_endpoints<'rpass>(&'rpass self, rpass: &mut wgpu::RenderPass<'rpass>) {
+        rpass.set_pipeline(&self.draw_endpoint_pipeline);
         rpass.set_bind_group(0, &self.uniform_bind_group, &[]);
         rpass.set_vertex_buffer(0, self.line_buffers[self.frame_num].slice(..));
         rpass.set_vertex_buffer(1, self.vertices_buffer.slice(..));

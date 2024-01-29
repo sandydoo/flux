@@ -237,14 +237,12 @@ impl Flux {
                 occlusion_query_set: None,
             });
 
-            self.lines.draw_lines(&mut rpass);
-
             use settings::Mode::*;
             match &self.settings.mode {
                 Normal => {
                     // self.debug_texture.draw_texture(device, &mut rpass);
                     self.lines.draw_lines(&mut rpass);
-                    // self.drawer.draw_endpoints();
+                    self.lines.draw_endpoints(&mut rpass);
                 }
                 DebugNoise => {
                     // self.debug_texture.draw_texture(device, &mut rpass);
