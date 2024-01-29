@@ -40,8 +40,7 @@ fn main() {
             }
 
             Event::RedrawRequested(_) => {
-                // flux.animate(start.elapsed().as_secs_f64() * 1000.0);
-                flux.animate(start.elapsed().as_secs_f64());
+                flux.animate(start.elapsed().as_secs_f64() * 1000.0);
                 window.swap_buffers().unwrap();
             }
 
