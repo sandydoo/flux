@@ -4,6 +4,8 @@ use std::borrow::Cow;
 use wgpu::util::DeviceExt;
 
 pub struct NoiseGenerator {
+    elapsed_time: f32, // TODO: reset
+
     channels: Vec<NoiseChannel>,
     texture: wgpu::Texture,
     texture_view: wgpu::TextureView,
@@ -50,9 +52,11 @@ impl NoiseGenerator {
         }
     }
 
-    pub fn update_buffers(&mut self, queue: &wgpu::Queue, elapsed_time: f32) {
+    pub fn update_buffers(&mut self, queue: &wgpu::Queue, timestep: f32) {
+        self.elapsed_time += timestep;
+
         self.channels.iter_mut().for_each(|channel| {
-            channel.tick(elapsed_time);
+            channel.tick(self.elapsed_time);
         });
 
         queue.write_buffer(
@@ -68,11 +72,7 @@ impl NoiseGenerator {
         );
     }
 
-    pub fn generate<'cpass>(
-        &'cpass self,
-        cpass: &mut wgpu::ComputePass<'cpass>,
-        elapsed_time: f32,
-    ) {
+    pub fn generate<'cpass>(&'cpass self, cpass: &mut wgpu::ComputePass<'cpass>) {
         let workgroup = (
             self.texture.size().width / 8,
             self.texture.size().height / 8,
@@ -80,7 +80,6 @@ impl NoiseGenerator {
         );
         cpass.set_pipeline(&self.generate_noise_pipeline);
         cpass.set_bind_group(0, &self.bind_group, &[]);
-        cpass.set_push_constants(0, bytemuck::cast_slice(&[elapsed_time]));
         cpass.dispatch_workgroups(workgroup.0, workgroup.1, workgroup.2);
     }
 
@@ -385,6 +384,8 @@ impl NoiseGeneratorBuilder {
             });
 
         NoiseGenerator {
+            elapsed_time: 0.0,
+
             channels: self.channels,
             channel_buffer: uniform_buffer,
             scaling_ratio: self.scaling_ratio,

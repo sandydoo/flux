@@ -171,48 +171,45 @@ impl Flux {
             self.elapsed_time = timer_overflow;
         }
 
-        self.noise_generator
-            .update_buffers(queue, self.elapsed_time);
+        while self.fluid_frame_time >= self.fluid_update_interval {
+            self.noise_generator
+                .update_buffers(queue, self.fluid_update_interval);
 
-        let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-            label: Some("flux::compute"),
-            timestamp_writes: None,
-        });
+            let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("flux::compute"),
+                timestamp_writes: None,
+            });
+
+            self.noise_generator.generate(&mut cpass);
+
+            self.fluid.advect_forward(&mut cpass); // 0
+            self.fluid.advect_reverse(&mut cpass); // 0
+            self.fluid.adjust_advection(&mut cpass); // 0 -> 1
+            self.fluid.diffuse(&mut cpass); // 1 -> 0
+
+            let velocity_bind_group = self.fluid.get_velocity_bind_group(0);
+            self.noise_generator.inject_noise_into(
+                &mut cpass,
+                velocity_bind_group,
+                self.fluid.get_fluid_size(),
+                self.settings.fluid_timestep,
+            ); // 0 -> 1
+
+            self.fluid.calculate_divergence(&mut cpass); // 1
+            self.fluid.solve_pressure(queue, &mut cpass);
+            self.fluid.subtract_gradient(&mut cpass); // 1 -> 0
+
+            self.fluid_frame_time -= self.fluid_update_interval;
+        }
 
         {
-            while self.fluid_frame_time >= self.fluid_update_interval {
-                self.noise_generator.generate(&mut cpass, self.elapsed_time);
+            let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("flux::place_lines"),
+                timestamp_writes: None,
+            });
 
-                self.fluid.advect_forward(&mut cpass); // 0
-                self.fluid.advect_reverse(&mut cpass); // 0
-                self.fluid.adjust_advection(&mut cpass); // 0 -> 1
-                self.fluid.diffuse(&mut cpass); // 1 -> 0
-
-                let velocity_bind_group = self.fluid.get_velocity_bind_group(0);
-                self.noise_generator.inject_noise_into(
-                    &mut cpass,
-                    velocity_bind_group,
-                    self.fluid.get_fluid_size(),
-                    self.settings.fluid_timestep,
-                ); // 0 -> 1
-
-                self.fluid.calculate_divergence(&mut cpass); // 1
-                self.fluid.solve_pressure(queue, &mut cpass);
-                self.fluid.subtract_gradient(&mut cpass); // 1 -> 0
-
-                self.fluid_frame_time -= self.fluid_update_interval;
-            }
+            self.lines.place_lines(&mut cpass);
         }
-        // encoder.pop_debug_group();
-
-        // encoder.push_debug_group("place lines");
-        {
-            // TODO: the line animation is still dependent on the client’s fps. Is
-            // this worth fixing?
-            self.lines
-                .place_lines(&mut cpass, self.elapsed_time, timestep);
-        }
-        // encoder.pop_debug_group();
     }
 
     pub fn render(

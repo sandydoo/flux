@@ -395,12 +395,7 @@ impl Context {
         }
     }
 
-    pub fn place_lines<'cpass>(
-        &'cpass mut self,
-        cpass: &mut wgpu::ComputePass<'cpass>,
-        elapsed_time: f32,
-        timestep: f32,
-    ) {
+    pub fn place_lines<'cpass>(&'cpass mut self, cpass: &mut wgpu::ComputePass<'cpass>) {
         cpass.set_pipeline(&self.place_lines_pipeline);
         cpass.set_bind_group(0, &self.uniform_bind_group, &[]);
         cpass.set_bind_group(1, &self.line_bind_groups[self.frame_num], &[]);
