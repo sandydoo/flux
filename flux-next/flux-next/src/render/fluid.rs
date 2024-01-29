@@ -20,6 +20,7 @@ pub struct Context {
     fluid_size: [f32; 2],
     fluid_size_3d: wgpu::Extent3d,
 
+    diffusion_iterations: u32,
     pressure_mode: settings::PressureMode,
     pressure_iterations: u32,
 
@@ -766,6 +767,7 @@ impl Context {
             fluid_size: [width as f32, height as f32],
             fluid_size_3d: size,
 
+            diffusion_iterations: settings.diffusion_iterations,
             pressure_mode: settings.pressure_mode,
             pressure_iterations: settings.pressure_iterations,
 
@@ -836,8 +838,14 @@ impl Context {
         let workgroup = self.get_workgroup_size();
         cpass.set_pipeline(&self.diffusion_pipeline);
         cpass.set_bind_group(0, &self.uniform_bind_group, &[]);
-        cpass.set_bind_group(1, &self.velocity_bind_groups[1], &[]);
-        cpass.dispatch_workgroups(workgroup.0, workgroup.1, workgroup.2);
+
+        let mut index = 1;
+
+        for _ in 0..self.diffusion_iterations {
+            cpass.set_bind_group(1, &self.velocity_bind_groups[index], &[]);
+            cpass.dispatch_workgroups(workgroup.0, workgroup.1, workgroup.2);
+            index = 1 - index;
+        }
     }
 
     pub fn calculate_divergence<'cpass>(&'cpass self, cpass: &mut wgpu::ComputePass<'cpass>) {
