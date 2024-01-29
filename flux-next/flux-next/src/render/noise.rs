@@ -50,6 +50,24 @@ impl NoiseGenerator {
         }
     }
 
+    pub fn update_buffers(&mut self, queue: &wgpu::Queue, elapsed_time: f32) {
+        self.channels.iter_mut().for_each(|channel| {
+            channel.tick(elapsed_time);
+        });
+
+        queue.write_buffer(
+            &self.channel_buffer,
+            0,
+            bytemuck::cast_slice(
+                &self
+                    .channels
+                    .iter()
+                    .map(|channel| NoiseUniforms::new(self.scaling_ratio, channel))
+                    .collect::<Vec<_>>(),
+            ),
+        );
+    }
+
     pub fn generate<'cpass>(
         &'cpass self,
         cpass: &mut wgpu::ComputePass<'cpass>,
@@ -64,32 +82,6 @@ impl NoiseGenerator {
         cpass.set_bind_group(0, &self.bind_group, &[]);
         cpass.set_push_constants(0, bytemuck::cast_slice(&[elapsed_time]));
         cpass.dispatch_workgroups(workgroup.0, workgroup.1, workgroup.2);
-
-        // self.uniforms
-        //     .update(|noise_uniforms| {
-        //         *noise_uniforms = UniformArray(
-        //             self.channels
-        //                 .iter()
-        //                 .map(|channel| NoiseUniforms::new(self.scaling_ratio, channel))
-        //                 .collect(),
-        //         )
-        //     })
-        //     .buffer_data();
-
-        // self.generate_noise_pass.use_program();
-
-        // unsafe {
-        //     self.noise_buffer.bind();
-        //     self.uniforms.bind();
-
-        //     self.texture.draw_to(&self.context, || {
-        //         self.context.draw_arrays(glow::TRIANGLES, 0, 6);
-        //     });
-        // }
-
-        // for channel in self.channels.iter_mut() {
-        //     channel.tick(elapsed_time);
-        // }
     }
 
     pub fn inject_noise_into<'cpass>(
@@ -171,23 +163,6 @@ impl NoiseGeneratorBuilder {
                 | wgpu::TextureUsages::STORAGE_BINDING
                 | wgpu::TextureUsages::COPY_DST,
         });
-
-        queue.write_texture(
-            wgpu::ImageCopyTexture {
-                texture: &texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::All,
-            },
-            // TODO: remove debugging values
-            bytemuck::cast_slice(&vec![0.5f32; (2 * width * height) as usize]),
-            wgpu::ImageDataLayout {
-                offset: 0,
-                bytes_per_row: Some(2 * 4 * width),
-                rows_per_image: Some(height),
-            },
-            size,
-        );
 
         let linear_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("sampler:linear"),
@@ -284,10 +259,7 @@ impl NoiseGeneratorBuilder {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Noise layout"),
             bind_group_layouts: &[&bind_group_layout],
-            push_constant_ranges: &[wgpu::PushConstantRange {
-                stages: wgpu::ShaderStages::COMPUTE,
-                range: 0..8,
-            }],
+            push_constant_ranges: &[],
         });
 
         let generate_noise_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {

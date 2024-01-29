@@ -14,8 +14,6 @@ struct Channels {
 @group(0) @binding(0) var<uniform> global: Channels;
 @group(0) @binding(1) var out_texture: texture_storage_2d<rg32float, write>;
 
-var<push_constant> timestep: f32;
-
 fn permute(x: vec4<f32>) -> vec4<f32> {
   return (((x * 34.0) + 1.0) * x) % 289.0;
 }
@@ -98,11 +96,11 @@ fn make_noise_pair(params: vec3<f32>) -> vec2<f32> {
 
 fn make_noise(texel_position: vec2<f32>, channel: Channel) -> vec2<f32> {
   let scale = channel.scale * texel_position;
-  let noise1 = make_noise_pair(vec3(scale, channel.offset_1 + timestep));
+  let noise1 = make_noise_pair(vec3(scale, channel.offset_1));
   var noise = noise1;
 
   if (channel.blend_factor > 0.0) {
-    let noise2 = make_noise_pair(vec3(scale, channel.offset_2 + timestep));
+    let noise2 = make_noise_pair(vec3(scale, channel.offset_2));
     noise = mix(noise1, noise2, channel.blend_factor);
   }
 

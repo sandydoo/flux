@@ -171,6 +171,9 @@ impl Flux {
             self.elapsed_time = timer_overflow;
         }
 
+        self.noise_generator
+            .update_buffers(queue, self.elapsed_time);
+
         let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("flux::compute"),
             timestamp_writes: None,
