@@ -76,7 +76,6 @@ impl Context {
         let stencil_factor = 1.0 / (4.0 + center_factor);
 
         let fluid_uniforms = FluidUniforms {
-            // timestep: 1.0 / settings.fluid_timestep,
             timestep: settings.fluid_timestep,
             dissipation: settings.velocity_dissipation,
             alpha: -1.0,
@@ -186,23 +185,6 @@ impl Context {
             }),
         ];
 
-        // queue.write_texture(
-        //     wgpu::ImageCopyTexture {
-        //         texture: &advection_forward_texture,
-        //         mip_level: 0,
-        //         origin: wgpu::Origin3d::ZERO,
-        //         aspect: wgpu::TextureAspect::All,
-        //     },
-        //     // TODO: remove debugging values
-        //     bytemuck::cast_slice(&vec![0.0f32; (2 * width * height) as usize]),
-        //     wgpu::ImageDataLayout {
-        //         offset: 0,
-        //         bytes_per_row: Some(2 * 4 * width),
-        //         rows_per_image: Some(height),
-        //     },
-        //     size,
-        // );
-
         // Texture views
 
         let velocity_texture_views = [
@@ -251,6 +233,7 @@ impl Context {
             label: Some("sampler:linear"),
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::FilterMode::Linear,
             ..Default::default()
         });
 

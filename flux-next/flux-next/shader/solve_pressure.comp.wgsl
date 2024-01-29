@@ -20,21 +20,20 @@ struct FluidUniforms {
 @compute
 @workgroup_size(8, 8, 1)
 fn main(
-    @builtin(global_invocation_id) global_id: vec3<u32>,
+  @builtin(global_invocation_id) global_id: vec3<u32>,
 ) {
-  let size = vec2<f32>(textureDimensions(pressure_texture));
-  let texel_position = vec2<i32>(global_id.xy);
-  let sample_position = vec2<f32>(global_id.xy) / size;
+  let size = textureDimensions(pressure_texture);
+  let sample_position = vec2<f32>(global_id.xy) / vec2<f32>(size);
 
-  let pressure = textureLoad(pressure_texture, texel_position, 0).x;
-  let divergence = textureLoad(divergence_texture, texel_position, 0).x;
+  let pressure = textureLoad(pressure_texture, global_id.xy, 0).x;
+  let divergence = textureLoad(divergence_texture, global_id.xy, 0).x;
 
   let l = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(-1, 0)).x;
   let r = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(1, 0)).x;
   let t = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(0, 1)).x;
   let b = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(0, -1)).x;
 
-  let newPressure = uniforms.r_beta * (l + r + b + t + uniforms.alpha * divergence);
+  let new_pressure = uniforms.r_beta * (l + r + b + t + uniforms.alpha * divergence);
 
-  textureStore(out_pressure_texture, texel_position, vec4<f32>(newPressure, 0.0, 0.0, 0.0));
+  textureStore(out_pressure_texture, global_id.xy, vec4<f32>(new_pressure, 0.0, 0.0, 0.0));
 }

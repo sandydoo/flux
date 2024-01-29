@@ -18,14 +18,18 @@ struct FluidUniforms {
 @compute
 @workgroup_size(8, 8, 1)
 fn main(
-    @builtin(global_invocation_id) global_id: vec3<u32>,
+  @builtin(global_invocation_id) global_id: vec3<u32>,
 ) {
-    let texel_position = vec2<i32>(global_id.xy);
-    let velocity = textureLoad(velocity_texture, texel_position, 0).xy;
-    let l = textureLoad(velocity_texture, texel_position + vec2<i32>(-1, 0), 0).xy;
-    let r = textureLoad(velocity_texture, texel_position + vec2<i32>(1, 0), 0).xy;
-    let t = textureLoad(velocity_texture, texel_position + vec2<i32>(0, 1), 0).xy;
-    let b = textureLoad(velocity_texture, texel_position + vec2<i32>(0, -1), 0).xy;
+  let velocity = textureLoad(velocity_texture, global_id.xy, 0).xy;
 
-    textureStore(out_texture, texel_position, vec4<f32>(uniforms.stencil_factor * (l + r + b + t + uniforms.center_factor * velocity), 0.0, 0.0));
+  let size = vec2<f32>(textureDimensions(velocity_texture, 0));
+  let sample_position = vec2<f32>(global_id.xy) / size;
+  let l = textureSampleLevel(velocity_texture, linear_sampler, sample_position, 0.0, vec2<i32>(-1, 0)).xy;
+  let r = textureSampleLevel(velocity_texture, linear_sampler, sample_position, 0.0, vec2<i32>(1, 0)).xy;
+  let t = textureSampleLevel(velocity_texture, linear_sampler, sample_position, 0.0, vec2<i32>(0, 1)).xy;
+  let b = textureSampleLevel(velocity_texture, linear_sampler, sample_position, 0.0, vec2<i32>(0, -1)).xy;
+
+  let new_velocity = uniforms.stencil_factor * (l + r + b + t + uniforms.center_factor * velocity);
+
+  textureStore(out_texture, global_id.xy, vec4<f32>(new_velocity, 0.0, 0.0));
 }

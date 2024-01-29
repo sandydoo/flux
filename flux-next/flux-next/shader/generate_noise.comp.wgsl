@@ -112,8 +112,8 @@ fn make_noise(texel_position: vec2<f32>, channel: Channel) -> vec2<f32> {
 fn main(
   @builtin(global_invocation_id) global_id: vec3<u32>,
 ) {
-  let dims = vec2<f32>(textureDimensions(out_texture));
-  let texel_position = (vec2<f32>(global_id.xy) / dims) * 2.0 - 1.0; // TODO: do we need to rescale to -1.0..1.0?
+  let size = vec2<f32>(textureDimensions(out_texture));
+  let texel_position = vec2<f32>(global_id.xy) / size;
   
   var noise = vec2(0.0);
   for (var i = 0; i < 3; i = i + 1) {

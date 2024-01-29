@@ -173,7 +173,7 @@ impl Flux {
 
         while self.fluid_frame_time >= self.fluid_update_interval {
             self.noise_generator
-                .update_buffers(queue, self.fluid_update_interval);
+                .update_buffers(queue, self.settings.fluid_timestep);
 
             let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                 label: Some("flux::compute"),

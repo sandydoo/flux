@@ -18,20 +18,20 @@ struct FluidUniforms {
 // TODO: reduce size
 var<push_constant> direction: f32;
 
-// TODO: determine workgroup size
 @compute
 @workgroup_size(8, 8, 1)
 fn main(
-    @builtin(global_invocation_id) global_id: vec3<u32>,
+  @builtin(global_invocation_id) global_id: vec3<u32>,
 ) {
-    // TODO: verify coordinates here
-    let texel_position = vec2<i32>(global_id.xy);
-    let velocity = textureLoad(velocity_texture, texel_position, 0).xy;
-    // Note, that, by multiplying by dx, we’ve “incorrectly” scaled our coordinate system.
-    // This is actually a key component of the slow, wriggly “coral reef” look.
-    let size = textureDimensions(velocity_texture);
-    let decay = 1.0 + uniforms.dissipation * direction * uniforms.timestep;
-    let advected_position = ((vec2<f32>(texel_position) + 0.5) - direction * uniforms.timestep * velocity) / vec2<f32>(size);
-    let new_velocity = textureSampleLevel(velocity_texture, linear_sampler, advected_position, 0.0).xy / decay;
-    textureStore(out_texture, texel_position, vec4<f32>(new_velocity, 0.0, 0.0));
+  let velocity = textureLoad(velocity_texture, global_id.xy, 0).xy;
+
+  // Note, that, by multiplying by dx, we’ve “incorrectly” scaled our coordinate system.
+  // This is actually a key component of the slow, wriggly “coral reef” look.
+  let size = vec2<f32>(textureDimensions(velocity_texture));
+  let sample_position = vec2<f32>(global_id.xy);
+
+  let advected_position = ((sample_position + 0.5) - direction * uniforms.timestep * velocity) / size;
+  let decay = 1.0 + uniforms.dissipation * direction * uniforms.timestep;
+  let new_velocity = textureSampleLevel(velocity_texture, linear_sampler, advected_position, 0.0).xy / decay;
+  textureStore(out_texture, global_id.xy, vec4<f32>(new_velocity, 0.0, 0.0));
 }

@@ -17,8 +17,6 @@ pub struct NoiseGenerator {
 
     generate_noise_pipeline: wgpu::ComputePipeline,
     inject_noise_pipeline: wgpu::ComputePipeline,
-    // noise_buffer: VertexArrayObject,
-    // uniforms: UniformBlock<UniformArray<NoiseUniforms>>,
 }
 
 impl NoiseGenerator {

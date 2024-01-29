@@ -8,10 +8,9 @@
 @compute
 @workgroup_size(8, 8, 1)
 fn main(
-    @builtin(global_invocation_id) global_id: vec3<u32>,
+  @builtin(global_invocation_id) global_id: vec3<u32>,
 ) {
   let size = vec2<f32>(textureDimensions(velocity_texture));
-  let texel_position = vec2<i32>(global_id.xy);
   let sample_position = vec2<f32>(global_id.xy) / size;
 
   let l = textureSampleLevel(velocity_texture, linear_sampler, sample_position, 0.0, vec2<i32>(-1, 0)).x;
@@ -21,5 +20,5 @@ fn main(
 
   let new_divergence = 0.5 * ((r - l) + (t - b));
 
-  textureStore(out_divergence_texture, texel_position, vec4<f32>(new_divergence, 0.0, 0.0, 0.0));
+  textureStore(out_divergence_texture, global_id.xy, vec4<f32>(new_divergence, 0.0, 0.0, 0.0));
 }
