@@ -633,6 +633,7 @@ version = "5.0.0"
 dependencies = [
  "env_logger",
  "flux_next",
+ "log",
  "pollster",
  "raw-window-handle",
  "serde_json",
