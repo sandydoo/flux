@@ -28,8 +28,8 @@ fn main(
 
   let l = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(-1, 0)).x;
   let r = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(1, 0)).x;
-  let t = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(0, 1)).x;
-  let b = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(0, -1)).x;
+  let t = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(0, -1)).x;
+  let b = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(0, 1)).x;
 
   // Enforce the following boundary conditions:
   //
@@ -57,23 +57,22 @@ fn main(
   //  setting just the relevant component of velocity to zero, and flipping
   //  pressures along relevant axis. All seem stable, but experiment!
 
-  let velocity = textureLoad(velocity_texture, global_id.xy, 0).xy;
-
   var boundary_condition = vec2<f32>(1.0);
-  if (global_id.x < 1u) {
+  if (global_id.x == 0u) {
     boundary_condition.x = 0.0;
   }
-  if (global_id.x > size.x - 1u) {
+  if (global_id.x == size.x - 1u) {
     boundary_condition.x = 0.0;
   }
-  if (global_id.y < 1u) {
+  if (global_id.y == 0u) {
     boundary_condition.y = 0.0;
   }
-  if (global_id.y > size.y - 1u) {
+  if (global_id.y == size.y - 1u) {
     boundary_condition.y = 0.0;
   }
 
-  let new_velocity = boundary_condition * (velocity - 0.5 * vec2<f32>(r - l, t - b));
+  let velocity = textureLoad(velocity_texture, global_id.xy, 0).xy;
+  let new_velocity = boundary_condition * velocity - 0.5 * vec2<f32>(r - l, t - b);
 
   textureStore(out_velocity_texture, global_id.xy, vec4<f32>(new_velocity, 0.0, 0.0));
 }

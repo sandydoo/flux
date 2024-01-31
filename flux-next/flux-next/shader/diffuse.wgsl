@@ -22,12 +22,12 @@ fn main(
 ) {
   let velocity = textureLoad(velocity_texture, global_id.xy, 0).xy;
 
-  let size = vec2<f32>(textureDimensions(velocity_texture, 0));
-  let sample_position = vec2<f32>(global_id.xy) / size;
+  let size = textureDimensions(velocity_texture, 0);
+  let sample_position = vec2<f32>(global_id.xy) / vec2<f32>(size);
   let l = textureSampleLevel(velocity_texture, linear_sampler, sample_position, 0.0, vec2<i32>(-1, 0)).xy;
   let r = textureSampleLevel(velocity_texture, linear_sampler, sample_position, 0.0, vec2<i32>(1, 0)).xy;
-  let t = textureSampleLevel(velocity_texture, linear_sampler, sample_position, 0.0, vec2<i32>(0, 1)).xy;
-  let b = textureSampleLevel(velocity_texture, linear_sampler, sample_position, 0.0, vec2<i32>(0, -1)).xy;
+  let t = textureSampleLevel(velocity_texture, linear_sampler, sample_position, 0.0, vec2<i32>(0, -1)).xy;
+  let b = textureSampleLevel(velocity_texture, linear_sampler, sample_position, 0.0, vec2<i32>(0, 1)).xy;
 
   let new_velocity = uniforms.stencil_factor * (l + r + b + t + uniforms.center_factor * velocity);
 

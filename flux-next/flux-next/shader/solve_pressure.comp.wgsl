@@ -30,10 +30,21 @@ fn main(
 
   let l = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(-1, 0)).x;
   let r = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(1, 0)).x;
-  let t = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(0, 1)).x;
-  let b = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(0, -1)).x;
+  let t = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(0, -1)).x;
+  let b = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(0, 1)).x;
 
-  let new_pressure = uniforms.r_beta * (l + r + b + t + uniforms.alpha * divergence);
+  var new_pressure = uniforms.r_beta * (l + r + b + t + uniforms.alpha * divergence);
+
+  if (global_id.x == 0u) {
+    new_pressure = pressure;
+  } else if (global_id.x == size.x - 1u) {
+    new_pressure = pressure;
+  }
+  if (global_id.y == 0u) {
+    new_pressure = pressure;
+  } else if (global_id.y == size.y - 1u) {
+    new_pressure = pressure;
+  }
 
   textureStore(out_pressure_texture, global_id.xy, vec4<f32>(new_pressure, 0.0, 0.0, 0.0));
 }
