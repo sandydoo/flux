@@ -77,7 +77,7 @@
       }: let
         rustToolchain = hostPkgs.pkgsBuildHost.rust-bin.stable.latest.default.override {
           targets = [targetTriple];
-          rustExtensions = rustExtensions ++ ["rustc"];
+          extensions = rustExtensions ++ ["rustc"];
         };
 
         craneLib = (crane.mkLib hostPkgs).overrideScope' (final: prev: {
