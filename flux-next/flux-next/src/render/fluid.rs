@@ -34,7 +34,9 @@ pub struct Context {
     advection_reverse_texture: wgpu::Texture,
     advection_reverse_texture_view: wgpu::TextureView,
     divergence_texture: wgpu::Texture,
+    divergence_texture_view: wgpu::TextureView,
     pressure_textures: [wgpu::Texture; 2],
+    pressure_texture_views: [wgpu::TextureView; 2],
 
     velocity_bind_groups: [wgpu::BindGroup; 2],
     uniform_bind_group: wgpu::BindGroup,
@@ -764,7 +766,9 @@ impl Context {
             advection_reverse_texture,
             advection_reverse_texture_view,
             divergence_texture,
+            divergence_texture_view,
             pressure_textures,
+            pressure_texture_views,
 
             velocity_bind_groups,
             uniform_bind_group,
@@ -901,13 +905,22 @@ impl Context {
         self.fluid_size_3d
     }
 
-    // TODO: fix texture
+    // TODO: fix texture index
     pub fn get_velocity_texture_view(&self) -> &wgpu::TextureView {
         &self.velocity_texture_views[0]
     }
 
     pub fn get_advection_forward_texture_view(&self) -> &wgpu::TextureView {
         &self.advection_forward_texture_view
+    }
+
+    pub fn get_divergence_texture_view(&self) -> &wgpu::TextureView {
+        &self.divergence_texture_view
+    }
+
+    // TODO: fix texture index
+    pub fn get_pressure_texture_view(&self) -> &wgpu::TextureView {
+        &self.pressure_texture_views[0]
     }
 
     pub fn get_velocity_bind_group(&self, index: usize) -> &wgpu::BindGroup {

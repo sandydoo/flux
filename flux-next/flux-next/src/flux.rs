@@ -11,7 +11,6 @@ pub struct Flux {
     grid: grid::Grid,
     fluid: render::fluid::Context,
     lines: render::lines::Context,
-    // drawer: Drawer,
     noise_generator: render::noise::NoiseGenerator,
     debug_texture: render::texture::Context,
     settings: Rc<Settings>,
@@ -85,9 +84,11 @@ impl Flux {
         let debug_texture = render::texture::Context::new(
             device,
             swapchain_format,
-            fluid.get_velocity_texture_view(),
-            // fluid.get_advection_forward_texture_view(),
-            // noise_generator.get_noise_texture_view(),
+            &[("fluid", fluid.get_velocity_texture_view()),
+                ("noise", noise_generator.get_noise_texture_view()),
+                ("pressure", fluid.get_pressure_texture_view()),
+                ("divergence", fluid.get_divergence_texture_view()),
+            ],
         );
 
         Ok(Flux {
@@ -240,21 +241,20 @@ impl Flux {
             use settings::Mode::*;
             match &self.settings.mode {
                 Normal => {
-                    // self.debug_texture.draw_texture(device, &mut rpass);
                     self.lines.draw_lines(&mut rpass);
                     self.lines.draw_endpoints(&mut rpass);
                 }
                 DebugNoise => {
-                    // self.debug_texture.draw_texture(device, &mut rpass);
+                    self.debug_texture.draw_texture(device, &mut rpass, "noise");
                 }
                 DebugFluid => {
-                    // self.drawer.draw_texture(&self.fluid.get_velocity());
+                    self.debug_texture.draw_texture(device, &mut rpass, "fluid");
                 }
                 DebugPressure => {
-                    // self.drawer.draw_texture(&self.fluid.get_pressure());
+                    self.debug_texture.draw_texture(device, &mut rpass, "pressure");
                 }
                 DebugDivergence => {
-                    // self.drawer.draw_texture(self.fluid.get_divergence());
+                    self.debug_texture.draw_texture(device, &mut rpass, "divergence");
                 }
             };
         }

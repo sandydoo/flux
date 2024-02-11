@@ -1,11 +1,10 @@
 use std::borrow::Cow;
-use std::num::NonZeroU64;
 use wgpu::util::DeviceExt;
 
 pub struct Context {
     bind_group_layout: wgpu::BindGroupLayout,
     bind_group: wgpu::BindGroup,
-    texture_bind_group: wgpu::BindGroup,
+    texture_bind_groups: Vec<(String, wgpu::BindGroup)>,
     sampler: wgpu::Sampler,
     pipeline_layout: wgpu::PipelineLayout,
     pipeline: wgpu::RenderPipeline,
@@ -21,7 +20,7 @@ impl Context {
     pub fn new(
         device: &wgpu::Device,
         swapchain_format: wgpu::TextureFormat,
-        texture_view: &wgpu::TextureView,
+        texture_views: &[(&str, &wgpu::TextureView)],
     ) -> Self {
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: None,
@@ -114,14 +113,18 @@ impl Context {
             ],
         });
 
-        let texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("texture"),
-            layout: &texture_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::TextureView(texture_view),
-            }],
-        });
+        let texture_bind_groups = texture_views.iter().map(|(name, texture_view)|
+            (name.to_string(),
+            device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("texture"),
+                layout: &texture_bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(texture_view),
+                }],
+            })
+            )
+        ).collect();
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
@@ -161,7 +164,7 @@ impl Context {
         Self {
             bind_group_layout,
             bind_group,
-            texture_bind_group,
+            texture_bind_groups,
             sampler,
             pipeline_layout,
             pipeline,
@@ -172,10 +175,15 @@ impl Context {
         &'rpass self,
         _device: &wgpu::Device,
         rpass: &mut wgpu::RenderPass<'rpass>,
+        name: &str,
     ) {
-        rpass.set_pipeline(&self.pipeline);
-        rpass.set_bind_group(0, &self.bind_group, &[]);
-        rpass.set_bind_group(1, &self.texture_bind_group, &[]);
-        rpass.draw(0..6, 0..1);
+        let some_texture_bind_group = self.texture_bind_groups.iter().find(|(ref n, _)| n == name).map(|(_, bg)| bg);
+
+        if let Some(texture_bind_group) = some_texture_bind_group {
+            rpass.set_pipeline(&self.pipeline);
+            rpass.set_bind_group(0, &self.bind_group, &[]);
+            rpass.set_bind_group(1, texture_bind_group, &[]);
+            rpass.draw(0..6, 0..1);
+        }
     }
 }
