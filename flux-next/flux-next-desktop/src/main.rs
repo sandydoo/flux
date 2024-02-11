@@ -1,7 +1,6 @@
 // Disable the console window that pops up when you launch the .exe
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{borrow::Cow, rc::Rc};
 use winit::{
     event::{ElementState, Event, KeyEvent, WindowEvent},
     event_loop::EventLoop,
@@ -14,19 +13,13 @@ use winit::platform::macos::WindowBuilderExtMacOS;
 
 use flux_next::{Flux, Settings};
 
-struct Application {
-    window: winit::window::Window,
-    window_surface: wgpu::Surface,
-
-    device: wgpu::Device,
-    command_queue: wgpu::Queue,
-}
-
 fn main() -> Result<(), impl std::error::Error> {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("error")).init();
 
     let event_loop = EventLoop::new().unwrap();
     let logical_size = winit::dpi::LogicalSize::new(1280, 800);
+
+    #[cfg(target_os = "macos")]
     let window = WindowBuilder::new()
         .with_title("Flux")
         .with_decorations(true)
@@ -35,6 +28,15 @@ fn main() -> Result<(), impl std::error::Error> {
         .with_title_hidden(true)
         .with_titlebar_transparent(true)
         .with_fullsize_content_view(true)
+        .build(&event_loop)
+        .unwrap();
+
+    #[cfg(not(target_os = "macos"))]
+    let window = WindowBuilder::new()
+        .with_title("Flux")
+        .with_decorations(true)
+        .with_resizable(true)
+        .with_inner_size(logical_size)
         .build(&event_loop)
         .unwrap();
 
