@@ -8,6 +8,7 @@ const MAX_ELAPSED_TIME: f32 = 1000.0;
 const MAX_FRAME_TIME: f32 = 1.0 / 10.0;
 
 pub struct Flux {
+    grid: grid::Grid,
     fluid: render::fluid::Context,
     lines: render::lines::Context,
     // drawer: Drawer,
@@ -61,16 +62,6 @@ impl Flux {
             depth_or_array_layers: 1,
         };
 
-        // let drawer = Drawer::new(
-        //     queue,
-        //     logical_width,
-        //     logical_height,
-        //     physical_width,
-        //     physical_height,
-        //     settings,
-        // )
-        // .map_err(Problem::Render)?;
-
         let fluid = render::fluid::Context::new(device, queue, settings);
 
         let grid = grid::Grid::new(logical_width, logical_height, settings.grid_spacing);
@@ -78,6 +69,7 @@ impl Flux {
             device,
             queue,
             swapchain_format,
+            screen_size,
             &grid,
             settings,
             fluid.get_velocity_texture_view(),
@@ -100,8 +92,8 @@ impl Flux {
 
         Ok(Flux {
             fluid,
+            grid,
             lines,
-            // drawer,
             noise_generator,
             debug_texture,
             settings: Rc::clone(settings),
@@ -122,6 +114,8 @@ impl Flux {
         physical_width: u32,
         physical_height: u32,
     ) {
+        let grid = grid::Grid::new(logical_width, logical_height, self.settings.grid_spacing);
+
         // self.drawer
         //     .resize(
         //         logical_width,
@@ -203,6 +197,12 @@ impl Flux {
         }
 
         {
+            self.lines.update_line_uniforms(
+                device,
+                queue,
+                self.elapsed_time,
+            );
+
             let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                 label: Some("flux::place_lines"),
                 timestamp_writes: None,

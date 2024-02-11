@@ -140,6 +140,14 @@ async fn run(
                     config.width = new_size.width.max(1);
                     config.height = new_size.height.max(1);
                     window_surface.configure(&device, &config);
+
+                    let logical_size = new_size.to_logical(window.scale_factor());
+                    flux.resize(
+                        logical_size.width,
+                        logical_size.height,
+                        physical_size.width,
+                        physical_size.height,
+                    );
                     window.request_redraw();
                 }
                 WindowEvent::RedrawRequested => {

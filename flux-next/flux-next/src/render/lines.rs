@@ -29,6 +29,30 @@ struct LineUniforms {
     padding: f32,
 }
 
+impl LineUniforms {
+    fn tick(&mut self, elapsed_time: f32) -> &mut Self {
+        const BLEND_THRESHOLD: f32 = 4.0;
+        const BASE_OFFSET: f32 = 0.0015;
+
+        let perturb = 1.0 + 0.2 * (0.010 * elapsed_time * std::f32::consts::TAU).sin();
+        let offset = BASE_OFFSET * perturb;
+        self.line_noise_offset_1 += offset;
+
+        if self.line_noise_offset_1 > BLEND_THRESHOLD {
+            self.line_noise_offset_2 += offset;
+            self.line_noise_blend_factor += BASE_OFFSET;
+        }
+
+        if self.line_noise_blend_factor > 1.0 {
+            self.line_noise_offset_1 = self.line_noise_offset_2;
+            self.line_noise_offset_2 = 0.0;
+            self.line_noise_blend_factor = 0.0;
+        }
+
+        self
+    }
+}
+
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Line {
@@ -46,6 +70,7 @@ pub struct Context {
 
     vertices_buffer: wgpu::Buffer,
     basepoints_buffer: wgpu::Buffer,
+    line_uniforms: LineUniforms,
     line_uniform_buffer: wgpu::Buffer,
     line_buffers: Vec<wgpu::Buffer>,
 
@@ -58,10 +83,21 @@ pub struct Context {
 }
 
 impl Context {
+    pub fn update_line_uniforms(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, elapsed_time: f32) {
+        self.line_uniforms.tick(elapsed_time);
+
+        queue.write_buffer(
+            &self.line_uniform_buffer,
+            0,
+            bytemuck::cast_slice(&[self.line_uniforms]),
+        );
+    }
+
     pub fn new(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         swapchain_format: wgpu::TextureFormat,
+        screen_size: wgpu::Extent3d,
         grid: &Grid,
         settings: &Settings,
         velocity_texture_view: &wgpu::TextureView,
@@ -73,7 +109,7 @@ impl Context {
             usage: wgpu::BufferUsages::VERTEX,
         });
 
-        let line_scale_factor = get_line_scale_factor(grid.width as f32, grid.height as f32);
+        let line_scale_factor = get_line_scale_factor(screen_size.width as f32, screen_size.height as f32);
 
         let line_uniforms = LineUniforms {
             aspect: grid.aspect_ratio,
@@ -423,6 +459,7 @@ impl Context {
 
             vertices_buffer,
             basepoints_buffer,
+            line_uniforms,
             line_uniform_buffer,
             line_buffers,
 

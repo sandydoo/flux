@@ -4,7 +4,6 @@
 @group(1) @binding(0) var velocity_texture: texture_2d<f32>;
 @group(1) @binding(1) var out_velocity_texture: texture_storage_2d<rg32float, write>;
 
-
 @compute
 @workgroup_size(8, 8, 1)
 fn main(
