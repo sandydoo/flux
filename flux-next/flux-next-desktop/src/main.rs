@@ -163,7 +163,7 @@ async fn run(
                         .create_view(&wgpu::TextureViewDescriptor::default());
                     let mut encoder =
                         device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                          label: Some("flux:render"),
+                            label: Some("flux:render"),
                         });
 
                     flux.animate(
@@ -184,9 +184,7 @@ async fn run(
     })
 }
 
-fn get_preferred_format(
-    capabilities: &wgpu::SurfaceCapabilities,
-) -> wgpu::TextureFormat {
+fn get_preferred_format(capabilities: &wgpu::SurfaceCapabilities) -> wgpu::TextureFormat {
     // Prefer non-srgb formats, as we will be doing linear math in the shaders.
     // If the swapchain doesn't support any non-srgb formats, we will fall back to srgb.
     let preferred_formats = [
@@ -198,10 +196,7 @@ fn get_preferred_format(
     ];
 
     for format in &preferred_formats {
-        if capabilities
-            .formats
-            .contains(format)
-        {
+        if capabilities.formats.contains(format) {
             return *format;
         }
     }

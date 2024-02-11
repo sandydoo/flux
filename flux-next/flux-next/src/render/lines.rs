@@ -83,7 +83,12 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn update_line_uniforms(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, elapsed_time: f32) {
+    pub fn update_line_uniforms(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        elapsed_time: f32,
+    ) {
         self.line_uniforms.tick(elapsed_time);
 
         queue.write_buffer(
@@ -109,7 +114,8 @@ impl Context {
             usage: wgpu::BufferUsages::VERTEX,
         });
 
-        let line_scale_factor = get_line_scale_factor(screen_size.width as f32, screen_size.height as f32);
+        let line_scale_factor =
+            get_line_scale_factor(screen_size.width as f32, screen_size.height as f32);
 
         let line_uniforms = LineUniforms {
             aspect: grid.aspect_ratio,

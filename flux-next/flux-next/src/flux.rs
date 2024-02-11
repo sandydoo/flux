@@ -84,7 +84,8 @@ impl Flux {
         let debug_texture = render::texture::Context::new(
             device,
             swapchain_format,
-            &[("fluid", fluid.get_velocity_texture_view()),
+            &[
+                ("fluid", fluid.get_velocity_texture_view()),
                 ("noise", noise_generator.get_noise_texture_view()),
                 ("pressure", fluid.get_pressure_texture_view()),
                 ("divergence", fluid.get_divergence_texture_view()),
@@ -198,11 +199,8 @@ impl Flux {
         }
 
         {
-            self.lines.update_line_uniforms(
-                device,
-                queue,
-                self.elapsed_time,
-            );
+            self.lines
+                .update_line_uniforms(device, queue, self.elapsed_time);
 
             let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                 label: Some("flux::place_lines"),
@@ -251,10 +249,12 @@ impl Flux {
                     self.debug_texture.draw_texture(device, &mut rpass, "fluid");
                 }
                 DebugPressure => {
-                    self.debug_texture.draw_texture(device, &mut rpass, "pressure");
+                    self.debug_texture
+                        .draw_texture(device, &mut rpass, "pressure");
                 }
                 DebugDivergence => {
-                    self.debug_texture.draw_texture(device, &mut rpass, "divergence");
+                    self.debug_texture
+                        .draw_texture(device, &mut rpass, "divergence");
                 }
             };
         }

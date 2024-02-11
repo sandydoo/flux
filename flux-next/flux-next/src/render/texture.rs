@@ -113,18 +113,22 @@ impl Context {
             ],
         });
 
-        let texture_bind_groups = texture_views.iter().map(|(name, texture_view)|
-            (name.to_string(),
-            device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("texture"),
-                layout: &texture_bind_group_layout,
-                entries: &[wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(texture_view),
-                }],
+        let texture_bind_groups = texture_views
+            .iter()
+            .map(|(name, texture_view)| {
+                (
+                    name.to_string(),
+                    device.create_bind_group(&wgpu::BindGroupDescriptor {
+                        label: Some("texture"),
+                        layout: &texture_bind_group_layout,
+                        entries: &[wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: wgpu::BindingResource::TextureView(texture_view),
+                        }],
+                    }),
+                )
             })
-            )
-        ).collect();
+            .collect();
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
@@ -177,7 +181,11 @@ impl Context {
         rpass: &mut wgpu::RenderPass<'rpass>,
         name: &str,
     ) {
-        let some_texture_bind_group = self.texture_bind_groups.iter().find(|(ref n, _)| n == name).map(|(_, bg)| bg);
+        let some_texture_bind_group = self
+            .texture_bind_groups
+            .iter()
+            .find(|(ref n, _)| n == name)
+            .map(|(_, bg)| bg);
 
         if let Some(texture_bind_group) = some_texture_bind_group {
             rpass.set_pipeline(&self.pipeline);
