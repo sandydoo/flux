@@ -47,7 +47,6 @@ pub struct Context {
     divergence_sample_bind_group: wgpu::BindGroup,
     pressure_bind_groups: [wgpu::BindGroup; 2],
 
-    clear_pressure_pipeline: wgpu::ComputePipeline,
     advection_pipeline: wgpu::ComputePipeline,
     adjust_advection_pipeline: wgpu::ComputePipeline,
     diffusion_pipeline: wgpu::ComputePipeline,
@@ -240,43 +239,6 @@ impl Context {
         });
 
         // Bind group layouts
-
-        let clear_pressure_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Clear pressure bind group layout"),
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::StorageTexture {
-                        access: wgpu::StorageTextureAccess::WriteOnly,
-                        format: wgpu::TextureFormat::R32Float,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                    },
-                    count: None,
-                }],
-            });
-
-        let clear_pressure_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Clear pressure layout"),
-                bind_group_layouts: &[&clear_pressure_bind_group_layout],
-                push_constant_ranges: &[],
-            });
-
-        let clear_pressure_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Clear pressure shader"),
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!(
-                "../../shader/clear_pressure.wgsl"
-            ))),
-        });
-
-        let clear_pressure_pipeline =
-            device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-                label: Some("Clear pressure"),
-                layout: Some(&clear_pressure_pipeline_layout),
-                module: &clear_pressure_shader,
-                entry_point: "main",
-            });
 
         let velocity_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -779,7 +741,6 @@ impl Context {
             divergence_sample_bind_group,
             pressure_bind_groups,
 
-            clear_pressure_pipeline,
             advection_pipeline,
             adjust_advection_pipeline,
             diffusion_pipeline,
