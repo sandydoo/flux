@@ -50,7 +50,7 @@ async fn run(
     window: winit::window::Window,
 ) -> Result<(), impl std::error::Error> {
     let wgpu_instance = wgpu::Instance::default();
-    let window_surface = unsafe { wgpu_instance.create_surface(&window) }.unwrap();
+    let window_surface = wgpu_instance.create_surface(&window).unwrap();
     let adapter = wgpu_instance
         .request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::HighPerformance,
@@ -70,15 +70,16 @@ async fn run(
     // Request push constants for the shaders
     let required_push_constant_size = 8;
     limits.max_push_constant_size = required_push_constant_size;
-    let features =
-        wgpu::Features::PUSH_CONSTANTS | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES;
+    let features = wgpu::Features::PUSH_CONSTANTS
+        | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES
+        | wgpu::Features::FLOAT32_FILTERABLE;
 
     let (device, command_queue) = adapter
         .request_device(
             &wgpu::DeviceDescriptor {
                 label: None,
-                features,
-                limits,
+                required_features: features,
+                required_limits: limits,
             },
             None,
         )
@@ -96,6 +97,7 @@ async fn run(
         width: physical_size.width,
         height: physical_size.height,
         present_mode: wgpu::PresentMode::AutoVsync,
+        desired_maximum_frame_latency: 2,
         alpha_mode: swapchain_capabilities.alpha_modes[0],
         view_formats: vec![],
     };
@@ -115,14 +117,11 @@ async fn run(
     )
     .unwrap();
 
+    window.set_visible(true);
+
     let start = std::time::Instant::now();
 
-    event_loop.run(move |event, elwt| {
-        // Have the closure take ownership of the resources.
-        // `event_loop.run` never returns, therefore we must do this to ensure
-        // the resources are properly cleaned up.
-        let _ = (&wgpu_instance, &adapter, &flux);
-
+    event_loop.run(|event, elwt| {
         elwt.set_control_flow(winit::event_loop::ControlFlow::Poll);
 
         match event {
