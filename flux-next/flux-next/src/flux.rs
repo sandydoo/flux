@@ -1,19 +1,32 @@
 use crate::{grid, render, rng, settings};
 use settings::Settings;
 
-use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::Mutex;
+use tokio::sync::mpsc;
 
 // The time at which the animation timer will reset to zero.
 const MAX_ELAPSED_TIME: f32 = 1000.0;
 const MAX_FRAME_TIME: f32 = 1.0 / 10.0;
 
+enum Msg {
+    DecodedImage,
+}
+
 pub struct Flux {
+    runtime: tokio::runtime::Runtime,
+    tx: mpsc::Sender<Msg>,
+    rx: mpsc::Receiver<Msg>,
+
+    color_image: Arc<Mutex<Option<image::RgbaImage>>>,
+    color_bind_group: Option<wgpu::BindGroup>,
+
     grid: grid::Grid,
     fluid: render::fluid::Context,
     lines: render::lines::Context,
     noise_generator: render::noise::NoiseGenerator,
     debug_texture: render::texture::Context,
-    settings: Rc<Settings>,
+    settings: Arc<Settings>,
 
     // A timestamp in milliseconds. Either host or video time.
     last_timestamp: f64,
@@ -26,8 +39,9 @@ pub struct Flux {
 }
 
 impl Flux {
-    pub fn update(&mut self, settings: &Rc<Settings>) {
-        self.settings = Rc::clone(settings);
+    pub fn update(&mut self, settings: &Arc<Settings>) {
+        // self.settings = Rc::clone(settings);
+        self.settings = Arc::clone(settings);
         // self.fluid.update(&self.settings);
         // self.drawer.update(&self.settings);
         // self.noise_generator.update(&self.settings.noise_channels);
@@ -35,10 +49,25 @@ impl Flux {
         self.fluid_update_interval = 1.0 / settings.fluid_frame_rate;
     }
 
-    pub fn sample_colors_from_image(&mut self, encoded_bytes: &[u8]) {
-        // if let Err(msg) = self.drawer.set_color_texture(encoded_bytes) {
-        //     log::error!("{}", msg);
-        // }
+    pub fn sample_colors_from_image(&mut self, encoded_bytes: Vec<u8>) {
+        let tx = self.tx.clone();
+        let color_image = Arc::clone(&self.color_image);
+        self.runtime.spawn(async move {
+            match render::color::Context::load_color_texture(&encoded_bytes) {
+                Ok(image) => {
+                    {
+                        let mut boop = color_image.lock().unwrap();
+                        *boop = Some(image);
+                    }
+                    if let Err(_) = tx.send(Msg::DecodedImage).await {
+                        return;
+                    }
+
+                },
+                Err(err) => log::error!("{}", err),
+            }
+        });
+        log::info!("Scheduled task");
     }
 
     pub fn new(
@@ -49,11 +78,19 @@ impl Flux {
         logical_height: u32,
         physical_width: u32,
         physical_height: u32,
-        settings: &Rc<Settings>,
+        settings: &Arc<Settings>,
     ) -> Result<Flux, String> {
         log::info!("✨ Initialising Flux");
 
         rng::init_from_seed(&settings.seed);
+
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(1)
+                .enable_all()
+                .build()
+                .unwrap();
+
+        let (tx, rx) = mpsc::channel(32);
 
         let screen_size = wgpu::Extent3d {
             width: physical_width,
@@ -93,12 +130,18 @@ impl Flux {
         );
 
         Ok(Flux {
+            runtime,
+            tx,
+            rx,
+            color_image: Arc::new(Mutex::new(None)),
+            color_bind_group: None,
+
             fluid,
             grid,
             lines,
             noise_generator,
             debug_texture,
-            settings: Rc::clone(settings),
+            settings: Arc::clone(settings),
 
             last_timestamp: 0.0,
             elapsed_time: 0.0,
@@ -167,6 +210,42 @@ impl Flux {
             self.elapsed_time = timer_overflow;
         }
 
+        while let Ok(msg) = self.rx.try_recv() {
+            match msg {
+                Msg::DecodedImage => {
+                    if let Some(image) = &*self.color_image.lock().unwrap() {
+                        let texture_view = render::color::load_color_texture(device, queue, image);
+                        let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                            label: None, entries: &[wgpu::BindGroupLayoutEntry {
+                                binding: 0,
+                                visibility: wgpu::ShaderStages::COMPUTE,
+                                ty: wgpu::BindingType::Texture {
+                                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                                    view_dimension: wgpu::TextureViewDimension::D2,
+                                    multisampled: false,
+                                },
+                                count: None,
+                            }]
+                        });
+                        self.color_bind_group = Some(
+                            device.create_bind_group(&wgpu::BindGroupDescriptor {
+                                label: None,
+                                layout: &layout,
+                                entries: &[wgpu::BindGroupEntry {
+                                    binding: 0,
+                                    resource: wgpu::BindingResource::TextureView(&texture_view),
+                                }]
+                            })
+                        );
+                        self.lines.color_mode = 2;
+                        self.lines.update_line_uniforms2(device, queue);
+                        log::info!("Decoded image!")
+                    }
+                }
+
+            }
+        }
+
         while self.fluid_frame_time >= self.fluid_update_interval {
             self.noise_generator
                 .update_buffers(queue, self.settings.fluid_timestep);
@@ -207,7 +286,7 @@ impl Flux {
                 timestamp_writes: None,
             });
 
-            self.lines.place_lines(&mut cpass);
+            self.lines.place_lines(&mut cpass, &self.color_bind_group);
         }
     }
 

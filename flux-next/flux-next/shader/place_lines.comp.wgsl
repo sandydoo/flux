@@ -46,11 +46,12 @@ struct LineUniforms {
 @group(0) @binding(0) var<uniform> uniforms: LineUniforms;
 @group(0) @binding(1) var<storage, read> basepoints: array<Basepoint>;
 @group(0) @binding(2) var linear_sampler: sampler;
-@group(0) @binding(3) var color_texture: texture_2d<f32>;
-@group(0) @binding(4) var velocity_texture: texture_2d<f32>;
+@group(0) @binding(3) var velocity_texture: texture_2d<f32>;
 
 @group(1) @binding(0) var<storage, read> lines: array<Line>;
 @group(1) @binding(1) var<storage, read_write> out_lines: array<Line>;
+
+@group(2) @binding(0) var color_texture: texture_2d<f32>;
 
 fn permute(x: vec4<f32>) -> vec4<f32> {
   return (((x * 34.0) + 1.0) * x) % 289.0;
@@ -138,7 +139,7 @@ fn main(
   if (index >= total) {
     return;
   }
-  
+
   let basepoint = basepoints[index].position;
   let line = lines[index];
   let velocity = textureSampleLevel(velocity_texture, linear_sampler, basepoint, 0.0).xy;

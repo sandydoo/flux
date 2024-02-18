@@ -1,7 +1,7 @@
 // Disable the console window that pops up when you launch the .exe
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::rc::Rc;
+use std::sync::Arc;
 
 use winit::{
     event::{ElementState, Event, KeyEvent, WindowEvent},
@@ -111,7 +111,7 @@ async fn run(
         logical_size.height,
         physical_size.width,
         physical_size.height,
-        &Rc::new(Settings::default()),
+        &Arc::new(Settings::default()),
     )
     .unwrap();
 
@@ -140,6 +140,11 @@ async fn run(
                         },
                     ..
                 } => elwt.exit(),
+                WindowEvent::DroppedFile(path) => {
+                    let bytes = std::fs::read(&path).unwrap();
+                    flux.sample_colors_from_image(bytes);
+                    window.request_redraw();
+                }
                 WindowEvent::Resized(new_size) => {
                     config.width = new_size.width.max(1);
                     config.height = new_size.height.max(1);

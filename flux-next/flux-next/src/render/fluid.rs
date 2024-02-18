@@ -1,7 +1,7 @@
 use crate::settings::{self, Settings};
 
 use std::borrow::Cow;
-use std::rc::Rc;
+use std::sync::Arc;
 use wgpu::util::DeviceExt;
 
 #[repr(C)]
@@ -57,7 +57,7 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, settings: &Rc<Settings>) -> Self {
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, settings: &Arc<Settings>) -> Self {
         let (width, height) = (
             // scaling_ratio.rounded_x() * settings.fluid_size,
             // scaling_ratio.rounded_y() * settings.fluid_size,
