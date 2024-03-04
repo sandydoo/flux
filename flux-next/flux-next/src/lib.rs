@@ -1,4 +1,3 @@
-mod data;
 mod flux;
 mod grid;
 pub mod render;

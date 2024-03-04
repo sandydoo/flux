@@ -168,7 +168,6 @@ impl Context {
         settings: &Settings,
         velocity_texture_view: &wgpu::TextureView,
     ) -> Self {
-        log::info!("LINE COUNT: {:?}", grid.line_count);
         let vertices_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("buffer:vertices"),
             contents: bytemuck::cast_slice(&LINE_VERTICES),

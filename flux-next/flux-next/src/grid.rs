@@ -59,8 +59,8 @@ impl Grid {
 
         for v in 0..rows {
             for u in 0..columns {
-                basepoints.push((u as f32 * grid_spacing_x));
-                basepoints.push((v as f32 * grid_spacing_y));
+                basepoints.push(u as f32 * grid_spacing_x);
+                basepoints.push(v as f32 * grid_spacing_y);
             }
         }
 
