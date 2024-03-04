@@ -218,8 +218,8 @@ impl Flux {
 
             self.noise_generator.generate(&mut cpass);
 
-            self.fluid.advect_forward(&mut cpass); // 0
-            self.fluid.advect_reverse(&mut cpass); // 0
+            self.fluid.advect_forward(queue, &mut cpass); // 0
+            self.fluid.advect_reverse(queue, &mut cpass); // 0
             self.fluid.adjust_advection(&mut cpass); // 0 -> 1
             self.fluid.diffuse(&mut cpass); // 1 -> 0
 
@@ -228,7 +228,6 @@ impl Flux {
                 &mut cpass,
                 velocity_bind_group,
                 self.fluid.get_fluid_size(),
-                self.settings.fluid_timestep,
             ); // 0 -> 1
 
             self.fluid.calculate_divergence(&mut cpass); // 1

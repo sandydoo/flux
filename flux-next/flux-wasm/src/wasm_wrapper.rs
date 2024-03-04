@@ -83,17 +83,15 @@ impl Flux {
 
         log::debug!(
             "{:?}\n{:?}",
+            adapter.get_info(),
             adapter.features(),
-            adapter.limits().max_push_constant_size
         );
 
         // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
         let mut limits =  wgpu::Limits::downlevel_defaults().using_resolution(adapter.limits());
-        // Request push constants for the shaders
-        let required_push_constant_size = 8;
-        limits.max_push_constant_size = required_push_constant_size;
-        let features = wgpu::Features::PUSH_CONSTANTS
-            | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES
+
+        let features =
+             wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES
             | wgpu::Features::FLOAT32_FILTERABLE;
 
         let (device, queue) = adapter

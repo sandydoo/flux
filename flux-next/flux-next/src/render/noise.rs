@@ -13,6 +13,7 @@ pub struct NoiseGenerator {
 
     channel_buffer: wgpu::Buffer,
     bind_group: wgpu::BindGroup,
+    push_constants_buffer: wgpu::Buffer,
     inject_noise_bind_group: wgpu::BindGroup,
 
     generate_noise_pipeline: wgpu::ComputePipeline,
@@ -57,6 +58,8 @@ impl NoiseGenerator {
             channel.tick(self.elapsed_time);
         });
 
+        queue.write_buffer(&self.push_constants_buffer, 0, bytemuck::cast_slice(&[timestep]));
+
         queue.write_buffer(
             &self.channel_buffer,
             0,
@@ -86,7 +89,6 @@ impl NoiseGenerator {
         cpass: &mut wgpu::ComputePass<'cpass>,
         target_texture_bind_group: &'cpass wgpu::BindGroup,
         target_texture_size: wgpu::Extent3d,
-        timestep: f32,
     ) {
         let workgroup = (
             target_texture_size.width / 8,
@@ -96,7 +98,6 @@ impl NoiseGenerator {
         cpass.set_pipeline(&self.inject_noise_pipeline);
         cpass.set_bind_group(0, &self.inject_noise_bind_group, &[]);
         cpass.set_bind_group(1, target_texture_bind_group, &[]);
-        cpass.set_push_constants(0, bytemuck::cast_slice(&[timestep]));
         cpass.dispatch_workgroups(workgroup.0, workgroup.1, workgroup.2);
     }
 
@@ -274,13 +275,30 @@ impl NoiseGeneratorBuilder {
                 entry_point: "main",
             });
 
+        let push_constants_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("uniform:noise"),
+            contents: bytemuck::cast_slice(&[0.0]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
         let inject_noise_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("Inject noise bind group layout"),
                 entries: &[
-                    // noise_texure
+                    // push_constants
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                    // noise_texure
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
                         visibility: wgpu::ShaderStages::COMPUTE,
                         ty: wgpu::BindingType::Texture {
                             sample_type: wgpu::TextureSampleType::Float { filterable: true },
@@ -291,7 +309,7 @@ impl NoiseGeneratorBuilder {
                     },
                     // sampler
                     wgpu::BindGroupLayoutEntry {
-                        binding: 1,
+                        binding: 2,
                         visibility: wgpu::ShaderStages::COMPUTE,
                         ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                         count: None,
@@ -344,10 +362,18 @@ impl NoiseGeneratorBuilder {
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&texture_view),
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &push_constants_buffer,
+                        offset: 0,
+                        size: None,
+                    }),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
                     resource: wgpu::BindingResource::Sampler(&linear_sampler),
                 },
             ],
@@ -360,10 +386,7 @@ impl NoiseGeneratorBuilder {
                     &inject_noise_bind_group_layout,
                     &inject_noise_bind_group_layout_2,
                 ],
-                push_constant_ranges: &[wgpu::PushConstantRange {
-                    stages: wgpu::ShaderStages::COMPUTE,
-                    range: 0..8,
-                }],
+                push_constant_ranges: &[],
             });
 
         let inject_noise_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -391,6 +414,7 @@ impl NoiseGeneratorBuilder {
             texture_view,
             bind_group,
             inject_noise_bind_group,
+            push_constants_buffer,
 
             generate_noise_pipeline,
             inject_noise_pipeline,

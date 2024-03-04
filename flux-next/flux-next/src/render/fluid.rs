@@ -14,7 +14,8 @@ struct FluidUniforms {
     r_beta: f32,
     center_factor: f32,
     stencil_factor: f32,
-    texel_size: [f32; 2],
+    direction: f32,
+    padding: f32,
 }
 
 impl FluidUniforms {
@@ -22,7 +23,6 @@ impl FluidUniforms {
         // dx^2 / (rho * dt)
         let center_factor = 1.0 / (settings.viscosity * settings.fluid_timestep);
         let stencil_factor = 1.0 / (4.0 + center_factor);
-        let texel_size = [1.0 / size.width as f32, 1.0 / size.height as f32]; // TODO: not needed anymore
 
         FluidUniforms {
             timestep: settings.fluid_timestep,
@@ -31,7 +31,8 @@ impl FluidUniforms {
             r_beta: 0.25,
             center_factor,
             stencil_factor,
-            texel_size,
+            direction: 1.0,
+            padding: 0.0,
         }
     }
 }
@@ -456,10 +457,7 @@ impl Context {
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Advection layout"),
                 bind_group_layouts: &[&uniform_bind_group_layout, &advection_bind_group_layout],
-                push_constant_ranges: &[wgpu::PushConstantRange {
-                    stages: wgpu::ShaderStages::COMPUTE,
-                    range: 0..8,
-                }],
+                push_constant_ranges: &[],
             });
 
         let advection_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -805,19 +803,25 @@ impl Context {
         ((width / 8.0).ceil() as u32, (height / 8.0).ceil() as u32, 1)
     }
 
-    pub fn advect_forward<'cpass>(&'cpass self, cpass: &mut wgpu::ComputePass<'cpass>) {
+    pub fn advect_forward<'cpass>(&'cpass self, queue: &wgpu::Queue, cpass: &mut wgpu::ComputePass<'cpass>) {
+        let mut uniforms = self.fluid_uniforms;
+        uniforms.direction = 1.0;
+        queue.write_buffer(&self.fluid_uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
+
         let workgroup = self.get_workgroup_size();
         cpass.set_pipeline(&self.advection_pipeline);
-        cpass.set_push_constants(0, bytemuck::cast_slice(&[1.0]));
         cpass.set_bind_group(0, &self.uniform_bind_group, &[]);
         cpass.set_bind_group(1, &self.advection_forward_bind_group, &[]);
         cpass.dispatch_workgroups(workgroup.0, workgroup.1, workgroup.2);
     }
 
-    pub fn advect_reverse<'cpass>(&'cpass self, cpass: &mut wgpu::ComputePass<'cpass>) {
+    pub fn advect_reverse<'cpass>(&'cpass self, queue: &wgpu::Queue, cpass: &mut wgpu::ComputePass<'cpass>) {
+        let mut uniforms = self.fluid_uniforms;
+        uniforms.direction = -1.0;
+        queue.write_buffer(&self.fluid_uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
+
         let workgroup = self.get_workgroup_size();
         cpass.set_pipeline(&self.advection_pipeline);
-        cpass.set_push_constants(0, bytemuck::cast_slice(&[-1.0]));
         cpass.set_bind_group(0, &self.uniform_bind_group, &[]);
         cpass.set_bind_group(1, &self.advection_reverse_bind_group, &[]);
         cpass.dispatch_workgroups(workgroup.0, workgroup.1, workgroup.2);

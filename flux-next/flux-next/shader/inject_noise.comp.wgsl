@@ -1,13 +1,14 @@
-@group(0) @binding(0) var noise_texture: texture_2d<f32>;
-@group(0) @binding(1) var linear_sampler: sampler;
+struct PushConstants {
+  timestep: f32,
+}
+
+// Can't use actual push constants in wasm32.
+@group(0) @binding(0) var<uniform> push_constants: PushConstants;
+@group(0) @binding(1) var noise_texture: texture_2d<f32>;
+@group(0) @binding(2) var linear_sampler: sampler;
 
 @group(1) @binding(0) var velocity_texture: texture_2d<f32>;
 @group(1) @binding(1) var out_velocity_texture: texture_storage_2d<rg32float, write>;
-
-struct PushConstant {
-  timestep: f32,
-}
-var<push_constant> push_constants: PushConstant;
 
 @compute
 @workgroup_size(8, 8, 1)
