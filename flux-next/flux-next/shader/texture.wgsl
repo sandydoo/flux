@@ -16,6 +16,7 @@ fn vs(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
 
   vertex.position = vec4<f32>(xy, 0.0, 1.0);
   vertex.frag_uv = 0.5 + 0.5 * xy;
+  vertex.frag_uv = vec2<f32>(vertex.frag_uv.x, 1.0 - vertex.frag_uv.y);
   return vertex;
 }
 

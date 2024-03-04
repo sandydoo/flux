@@ -14,8 +14,8 @@ fn main(
 
   let l = textureSampleLevel(velocity_texture, linear_sampler, sample_position, 0.0, vec2<i32>(-1, 0)).x;
   let r = textureSampleLevel(velocity_texture, linear_sampler, sample_position, 0.0, vec2<i32>(1, 0)).x;
-  let t = textureSampleLevel(velocity_texture, linear_sampler, sample_position, 0.0, vec2<i32>(0, -1)).y;
-  let b = textureSampleLevel(velocity_texture, linear_sampler, sample_position, 0.0, vec2<i32>(0, 1)).y;
+  let t = textureSampleLevel(velocity_texture, linear_sampler, sample_position, 0.0, vec2<i32>(0, 1)).y;
+  let b = textureSampleLevel(velocity_texture, linear_sampler, sample_position, 0.0, vec2<i32>(0, -1)).y;
 
   let new_divergence = 0.5 * ((r - l) + (t - b));
 
