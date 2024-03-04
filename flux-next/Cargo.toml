@@ -1,4 +1,54 @@
 [workspace]
 resolver = "2"
-
 members = ["flux-next", "flux-next-desktop", "flux-wasm"]
+
+[workspace.package]
+version = "5.0.0"
+description = "An open-source tribute to the macOS Drift screensaver"
+edition = "2021"
+license = "MIT"
+homepage = "https://flux.sandydoo.me"
+repository = "https://github.com/sandydoo/flux/"
+authors = ["Sander Melnikov <hey@sandydoo.me"]
+
+[workspace.dependencies.wgpu]
+branch = "trunk"
+git = "https://github.com/gfx-rs/wgpu.git"
+
+[workspace.dependencies.image]
+features = ["jpeg", "png"]
+version = "0.24"
+
+[workspace.dependencies]
+env_logger = "0.10"
+bytemuck = { version = "1.4", features = ["derive"] }
+flux-next = { version = "5.0", path = "./flux-next" }
+futures = "0.3.30"
+getrandom = { version = "0.2", features = ["js"] }
+half = { version = "2", features = ["bytemuck"] }
+log = "0.4"
+pollster = "0.3.0"
+rand = { version = "0.8.5", features = ["getrandom"] }
+rand_seeder = "0.2.3"
+rand_pcg = "0.3.1"
+raw-window-handle = "0.6"
+rustc-hash = "1.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+tokio = { version = "1.36.0", features = ["full"] }
+winit = "0.29"
+
+# wasm32
+console_error_panic_hook = "0.1"
+console_log = "1.0"
+gloo-utils = { version = "0.2", features = ["serde"] }
+js-sys = "0.3"
+# Match with Nix version
+wasm-bindgen = "=0.2.91"
+wasm-bindgen-futures = "0.4.41"
+web-sys = "0.3"
+
+# The unoptimized build is too slow
+[profile.dev.package.image]
+opt-level = 3

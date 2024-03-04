@@ -1,16 +1,3 @@
-#[repr(C)]
-#[derive(Clone, Copy)]
-struct LineState {
-    endpoint: mint::Vector2<f32>,
-    velocity: mint::Vector2<f32>,
-    color: mint::Vector4<f32>,
-    color_velocity: mint::Vector3<f32>,
-    width: f32,
-}
-
-unsafe impl bytemuck::Zeroable for LineState {}
-unsafe impl bytemuck::Pod for LineState {}
-
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ScalingRatio {
     x: f32,

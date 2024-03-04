@@ -1,12 +1,12 @@
 [package]
 name = "flux-wasm"
-version = "5.0.0"
-description = "An open-source tribute to the macOS Drift screensaver that runs in the browser"
-authors = ["Sander Melnikov <hey@sandydoo.me"]
-repository = "https://github.com/sandydoo/flux/"
-license = "MIT"
+version.workspace = true
+description.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+edition.workspace = true
 publish = false
-edition = "2021"
 
 [lib]
 crate-type = ["cdylib"]
@@ -14,41 +14,29 @@ crate-type = ["cdylib"]
 [features]
 default = ["console_error_panic_hook"]
 
+[dependencies.console_error_panic_hook]
+workspace = true
+optional = true
+
 [dependencies]
-console_error_panic_hook = { version = "0.1", optional = true }
-console_log = "1.0"
-flux-next = { version = "5", path = "../flux-next" }
-js-sys = "0.3"
-log = "0.4"
-serde = { version = "1", features = ["derive"] }
-gloo-utils = { version = "0.2", features = ["serde"] }
-wasm-bindgen = { version = "=0.2.91" }
-wgpu = { git = "https://github.com/gfx-rs/wgpu.git", branch = "trunk", features = [
-    "webgl",
-] }
-winit = "0.29.3"
-wasm-bindgen-futures = "0.4.41"
+console_log.workspace = true
+flux-next.workspace = true
+js-sys.workspace = true
+log.workspace = true
+serde.workspace = true
+gloo-utils.workspace = true
+wasm-bindgen.workspace = true
+wgpu.workspace = true
+winit.workspace = true
+wasm-bindgen-futures.workspace = true
 
 [dependencies.web-sys]
-version = "0.3"
+workspace = true
 features = [
     "console",
     "Document",
     "Element",
     "HtmlCanvasElement",
     "OffscreenCanvas",
-    "WebGlActiveInfo",
-    "WebGlBuffer",
-    "WebGlFramebuffer",
-    "WebGlRenderbuffer",
-    "WebGlUniformLocation",
-    "WebGlVertexArrayObject",
-    "WebGl2RenderingContext",
-    "WebGlProgram",
-    "WebGlShader",
-    "WebGlTexture",
-    "WebGlTransformFeedback",
     "Window",
-    "WebGl2RenderingContext",
-    "CanvasRenderingContext2d",
 ]
