@@ -1,7 +1,4 @@
 [workspace]
 resolver = "2"
 
-members = [
-    "flux-next",
-    "flux-next-desktop",
-]
+members = ["flux-next", "flux-next-desktop", "flux-wasm"]
