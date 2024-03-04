@@ -43,33 +43,34 @@ impl Flux {
         self.fluid_update_interval = 1.0 / settings.fluid_frame_rate;
     }
 
-    pub fn sample_colors_from_image(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, image: &image::RgbaImage) {
+    pub fn sample_colors_from_image(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        image: &image::RgbaImage,
+    ) {
         let texture_view = render::color::load_color_texture(device, queue, image);
-        let layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: None,
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float {
-                            filterable: true,
-                        },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                }],
-            });
-        self.color_bind_group =
-            Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: None,
-                layout: &layout,
-                entries: &[wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&texture_view),
-                }],
-            }));
+        let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: None,
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Texture {
+                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    multisampled: false,
+                },
+                count: None,
+            }],
+        });
+        self.color_bind_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: None,
+            layout: &layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::TextureView(&texture_view),
+            }],
+        }));
         self.lines.color_mode = 2;
         self.lines.update_line_color_mode(device, queue);
     }

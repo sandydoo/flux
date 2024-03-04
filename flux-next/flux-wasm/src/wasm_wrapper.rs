@@ -5,10 +5,10 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::{JsValue, JsCast};
+use wasm_bindgen::{JsCast, JsValue};
 use web_sys::Window;
-use winit::platform::web::WindowBuilderExtWebSys;
 use winit::event_loop::EventLoop;
+use winit::platform::web::WindowBuilderExtWebSys;
 
 #[wasm_bindgen]
 pub struct Flux {
@@ -28,7 +28,8 @@ impl Flux {
     #[wasm_bindgen(setter)]
     pub fn set_settings(&mut self, settings_object: &JsValue) {
         let settings: settings::Settings = settings_object.into_serde().unwrap();
-        self.instance.update(&self.device, &self.queue, &Arc::new(settings));
+        self.instance
+            .update(&self.device, &self.queue, &Arc::new(settings));
     }
 
     #[wasm_bindgen(constructor)]
@@ -42,11 +43,15 @@ impl Flux {
         let element_id = "canvas";
         let window = web_sys::window().expect("no global `window` exists");
         let document = window.document().expect("should have a document on window");
-        let html_canvas = document.get_element_by_id(element_id)
+        let html_canvas = document
+            .get_element_by_id(element_id)
             .map(|element| element.dyn_into::<web_sys::HtmlCanvasElement>())
-            .unwrap_or_else(||
-               panic!("I expected to find a canvas element with id `{}`", element_id)
-            )?;
+            .unwrap_or_else(|| {
+                panic!(
+                    "I expected to find a canvas element with id `{}`",
+                    element_id
+                )
+            })?;
 
         let pixel_ratio: f64 = window.device_pixel_ratio();
         let logical_width = html_canvas.client_width() as u32;
@@ -58,7 +63,8 @@ impl Flux {
 
         let window = winit::window::WindowBuilder::new()
             .with_canvas(Some(html_canvas.clone()))
-            .build(&event_loop).unwrap();
+            .build(&event_loop)
+            .unwrap();
 
         let canvas = Canvas::new(html_canvas);
 
@@ -71,7 +77,9 @@ impl Flux {
         let mut instance_desc = wgpu::InstanceDescriptor::default();
         instance_desc.backends = wgpu::Backends::BROWSER_WEBGPU;
         let wgpu_instance = wgpu::Instance::new(instance_desc);
-        let window_surface = wgpu_instance.create_surface(Arc::clone(&window)).expect("Failed to create surface");
+        let window_surface = wgpu_instance
+            .create_surface(Arc::clone(&window))
+            .expect("Failed to create surface");
         let adapter = wgpu_instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::HighPerformance,
@@ -81,17 +89,12 @@ impl Flux {
             .await
             .expect("Failed to find an appropiate adapter");
 
-        log::debug!(
-            "{:?}\n{:?}",
-            adapter.get_info(),
-            adapter.features(),
-        );
+        log::debug!("{:?}\n{:?}", adapter.get_info(), adapter.features(),);
 
         // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
-        let mut limits =  wgpu::Limits::downlevel_defaults().using_resolution(adapter.limits());
+        let mut limits = wgpu::Limits::downlevel_defaults().using_resolution(adapter.limits());
 
-        let features =
-             wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES
+        let features = wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES
             | wgpu::Features::FLOAT32_FILTERABLE;
 
         let (device, queue) = adapter
@@ -149,24 +152,21 @@ impl Flux {
     }
 
     pub fn animate(&mut self, timestamp: f64) {
-        let frame = self.window_surface
+        let frame = self
+            .window_surface
             .get_current_texture()
             .expect("Failed to acquire next swap chain texture");
         let view = frame
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
-        let mut encoder =
-            self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("flux:render"),
             });
 
-        self.instance.animate(
-            &self.device,
-            &self.queue,
-            &mut encoder,
-            &view,
-            timestamp,
-        );
+        self.instance
+            .animate(&self.device, &self.queue, &mut encoder, &view, timestamp);
 
         self.queue.submit(Some(encoder.finish()));
         frame.present();

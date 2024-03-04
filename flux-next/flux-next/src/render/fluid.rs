@@ -803,10 +803,18 @@ impl Context {
         ((width / 8.0).ceil() as u32, (height / 8.0).ceil() as u32, 1)
     }
 
-    pub fn advect_forward<'cpass>(&'cpass self, queue: &wgpu::Queue, cpass: &mut wgpu::ComputePass<'cpass>) {
+    pub fn advect_forward<'cpass>(
+        &'cpass self,
+        queue: &wgpu::Queue,
+        cpass: &mut wgpu::ComputePass<'cpass>,
+    ) {
         let mut uniforms = self.fluid_uniforms;
         uniforms.direction = 1.0;
-        queue.write_buffer(&self.fluid_uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
+        queue.write_buffer(
+            &self.fluid_uniform_buffer,
+            0,
+            bytemuck::cast_slice(&[uniforms]),
+        );
 
         let workgroup = self.get_workgroup_size();
         cpass.set_pipeline(&self.advection_pipeline);
@@ -815,10 +823,18 @@ impl Context {
         cpass.dispatch_workgroups(workgroup.0, workgroup.1, workgroup.2);
     }
 
-    pub fn advect_reverse<'cpass>(&'cpass self, queue: &wgpu::Queue, cpass: &mut wgpu::ComputePass<'cpass>) {
+    pub fn advect_reverse<'cpass>(
+        &'cpass self,
+        queue: &wgpu::Queue,
+        cpass: &mut wgpu::ComputePass<'cpass>,
+    ) {
         let mut uniforms = self.fluid_uniforms;
         uniforms.direction = -1.0;
-        queue.write_buffer(&self.fluid_uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
+        queue.write_buffer(
+            &self.fluid_uniform_buffer,
+            0,
+            bytemuck::cast_slice(&[uniforms]),
+        );
 
         let workgroup = self.get_workgroup_size();
         cpass.set_pipeline(&self.advection_pipeline);

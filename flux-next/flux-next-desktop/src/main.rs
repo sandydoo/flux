@@ -1,8 +1,8 @@
 // Disable the console window that pops up when you launch the .exe
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::sync::{Arc, Mutex};
 use image::RgbaImage;
+use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 
 use winit::{
@@ -58,8 +58,7 @@ impl App {
                     if let Err(_) = tx.send(Msg::DecodedImage).await {
                         log::error!("Failed to send decoded image message");
                     }
-
-                },
+                }
                 Err(err) => log::error!("{}", err),
             }
         });
@@ -71,10 +70,10 @@ fn main() -> Result<(), impl std::error::Error> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("error")).init();
 
     let runtime = tokio::runtime::Builder::new_multi_thread()
-            .worker_threads(1)
-            .enable_all()
-            .build()
-            .unwrap();
+        .worker_threads(1)
+        .enable_all()
+        .build()
+        .unwrap();
 
     let event_loop = EventLoop::new().unwrap();
     let logical_size = winit::dpi::LogicalSize::new(1280, 800);

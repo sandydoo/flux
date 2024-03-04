@@ -58,7 +58,11 @@ impl NoiseGenerator {
             channel.tick(self.elapsed_time);
         });
 
-        queue.write_buffer(&self.push_constants_buffer, 0, bytemuck::cast_slice(&[timestep]));
+        queue.write_buffer(
+            &self.push_constants_buffer,
+            0,
+            bytemuck::cast_slice(&[timestep]),
+        );
 
         queue.write_buffer(
             &self.channel_buffer,
