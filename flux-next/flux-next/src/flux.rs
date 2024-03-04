@@ -89,11 +89,15 @@ impl Flux {
 
         rng::init_from_seed(&settings.seed);
 
+        // Logical size
         let screen_size = wgpu::Extent3d {
-            width: physical_width,
-            height: physical_height,
+            width: logical_width,
+            height: logical_height,
             depth_or_array_layers: 1,
         };
+
+        log::info!("📐 Logical size: {}x{}", logical_width, logical_height);
+        log::info!("📏 Physical size: {}x{}", physical_width, physical_height);
 
         let grid = grid::Grid::new(logical_width, logical_height, settings.grid_spacing);
 

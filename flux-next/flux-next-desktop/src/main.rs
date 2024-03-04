@@ -162,7 +162,7 @@ async fn run(
 
     window_surface.configure(&device, &config);
 
-    let logical_size = window.inner_size();
+    let logical_size = physical_size.to_logical(window.scale_factor());
     let settings = Arc::new(Settings::default());
     let mut flux = Flux::new(
         &device,

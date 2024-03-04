@@ -41,14 +41,11 @@ impl Default for Settings {
             diffusion_iterations: 3,
             pressure_iterations: 20,
             color_mode: ColorMode::Preset(ColorPreset::Original),
-            // line_length: 550.0,
-            // line_width: 10.0,
-            line_length: 1100.0,
-            line_width: 20.0,
+            line_length: 550.0,
+            line_width: 10.0,
             line_begin_offset: 0.4,
             line_variance: 0.45,
-            // grid_spacing: 15,
-            grid_spacing: 30,
+            grid_spacing: 15,
             view_scale: 1.6,
             noise_channels: vec![
                 Noise {
