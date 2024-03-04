@@ -109,20 +109,22 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, screen_size: wgpu::Extent3d, grid: &Grid, settings: &Settings) {
+    pub fn update(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        screen_size: wgpu::Extent3d,
+        grid: &Grid,
+        settings: &Settings,
+    ) {
         self.line_uniforms = {
-            let mut new_line_uniforms = LineUniforms::new(
-                screen_size,
-                grid,
-                settings,
-            );
+            let mut new_line_uniforms = LineUniforms::new(screen_size, grid, settings);
             new_line_uniforms.line_noise_offset_1 = self.line_uniforms.line_noise_offset_1;
             new_line_uniforms.line_noise_offset_2 = self.line_uniforms.line_noise_offset_2;
             new_line_uniforms.line_noise_blend_factor = self.line_uniforms.line_noise_blend_factor;
 
             new_line_uniforms
         };
-
 
         queue.write_buffer(
             &self.line_uniform_buffer,
@@ -147,7 +149,7 @@ impl Context {
         );
     }
 
-    pub fn update_line_color_mode(&mut self, device: &wgpu::Device, queue:&wgpu::Queue) {
+    pub fn update_line_color_mode(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
         self.line_uniforms.color_mode = self.color_mode;
 
         queue.write_buffer(
@@ -359,43 +361,52 @@ impl Context {
             .collect::<Vec<_>>();
 
         let color_texture = device.create_texture(&wgpu::TextureDescriptor {
-                label: None,
-                size: wgpu::Extent3d { width: 100, height: 100, depth_or_array_layers: 1 },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Rgba8UnormSrgb,
-                view_formats: &[],
-                usage: wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::TEXTURE_BINDING,
-            });
+            label: None,
+            size: wgpu::Extent3d {
+                width: 100,
+                height: 100,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            view_formats: &[],
+            usage: wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::TEXTURE_BINDING,
+        });
 
         let color_texture_view = color_texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let color_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: None, entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::COMPUTE,
-                ty: wgpu::BindingType::Texture {
-                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                    multisampled: false,
-                },
-                count: None,
-            }]
-        });
-        let color_bind_group =
-            device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let color_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: None,
-                layout: &color_bind_group_layout,
-                entries: &[wgpu::BindGroupEntry {
+                entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&color_texture_view),
-                }]
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                }],
             });
+        let color_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: None,
+            layout: &color_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::TextureView(&color_texture_view),
+            }],
+        });
 
         let place_lines_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("pipeline_layout:place_lines"),
-                bind_group_layouts: &[&uniform_bind_group_layout, &lines_bind_group_layout, &color_bind_group_layout],
+                bind_group_layouts: &[
+                    &uniform_bind_group_layout,
+                    &lines_bind_group_layout,
+                    &color_bind_group_layout,
+                ],
                 push_constant_ranges: &[],
             });
 
@@ -540,7 +551,11 @@ impl Context {
         }
     }
 
-    pub fn place_lines<'cpass>(&'cpass mut self, cpass: &mut wgpu::ComputePass<'cpass>, color_bind_group: &'cpass Option<wgpu::BindGroup>) {
+    pub fn place_lines<'cpass>(
+        &'cpass mut self,
+        cpass: &mut wgpu::ComputePass<'cpass>,
+        color_bind_group: &'cpass Option<wgpu::BindGroup>,
+    ) {
         cpass.set_pipeline(&self.place_lines_pipeline);
         cpass.set_bind_group(0, &self.uniform_bind_group, &[]);
         cpass.set_bind_group(1, &self.line_bind_groups[self.frame_num], &[]);

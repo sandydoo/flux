@@ -1,5 +1,5 @@
-use crate::settings::{self, Settings};
 use crate::grid;
+use crate::settings::{self, Settings};
 
 use std::borrow::Cow;
 use std::sync::Arc;
@@ -25,7 +25,7 @@ impl FluidUniforms {
         let stencil_factor = 1.0 / (4.0 + center_factor);
         let texel_size = [1.0 / size.width as f32, 1.0 / size.height as f32]; // TODO: not needed anymore
 
-         FluidUniforms {
+        FluidUniforms {
             timestep: settings.fluid_timestep,
             dissipation: settings.velocity_dissipation,
             alpha: -1.0,
@@ -77,7 +77,13 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, scaling_ratio: grid::ScalingRatio, settings: &Arc<Settings>) {
+    pub fn update(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        scaling_ratio: grid::ScalingRatio,
+        settings: &Arc<Settings>,
+    ) {
         let (width, height) = (
             scaling_ratio.rounded_x() * settings.fluid_size,
             scaling_ratio.rounded_y() * settings.fluid_size,
@@ -102,10 +108,19 @@ impl Context {
 
         // Update uniforms
         self.fluid_uniforms = FluidUniforms::new(&size, settings);
-        queue.write_buffer(&self.fluid_uniform_buffer, 0, bytemuck::cast_slice(&[self.fluid_uniforms]));
+        queue.write_buffer(
+            &self.fluid_uniform_buffer,
+            0,
+            bytemuck::cast_slice(&[self.fluid_uniforms]),
+        );
     }
 
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, scaling_ratio: grid::ScalingRatio, settings: &Arc<Settings>) -> Self {
+    pub fn new(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        scaling_ratio: grid::ScalingRatio,
+        settings: &Arc<Settings>,
+    ) -> Self {
         let (width, height) = (
             settings.fluid_size,
             settings.fluid_size,
