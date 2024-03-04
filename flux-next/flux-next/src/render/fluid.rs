@@ -3,7 +3,6 @@ use crate::settings::{self, Settings};
 
 use std::borrow::Cow;
 use std::sync::Arc;
-use wgpu::core::device::queue;
 use wgpu::util::DeviceExt;
 
 #[repr(C)]

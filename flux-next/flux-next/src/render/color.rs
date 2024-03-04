@@ -33,7 +33,7 @@ impl Context {
     //         })
     // }
 
-    pub fn load_color_texture(encoded_bytes: &[u8]) -> Result<RgbaImage, Problem> {
+    pub fn decode_color_texture(encoded_bytes: &[u8]) -> Result<RgbaImage, Problem> {
         log::debug!("Decoding image");
 
         let mut img =

@@ -1,5 +1,5 @@
 [package]
-name = "flux_next"
+name = "flux-next"
 version = "5.0.0"
 description = "An open-source tribute to the macOS Drift screensaver"
 authors = ["Sander Melnikov <hey@sandydoo.me"]
@@ -24,5 +24,3 @@ image = { version = "0.24.5", features = ["jpeg", "png"] }
 rand_seeder = "0.2.3"
 rand_pcg = "0.3.1"
 wgpu = { git = "https://github.com/gfx-rs/wgpu.git", branch = "trunk" }
-tokio = { version = "1.36.0", features = ["full"] }
-futures = "0.3.30"

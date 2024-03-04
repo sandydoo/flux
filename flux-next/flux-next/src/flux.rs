@@ -3,21 +3,12 @@ use settings::Settings;
 
 use std::sync::Arc;
 use std::sync::Mutex;
-use tokio::sync::mpsc;
 
 // The time at which the animation timer will reset to zero.
 const MAX_ELAPSED_TIME: f32 = 1000.0;
 const MAX_FRAME_TIME: f32 = 1.0 / 10.0;
 
-enum Msg {
-    DecodedImage,
-}
-
 pub struct Flux {
-    runtime: tokio::runtime::Runtime,
-    tx: mpsc::Sender<Msg>,
-    rx: mpsc::Receiver<Msg>,
-
     settings: Arc<Settings>,
     screen_size: wgpu::Extent3d,
 
@@ -52,24 +43,35 @@ impl Flux {
         self.fluid_update_interval = 1.0 / settings.fluid_frame_rate;
     }
 
-    pub fn sample_colors_from_image(&mut self, encoded_bytes: Vec<u8>) {
-        let tx = self.tx.clone();
-        let color_image = Arc::clone(&self.color_image);
-        self.runtime.spawn(async move {
-            match render::color::Context::load_color_texture(&encoded_bytes) {
-                Ok(image) => {
-                    {
-                        let mut boop = color_image.lock().unwrap();
-                        *boop = Some(image);
-                    }
-                    if let Err(_) = tx.send(Msg::DecodedImage).await {
-                        return;
-                    }
-                }
-                Err(err) => log::error!("{}", err),
-            }
-        });
-        log::info!("Scheduled task");
+    pub fn sample_colors_from_image(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, image: &image::RgbaImage) {
+        let texture_view = render::color::load_color_texture(device, queue, image);
+        let layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: None,
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float {
+                            filterable: true,
+                        },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                }],
+            });
+        self.color_bind_group =
+            Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: None,
+                layout: &layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&texture_view),
+                }],
+            }));
+        self.lines.color_mode = 2;
+        self.lines.update_line_color_mode(device, queue);
     }
 
     pub fn new(
@@ -85,14 +87,6 @@ impl Flux {
         log::info!("✨ Initialising Flux");
 
         rng::init_from_seed(&settings.seed);
-
-        let runtime = tokio::runtime::Builder::new_multi_thread()
-            .worker_threads(1)
-            .enable_all()
-            .build()
-            .unwrap();
-
-        let (tx, rx) = mpsc::channel(32);
 
         let screen_size = wgpu::Extent3d {
             width: physical_width,
@@ -133,10 +127,6 @@ impl Flux {
         );
 
         Ok(Flux {
-            runtime,
-            tx,
-            rx,
-
             settings: Arc::clone(settings),
             screen_size,
 
@@ -216,8 +206,6 @@ impl Flux {
         if timer_overflow >= 0.0 {
             self.elapsed_time = timer_overflow;
         }
-
-        self.handle_pending_messages(device, queue);
 
         while self.fluid_frame_time >= self.fluid_update_interval {
             self.noise_generator
@@ -312,46 +300,6 @@ impl Flux {
         }
 
         encoder.pop_debug_group();
-    }
-
-    fn handle_pending_messages(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
-        while let Ok(msg) = self.rx.try_recv() {
-            match msg {
-                Msg::DecodedImage => {
-                    if let Some(image) = &*self.color_image.lock().unwrap() {
-                        let texture_view = render::color::load_color_texture(device, queue, image);
-                        let layout =
-                            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                                label: None,
-                                entries: &[wgpu::BindGroupLayoutEntry {
-                                    binding: 0,
-                                    visibility: wgpu::ShaderStages::COMPUTE,
-                                    ty: wgpu::BindingType::Texture {
-                                        sample_type: wgpu::TextureSampleType::Float {
-                                            filterable: true,
-                                        },
-                                        view_dimension: wgpu::TextureViewDimension::D2,
-                                        multisampled: false,
-                                    },
-                                    count: None,
-                                }],
-                            });
-                        self.color_bind_group =
-                            Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
-                                label: None,
-                                layout: &layout,
-                                entries: &[wgpu::BindGroupEntry {
-                                    binding: 0,
-                                    resource: wgpu::BindingResource::TextureView(&texture_view),
-                                }],
-                            }));
-                        self.lines.color_mode = 2;
-                        self.lines.update_line_color_mode(device, queue);
-                        log::info!("Decoded image!")
-                    }
-                }
-            }
-        }
     }
 }
 

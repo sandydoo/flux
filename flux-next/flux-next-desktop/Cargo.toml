@@ -1,5 +1,5 @@
 [package]
-name = "flux_next_desktop"
+name = "flux-next-desktop"
 version = "5.0.0"
 description = "An open-source tribute to the macOS Drift screensaver"
 authors = ["Sander Melnikov <hey@sandydoo.me"]
@@ -10,10 +10,13 @@ edition = "2021"
 
 [dependencies]
 env_logger = "0.10"
-flux_next= { version = "5", path = "../flux-next" }
+flux-next = { version = "5", path = "../flux-next" }
 log = "0.4"
 pollster = "0.3.0"
 raw-window-handle = "0.6"
 serde_json = "1"
 wgpu = { git = "https://github.com/gfx-rs/wgpu.git", branch = "trunk" }
 winit = "0.29.3"
+tokio = { version = "1.36.0", features = ["full"] }
+futures = "0.3.30"
+image = { version = "0.24" }

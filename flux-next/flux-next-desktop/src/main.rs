@@ -1,7 +1,9 @@
 // Disable the console window that pops up when you launch the .exe
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use image::RgbaImage;
+use tokio::sync::mpsc;
 
 use winit::{
     event::{ElementState, Event, KeyEvent, WindowEvent},
@@ -15,8 +17,64 @@ use winit::platform::macos::WindowBuilderExtMacOS;
 
 use flux_next::{Flux, Settings};
 
+struct App {
+    runtime: tokio::runtime::Runtime,
+    tx: mpsc::Sender<Msg>,
+    rx: mpsc::Receiver<Msg>,
+
+    flux: Flux,
+    settings: Arc<Settings>,
+
+    color_image: Arc<Mutex<Option<RgbaImage>>>,
+}
+
+enum Msg {
+    DecodedImage,
+}
+
+impl App {
+    fn handle_pending_messages(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+        while let Ok(msg) = self.rx.try_recv() {
+            match msg {
+                Msg::DecodedImage => {
+                    if let Some(image) = &*self.color_image.lock().unwrap() {
+                        self.flux.sample_colors_from_image(device, queue, image);
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn decode_image(&self, encoded_bytes: Vec<u8>) {
+        let tx = self.tx.clone();
+        let color_image = Arc::clone(&self.color_image);
+        self.runtime.spawn(async move {
+            match flux_next::render::color::Context::decode_color_texture(&encoded_bytes) {
+                Ok(image) => {
+                    {
+                        let mut boop = color_image.lock().unwrap();
+                        *boop = Some(image);
+                    }
+                    if let Err(_) = tx.send(Msg::DecodedImage).await {
+                        log::error!("Failed to send decoded image message");
+                    }
+
+                },
+                Err(err) => log::error!("{}", err),
+            }
+        });
+        log::debug!("Spawned image decoding task");
+    }
+}
+
 fn main() -> Result<(), impl std::error::Error> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("error")).init();
+
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(1)
+            .enable_all()
+            .build()
+            .unwrap();
 
     let event_loop = EventLoop::new().unwrap();
     let logical_size = winit::dpi::LogicalSize::new(1280, 800);
@@ -42,10 +100,11 @@ fn main() -> Result<(), impl std::error::Error> {
         .build(&event_loop)
         .unwrap();
 
-    pollster::block_on(run(event_loop, window))
+    pollster::block_on(run(runtime, event_loop, window))
 }
 
 async fn run(
+    runtime: tokio::runtime::Runtime,
     event_loop: EventLoop<()>,
     window: winit::window::Window,
 ) -> Result<(), impl std::error::Error> {
@@ -105,6 +164,7 @@ async fn run(
     window_surface.configure(&device, &config);
 
     let logical_size = window.inner_size();
+    let settings = Arc::new(Settings::default());
     let mut flux = Flux::new(
         &device,
         &command_queue,
@@ -113,16 +173,28 @@ async fn run(
         logical_size.height,
         physical_size.width,
         physical_size.height,
-        &Arc::new(Settings::default()),
+        &Arc::clone(&settings),
     )
     .unwrap();
 
     window.set_visible(true);
 
+    let (tx, rx) = mpsc::channel(32);
+    let mut app = App {
+        runtime,
+        tx,
+        rx,
+        flux,
+        settings,
+        color_image: Arc::new(Mutex::new(None)),
+    };
+
     let start = std::time::Instant::now();
 
     event_loop.run(|event, elwt| {
         elwt.set_control_flow(winit::event_loop::ControlFlow::Poll);
+
+        app.handle_pending_messages(&device, &command_queue);
 
         match event {
             Event::AboutToWait => {
@@ -141,7 +213,7 @@ async fn run(
                 } => elwt.exit(),
                 WindowEvent::DroppedFile(path) => {
                     let bytes = std::fs::read(&path).unwrap();
-                    flux.sample_colors_from_image(bytes);
+                    app.decode_image(bytes);
                     window.request_redraw();
                 }
                 WindowEvent::Resized(new_size) => {
@@ -150,7 +222,7 @@ async fn run(
                     window_surface.configure(&device, &config);
 
                     let logical_size = new_size.to_logical(window.scale_factor());
-                    flux.resize(
+                    app.flux.resize(
                         logical_size.width,
                         logical_size.height,
                         physical_size.width,
@@ -170,7 +242,7 @@ async fn run(
                             label: Some("flux:render"),
                         });
 
-                    flux.animate(
+                    app.flux.animate(
                         &device,
                         &command_queue,
                         &mut encoder,
