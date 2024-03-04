@@ -18,15 +18,17 @@ pub struct Flux {
     tx: mpsc::Sender<Msg>,
     rx: mpsc::Receiver<Msg>,
 
-    color_image: Arc<Mutex<Option<image::RgbaImage>>>,
-    color_bind_group: Option<wgpu::BindGroup>,
+    settings: Arc<Settings>,
+    screen_size: wgpu::Extent3d,
 
     grid: grid::Grid,
     fluid: render::fluid::Context,
     lines: render::lines::Context,
     noise_generator: render::noise::NoiseGenerator,
     debug_texture: render::texture::Context,
-    settings: Arc<Settings>,
+
+    color_image: Arc<Mutex<Option<image::RgbaImage>>>,
+    color_bind_group: Option<wgpu::BindGroup>,
 
     // A timestamp in milliseconds. Either host or video time.
     last_timestamp: f64,
@@ -39,12 +41,11 @@ pub struct Flux {
 }
 
 impl Flux {
-    pub fn update(&mut self, settings: &Arc<Settings>) {
-        // self.settings = Rc::clone(settings);
+    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, settings: &Arc<Settings>) {
         self.settings = Arc::clone(settings);
-        // self.fluid.update(&self.settings);
-        // self.drawer.update(&self.settings);
-        // self.noise_generator.update(&self.settings.noise_channels);
+        self.fluid.update(device, queue, self.grid.scaling_ratio, &self.settings);
+        self.noise_generator.update(&self.settings.noise_channels);
+        self.lines.update(device, queue,  self.screen_size, &self.grid, &self.settings);
 
         self.fluid_update_interval = 1.0 / settings.fluid_frame_rate;
     }
@@ -98,9 +99,10 @@ impl Flux {
             depth_or_array_layers: 1,
         };
 
-        let fluid = render::fluid::Context::new(device, queue, settings);
-
         let grid = grid::Grid::new(logical_width, logical_height, settings.grid_spacing);
+
+        let fluid = render::fluid::Context::new(device, queue, grid.scaling_ratio, settings);
+
         let lines = render::lines::Context::new(
             device,
             queue,
@@ -133,15 +135,17 @@ impl Flux {
             runtime,
             tx,
             rx,
-            color_image: Arc::new(Mutex::new(None)),
-            color_bind_group: None,
+
+            settings: Arc::clone(settings),
+            screen_size,
 
             fluid,
             grid,
             lines,
             noise_generator,
             debug_texture,
-            settings: Arc::clone(settings),
+            color_image: Arc::new(Mutex::new(None)),
+            color_bind_group: None,
 
             last_timestamp: 0.0,
             elapsed_time: 0.0,
@@ -160,6 +164,8 @@ impl Flux {
         physical_height: u32,
     ) {
         let grid = grid::Grid::new(logical_width, logical_height, self.settings.grid_spacing);
+
+        // TODO: fetch line state from GPU and resample for new grid
 
         // self.drawer
         //     .resize(
@@ -210,41 +216,7 @@ impl Flux {
             self.elapsed_time = timer_overflow;
         }
 
-        while let Ok(msg) = self.rx.try_recv() {
-            match msg {
-                Msg::DecodedImage => {
-                    if let Some(image) = &*self.color_image.lock().unwrap() {
-                        let texture_view = render::color::load_color_texture(device, queue, image);
-                        let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                            label: None, entries: &[wgpu::BindGroupLayoutEntry {
-                                binding: 0,
-                                visibility: wgpu::ShaderStages::COMPUTE,
-                                ty: wgpu::BindingType::Texture {
-                                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                                    view_dimension: wgpu::TextureViewDimension::D2,
-                                    multisampled: false,
-                                },
-                                count: None,
-                            }]
-                        });
-                        self.color_bind_group = Some(
-                            device.create_bind_group(&wgpu::BindGroupDescriptor {
-                                label: None,
-                                layout: &layout,
-                                entries: &[wgpu::BindGroupEntry {
-                                    binding: 0,
-                                    resource: wgpu::BindingResource::TextureView(&texture_view),
-                                }]
-                            })
-                        );
-                        self.lines.color_mode = 2;
-                        self.lines.update_line_uniforms2(device, queue);
-                        log::info!("Decoded image!")
-                    }
-                }
-
-            }
-        }
+        self.handle_pending_messages(device, queue);
 
         while self.fluid_frame_time >= self.fluid_update_interval {
             self.noise_generator
@@ -279,7 +251,7 @@ impl Flux {
 
         {
             self.lines
-                .update_line_uniforms(device, queue, self.elapsed_time);
+                .tick_line_uniforms(device, queue, timestep, self.elapsed_time);
 
             let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                 label: Some("flux::place_lines"),
@@ -339,6 +311,44 @@ impl Flux {
         }
 
         encoder.pop_debug_group();
+    }
+
+    fn handle_pending_messages(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+        while let Ok(msg) = self.rx.try_recv() {
+                match msg {
+                    Msg::DecodedImage => {
+                        if let Some(image) = &*self.color_image.lock().unwrap() {
+                            let texture_view = render::color::load_color_texture(device, queue, image);
+                            let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                                label: None, entries: &[wgpu::BindGroupLayoutEntry {
+                                    binding: 0,
+                                    visibility: wgpu::ShaderStages::COMPUTE,
+                                    ty: wgpu::BindingType::Texture {
+                                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                                        view_dimension: wgpu::TextureViewDimension::D2,
+                                        multisampled: false,
+                                    },
+                                    count: None,
+                                }]
+                            });
+                            self.color_bind_group = Some(
+                                device.create_bind_group(&wgpu::BindGroupDescriptor {
+                                    label: None,
+                                    layout: &layout,
+                                    entries: &[wgpu::BindGroupEntry {
+                                        binding: 0,
+                                        resource: wgpu::BindingResource::TextureView(&texture_view),
+                                    }]
+                                })
+                            );
+                            self.lines.color_mode = 2;
+                            self.lines.update_line_color_mode(device, queue);
+                            log::info!("Decoded image!")
+                        }
+                    }
+
+                }
+            }
     }
 }
 

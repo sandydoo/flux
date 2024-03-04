@@ -30,7 +30,29 @@ struct LineUniforms {
 }
 
 impl LineUniforms {
-    fn tick(&mut self, elapsed_time: f32) -> &mut Self {
+    fn new(screen_size: wgpu::Extent3d, grid: &Grid, settings: &Settings) -> Self {
+        // TODO: can we compute the scale factor from the grid?
+        let line_scale_factor =
+            get_line_scale_factor(screen_size.width as f32, screen_size.height as f32);
+
+        Self {
+            aspect: grid.aspect_ratio,
+            zoom: settings.view_scale,
+            line_width: settings.view_scale * settings.line_width * line_scale_factor,
+            line_length: settings.view_scale * settings.line_length * line_scale_factor,
+            line_begin_offset: settings.line_begin_offset,
+            line_variance: settings.line_variance,
+            line_noise_scale: [64.0 * grid.scaling_ratio.x(), 64.0 * grid.scaling_ratio.y()],
+            line_noise_offset_1: 0.0,
+            line_noise_offset_2: 0.0,
+            line_noise_blend_factor: 0.0,
+            color_mode: settings.color_mode.clone().into(),
+            delta_time: 1.0 / 60.0, // Initial value, will be updated every frame
+            padding: 0.0,
+        }
+    }
+
+    fn tick(&mut self, timestep: f32, elapsed_time: f32) -> &mut Self {
         const BLEND_THRESHOLD: f32 = 4.0;
         const BASE_OFFSET: f32 = 0.0015;
 
@@ -48,6 +70,8 @@ impl LineUniforms {
             self.line_noise_offset_2 = 0.0;
             self.line_noise_blend_factor = 0.0;
         }
+
+        self.delta_time = timestep;
 
         self
     }
@@ -85,13 +109,20 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn update_line_uniforms(
-        &mut self,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        elapsed_time: f32,
-    ) {
-        self.line_uniforms.tick(elapsed_time);
+    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, screen_size: wgpu::Extent3d, grid: &Grid, settings: &Settings) {
+        self.line_uniforms = {
+            let mut new_line_uniforms = LineUniforms::new(
+                screen_size,
+                grid,
+                settings,
+            );
+            new_line_uniforms.line_noise_offset_1 = self.line_uniforms.line_noise_offset_1;
+            new_line_uniforms.line_noise_offset_2 = self.line_uniforms.line_noise_offset_2;
+            new_line_uniforms.line_noise_blend_factor = self.line_uniforms.line_noise_blend_factor;
+
+            new_line_uniforms
+        };
+
 
         queue.write_buffer(
             &self.line_uniform_buffer,
@@ -100,7 +131,23 @@ impl Context {
         );
     }
 
-    pub fn update_line_uniforms2(&mut self, device: &wgpu::Device, queue:&wgpu::Queue) {
+    pub fn tick_line_uniforms(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        timestep: f32,
+        elapsed_time: f32,
+    ) {
+        self.line_uniforms.tick(timestep, elapsed_time);
+
+        queue.write_buffer(
+            &self.line_uniform_buffer,
+            0,
+            bytemuck::cast_slice(&[self.line_uniforms]),
+        );
+    }
+
+    pub fn update_line_color_mode(&mut self, device: &wgpu::Device, queue:&wgpu::Queue) {
         self.line_uniforms.color_mode = self.color_mode;
 
         queue.write_buffer(
@@ -126,24 +173,7 @@ impl Context {
             usage: wgpu::BufferUsages::VERTEX,
         });
 
-        let line_scale_factor =
-            get_line_scale_factor(screen_size.width as f32, screen_size.height as f32);
-
-        let line_uniforms = LineUniforms {
-            aspect: grid.aspect_ratio,
-            zoom: settings.view_scale,
-            line_width: settings.view_scale * settings.line_width * line_scale_factor,
-            line_length: settings.view_scale * settings.line_length * line_scale_factor,
-            line_begin_offset: settings.line_begin_offset,
-            line_variance: settings.line_variance,
-            line_noise_scale: [64.0 * grid.scaling_ratio.x(), 64.0 * grid.scaling_ratio.y()],
-            line_noise_offset_1: 0.0,
-            line_noise_offset_2: 0.0,
-            line_noise_blend_factor: 0.0,
-            color_mode: settings.color_mode.clone().into(),
-            delta_time: 1.0 / 120.0, // TODO: fix fps
-            padding: 0.0,
-        };
+        let line_uniforms = LineUniforms::new(screen_size, grid, settings);
 
         let line_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("buffer:LineUniforms"),

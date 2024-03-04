@@ -1,7 +1,9 @@
 use crate::settings::{self, Settings};
+use crate::grid;
 
 use std::borrow::Cow;
 use std::sync::Arc;
+use wgpu::core::device::queue;
 use wgpu::util::DeviceExt;
 
 #[repr(C)]
@@ -14,6 +16,25 @@ struct FluidUniforms {
     center_factor: f32,
     stencil_factor: f32,
     texel_size: [f32; 2],
+}
+
+impl FluidUniforms {
+    pub fn new(size: &wgpu::Extent3d, settings: &Settings) -> Self {
+        // dx^2 / (rho * dt)
+        let center_factor = 1.0 / (settings.viscosity * settings.fluid_timestep);
+        let stencil_factor = 1.0 / (4.0 + center_factor);
+        let texel_size = [1.0 / size.width as f32, 1.0 / size.height as f32]; // TODO: not needed anymore
+
+         FluidUniforms {
+            timestep: settings.fluid_timestep,
+            dissipation: settings.velocity_dissipation,
+            alpha: -1.0,
+            r_beta: 0.25,
+            center_factor,
+            stencil_factor,
+            texel_size,
+        }
+    }
 }
 
 pub struct Context {
@@ -56,14 +77,41 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, settings: &Arc<Settings>) -> Self {
+    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, scaling_ratio: grid::ScalingRatio, settings: &Arc<Settings>) {
         let (width, height) = (
+            scaling_ratio.rounded_x() * settings.fluid_size,
+            scaling_ratio.rounded_y() * settings.fluid_size,
+        );
+        let size = wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        };
+
+        // Resize the fluid texture if necessary
+        if self.fluid_size_3d != size {
+            self.fluid_size = [width as f32, height as f32];
+            self.fluid_size_3d = size;
+            // self.resize_fluid_texture(width, height).unwrap();
+        }
+
+        // Update fluid settings needed on the CPU side
+        self.diffusion_iterations = settings.diffusion_iterations;
+        self.pressure_mode = settings.pressure_mode;
+        self.pressure_iterations = settings.pressure_iterations;
+
+        // Update uniforms
+        self.fluid_uniforms = FluidUniforms::new(&size, settings);
+        queue.write_buffer(&self.fluid_uniform_buffer, 0, bytemuck::cast_slice(&[self.fluid_uniforms]));
+    }
+
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, scaling_ratio: grid::ScalingRatio, settings: &Arc<Settings>) -> Self {
+        let (width, height) = (
+            settings.fluid_size,
+            settings.fluid_size,
             // scaling_ratio.rounded_x() * settings.fluid_size,
             // scaling_ratio.rounded_y() * settings.fluid_size,
-            settings.fluid_size,
-            settings.fluid_size,
         );
-        let texel_size = [1.0 / width as f32, 1.0 / height as f32];
         let size = wgpu::Extent3d {
             width,
             height,
@@ -72,19 +120,7 @@ impl Context {
 
         // Uniforms
 
-        // dx^2 / (rho * dt)
-        let center_factor = 1.0 / (settings.viscosity * settings.fluid_timestep);
-        let stencil_factor = 1.0 / (4.0 + center_factor);
-
-        let fluid_uniforms = FluidUniforms {
-            timestep: settings.fluid_timestep,
-            dissipation: settings.velocity_dissipation,
-            alpha: -1.0,
-            r_beta: 0.25,
-            center_factor,
-            stencil_factor,
-            texel_size,
-        };
+        let fluid_uniforms = FluidUniforms::new(&size, settings);
         let fluid_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("uniform:FluidUniforms"),
             contents: bytemuck::cast_slice(&[fluid_uniforms]),

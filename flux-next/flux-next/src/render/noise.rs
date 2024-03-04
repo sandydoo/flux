@@ -21,9 +21,9 @@ pub struct NoiseGenerator {
 
 impl NoiseGenerator {
     pub fn resize(&mut self, size: u32, scaling_ratio: grid::ScalingRatio) {
-        if scaling_ratio == self.scaling_ratio {
-            return;
-        }
+        // if scaling_ratio == self.scaling_ratio {
+        //     return;
+        // }
 
         // self.scaling_ratio = scaling_ratio;
         // let (width, height) = (
