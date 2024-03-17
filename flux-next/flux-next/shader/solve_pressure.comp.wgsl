@@ -29,23 +29,23 @@ fn main(
   let pressure = textureLoad(pressure_texture, global_id.xy, 0).x;
   let divergence = textureLoad(divergence_texture, global_id.xy, 0).x;
 
-  let l = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(-1, 0)).x;
-  let r = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(1, 0)).x;
-  let t = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(0, 1)).x;
-  let b = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(0, -1)).x;
-
-  var new_pressure = uniforms.r_beta * (l + r + b + t + uniforms.alpha * divergence);
+  var l = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(-1, 0)).x;
+  var r = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(1, 0)).x;
+  var b = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(0, -1)).x;
+  var t = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(0, 1)).x;
 
   if (global_id.x == 0u) {
-    new_pressure = pressure;
+    l = pressure;
   } else if (global_id.x == size.x - 1u) {
-    new_pressure = pressure;
+    r = pressure;
   }
   if (global_id.y == 0u) {
-    new_pressure = pressure;
+    b = pressure;
   } else if (global_id.y == size.y - 1u) {
-    new_pressure = pressure;
+    t = pressure;
   }
+
+  let new_pressure = uniforms.r_beta * (l + r + b + t + uniforms.alpha * divergence);
 
   textureStore(out_pressure_texture, global_id.xy, vec4<f32>(new_pressure, 0.0, 0.0, 0.0));
 }
