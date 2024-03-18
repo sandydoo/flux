@@ -633,6 +633,7 @@ dependencies = [
  "console_log",
  "flux-next",
  "gloo-utils",
+ "image",
  "js-sys",
  "log",
  "serde",
