@@ -166,7 +166,6 @@ impl Context {
         screen_size: wgpu::Extent3d,
         grid: &Grid,
         settings: &Settings,
-        velocity_texture_view: &wgpu::TextureView,
     ) -> Self {
         let vertices_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("buffer:vertices"),
@@ -208,6 +207,8 @@ impl Context {
             label: Some("sampler:linear"),
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
             ..Default::default()
         });
 
@@ -264,17 +265,6 @@ impl Context {
                         ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                         count: None,
                     },
-                    // velocity_texture
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 3,
-                        visibility: wgpu::ShaderStages::COMPUTE,
-                        ty: wgpu::BindingType::Texture {
-                            multisampled: false,
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        },
-                        count: None,
-                    },
                 ],
             });
 
@@ -300,11 +290,6 @@ impl Context {
                 wgpu::BindGroupEntry {
                     binding: 2,
                     resource: wgpu::BindingResource::Sampler(&linear_sampler),
-                },
-                // velocity_texture
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: wgpu::BindingResource::TextureView(&velocity_texture_view),
                 },
             ],
         });
@@ -398,6 +383,36 @@ impl Context {
             }],
         });
 
+        // TODO: reuse layout from fluid
+        let velocity_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Velocity bind group layout"),
+                entries: &[
+                    // velocity_texture
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    // out_velocity_texture
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::StorageTexture {
+                            access: wgpu::StorageTextureAccess::WriteOnly,
+                            format: wgpu::TextureFormat::Rg32Float,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                        },
+                        count: None,
+                    },
+                ],
+            });
+
         let place_lines_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("pipeline_layout:place_lines"),
@@ -405,6 +420,7 @@ impl Context {
                     &uniform_bind_group_layout,
                     &lines_bind_group_layout,
                     &color_bind_group_layout,
+                    &velocity_bind_group_layout,
                 ],
                 push_constant_ranges: &[],
             });
@@ -554,6 +570,7 @@ impl Context {
         &'cpass mut self,
         cpass: &mut wgpu::ComputePass<'cpass>,
         color_bind_group: &'cpass Option<wgpu::BindGroup>,
+        velocity_bind_group: &'cpass wgpu::BindGroup,
     ) {
         cpass.set_pipeline(&self.place_lines_pipeline);
         cpass.set_bind_group(0, &self.uniform_bind_group, &[]);
@@ -563,6 +580,7 @@ impl Context {
         } else {
             cpass.set_bind_group(2, &self.color_bind_group, &[])
         }
+        cpass.set_bind_group(3, velocity_bind_group, &[]);
         cpass.dispatch_workgroups(self.work_group_count, 1, 1);
 
         self.frame_num = 1 - self.frame_num;

@@ -37,7 +37,7 @@ impl Default for Settings {
             fluid_timestep: 1.0 / 60.0,
             viscosity: 5.0,
             velocity_dissipation: 0.0,
-            pressure_mode: PressureMode::Retain,
+            pressure_mode: PressureMode::ClearWith(0.0),
             diffusion_iterations: 3,
             pressure_iterations: 20,
             color_mode: ColorMode::Preset(ColorPreset::Original),

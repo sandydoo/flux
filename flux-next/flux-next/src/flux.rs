@@ -14,12 +14,12 @@ pub struct Flux {
 
     grid: grid::Grid,
     fluid: render::fluid::Context,
-    lines: render::lines::Context,
+    pub lines: render::lines::Context,
     noise_generator: render::noise::NoiseGenerator,
     debug_texture: render::texture::Context,
 
-    color_image: Arc<Mutex<Option<image::RgbaImage>>>,
-    color_bind_group: Option<wgpu::BindGroup>,
+    pub color_image: Arc<Mutex<Option<image::RgbaImage>>>,
+    pub color_bind_group: Option<wgpu::BindGroup>,
 
     // A timestamp in milliseconds. Either host or video time.
     last_timestamp: f64,
@@ -27,8 +27,9 @@ pub struct Flux {
     // A local animation timer in seconds that resets at MAX_ELAPSED_TIME.
     elapsed_time: f32,
 
-    fluid_update_interval: f32,
     fluid_frame_time: f32,
+
+    last_velocity_index: usize,
 }
 
 impl Flux {
@@ -39,8 +40,6 @@ impl Flux {
         self.noise_generator.update(&self.settings.noise_channels);
         self.lines
             .update(device, queue, self.screen_size, &self.grid, &self.settings);
-
-        self.fluid_update_interval = 1.0 / settings.fluid_frame_rate;
     }
 
     pub fn sample_colors_from_image(
@@ -110,7 +109,6 @@ impl Flux {
             screen_size,
             &grid,
             settings,
-            fluid.get_velocity_texture_view(),
         );
 
         let mut noise_generator_builder =
@@ -146,8 +144,8 @@ impl Flux {
             last_timestamp: 0.0,
             elapsed_time: 0.0,
 
-            fluid_update_interval: 1.0 / settings.fluid_frame_rate,
             fluid_frame_time: 0.0,
+            last_velocity_index: 0,
         })
     }
 
@@ -212,7 +210,9 @@ impl Flux {
             self.elapsed_time = timer_overflow;
         }
 
-        while self.fluid_frame_time >= self.fluid_update_interval {
+        let mut velocity_index = self.last_velocity_index;
+
+        while self.fluid_frame_time >= self.settings.fluid_timestep {
             self.noise_generator
                 .update_buffers(queue, self.settings.fluid_timestep);
 
@@ -223,24 +223,32 @@ impl Flux {
 
             self.noise_generator.generate(&mut cpass);
 
-            self.fluid.advect_forward(queue, &mut cpass); // 0
-            self.fluid.advect_reverse(queue, &mut cpass); // 0
-            self.fluid.adjust_advection(&mut cpass); // 0 -> 1
-            self.fluid.diffuse(&mut cpass); // 1 -> 0
+            self.fluid
+                .advect_forward(queue, &mut cpass, &mut velocity_index);
+            self.fluid
+                .advect_reverse(queue, &mut cpass, &mut velocity_index);
+            self.fluid.adjust_advection(&mut cpass, &mut velocity_index);
+            self.fluid.diffuse(&mut cpass, &mut velocity_index);
 
-            let velocity_bind_group = self.fluid.get_velocity_bind_group(0);
+            let velocity_bind_group = self.fluid.get_velocity_bind_group(velocity_index);
             self.noise_generator.inject_noise_into(
                 &mut cpass,
                 velocity_bind_group,
                 self.fluid.get_fluid_size(),
-            ); // 0 -> 1
+            );
+            velocity_index = 1 - velocity_index;
 
-            self.fluid.calculate_divergence(&mut cpass); // 1
+            self.fluid
+                .calculate_divergence(&mut cpass, &mut velocity_index);
             self.fluid.solve_pressure(queue, &mut cpass);
-            self.fluid.subtract_gradient(&mut cpass); // 1 -> 0
+            self.fluid
+                .subtract_gradient(&mut cpass, &mut velocity_index);
 
-            self.fluid_frame_time -= self.fluid_update_interval;
+            self.fluid_frame_time -= self.settings.fluid_timestep;
         }
+
+        // Save the last velocity index for the next frame
+        self.last_velocity_index = velocity_index;
 
         {
             self.lines
@@ -251,7 +259,11 @@ impl Flux {
                 timestamp_writes: None,
             });
 
-            self.lines.place_lines(&mut cpass, &self.color_bind_group);
+            self.lines.place_lines(
+                &mut cpass,
+                &self.color_bind_group,
+                self.fluid.get_velocity_bind_group(velocity_index),
+            );
         }
     }
 

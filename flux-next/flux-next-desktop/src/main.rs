@@ -164,7 +164,7 @@ async fn run(
 
     let logical_size = physical_size.to_logical(window.scale_factor());
     let settings = Arc::new(Settings::default());
-    let mut flux = Flux::new(
+    let flux = Flux::new(
         &device,
         &command_queue,
         swapchain_format,

@@ -46,12 +46,13 @@ struct LineUniforms {
 @group(0) @binding(0) var<uniform> uniforms: LineUniforms;
 @group(0) @binding(1) var<storage, read> basepoints: array<Basepoint>;
 @group(0) @binding(2) var linear_sampler: sampler;
-@group(0) @binding(3) var velocity_texture: texture_2d<f32>;
 
 @group(1) @binding(0) var<storage, read> lines: array<Line>;
 @group(1) @binding(1) var<storage, read_write> out_lines: array<Line>;
 
 @group(2) @binding(0) var color_texture: texture_2d<f32>;
+
+@group(3) @binding(0) var velocity_texture: texture_2d<f32>;
 
 fn permute(x: vec4<f32>) -> vec4<f32> {
   return (((x * 34.0) + 1.0) * x) % 289.0;
@@ -156,7 +157,7 @@ fn main(
 
   // Basically, smoothstep(0.0, 0.4, length(velocity));
   // Maybe width and opacity should be on different easings.
-  let width_boost = clamp(2.5 * length(velocity), 0.0, 1.0);
+  let width_boost = saturate(2.5 * length(velocity));
   let new_line_width = width_boost * width_boost * (3.0 - width_boost * 2.0);
 
   var color: vec3<f32>;
@@ -166,7 +167,7 @@ fn main(
   switch uniforms.color_mode {
     // Original
     case 0u, default: {
-      color = vec3<f32>(clamp(vec2<f32>(1.0, 0.66) * (0.5 + velocity), vec2<f32>(0.0), vec2<f32>(1.0)), 0.5);
+      color = vec3<f32>(saturate(vec2<f32>(1.0, 0.66) * (0.5 + velocity)), 0.5);
     }
 
     // Preset with color wheel
@@ -177,7 +178,7 @@ fn main(
     }
 
     case 2u: {
-      color = textureSampleLevel(color_texture, linear_sampler, 0.5 * velocity + 0.5, 0.0).rgb;
+      color = textureSampleLevel(color_texture, linear_sampler, 2.0 * velocity + 0.5, 0.0).rgb;
       color_momentum_boost = 5.0;
       color_delta_boost = 10.0;
     }
@@ -188,8 +189,8 @@ fn main(
     + (color.rgb - line.color.rgb) * color_delta_boost * uniforms.delta_time;
 
   let new_color = vec4(
-    clamp(line.color.rgb + uniforms.delta_time * new_color_velocity, vec3<f32>(0.0), vec3<f32>(1.0)),
-    width_boost
+    saturate(line.color.rgb + uniforms.delta_time * new_color_velocity),
+    width_boost,
   );
 
   out_lines[index] = Line(

@@ -7,6 +7,12 @@ use wgpu::util::DeviceExt;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct Direction {
+    pub direction: f32,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct FluidUniforms {
     timestep: f32,
     dissipation: f32,
@@ -63,6 +69,8 @@ pub struct Context {
     uniform_bind_group: wgpu::BindGroup,
     advection_forward_bind_group: wgpu::BindGroup,
     advection_reverse_bind_group: wgpu::BindGroup,
+    advection_forward_direction_bind_group: wgpu::BindGroup,
+    advection_reverse_direction_bind_group: wgpu::BindGroup,
     adjust_advection_bind_group: wgpu::BindGroup,
     divergence_bind_group: wgpu::BindGroup,
     divergence_sample_bind_group: wgpu::BindGroup,
@@ -122,10 +130,8 @@ impl Context {
         settings: &Arc<Settings>,
     ) -> Self {
         let (width, height) = (
-            settings.fluid_size,
-            settings.fluid_size,
-            // scaling_ratio.rounded_x() * settings.fluid_size,
-            // scaling_ratio.rounded_y() * settings.fluid_size,
+            scaling_ratio.rounded_x() * settings.fluid_size,
+            scaling_ratio.rounded_y() * settings.fluid_size,
         );
         let size = wgpu::Extent3d {
             width,
@@ -286,6 +292,8 @@ impl Context {
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
             mipmap_filter: wgpu::FilterMode::Linear,
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
             ..Default::default()
         });
 
@@ -380,19 +388,9 @@ impl Context {
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("bind_group_layout:uniform"),
                 entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::COMPUTE,
-                        ty: wgpu::BindingType::Texture {
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
                     // out_texture
                     wgpu::BindGroupLayoutEntry {
-                        binding: 1,
+                        binding: 0,
                         visibility: wgpu::ShaderStages::COMPUTE,
                         ty: wgpu::BindingType::StorageTexture {
                             access: wgpu::StorageTextureAccess::WriteOnly,
@@ -404,6 +402,20 @@ impl Context {
                 ],
             });
 
+        let advection_direction_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("bind_group_layout:advection_direction"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+            });
         let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("bind group:uniform"),
             layout: &uniform_bind_group_layout,
@@ -423,40 +435,71 @@ impl Context {
             ],
         });
 
+        let forward_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("uniform:forward"),
+            contents: bytemuck::cast_slice(&[Direction { direction: 1.0 }]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+        let reverse_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("uniform:reverse"),
+            contents: bytemuck::cast_slice(&[Direction { direction: -1.0 }]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let advection_forward_direction_bind_group =
+            device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("bind_group:advection_forward_direction"),
+                layout: &advection_direction_bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &forward_buffer,
+                        offset: 0,
+                        size: None,
+                    }),
+                }],
+            });
+
+        let advection_reverse_direction_bind_group =
+            device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("bind_group:advection_reverse_direction"),
+                layout: &advection_direction_bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &reverse_buffer,
+                        offset: 0,
+                        size: None,
+                    }),
+                }],
+            });
         let advection_forward_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("bind_group:advection_forward"),
             layout: &advection_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&velocity_texture_views[0]),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&advection_forward_texture_view),
-                },
-            ],
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::TextureView(&advection_forward_texture_view),
+            }],
         });
 
         let advection_reverse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("bind_group:advection_reverse"),
             layout: &advection_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&velocity_texture_views[0]),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&advection_reverse_texture_view),
-                },
-            ],
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::TextureView(&advection_reverse_texture_view),
+            }],
         });
 
         let advection_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Advection layout"),
-                bind_group_layouts: &[&uniform_bind_group_layout, &advection_bind_group_layout],
+                bind_group_layouts: &[
+                    &uniform_bind_group_layout,
+                    &advection_bind_group_layout,
+                    &advection_direction_bind_group_layout,
+                    &velocity_bind_group_layout,
+                ],
                 push_constant_ranges: &[],
             });
 
@@ -551,9 +594,16 @@ impl Context {
             ))),
         });
 
+        let diffusion_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("pipeline_layout:diffusion"),
+                bind_group_layouts: &[&uniform_bind_group_layout, &velocity_bind_group_layout],
+                push_constant_ranges: &[],
+            });
+
         let diffusion_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: Some("Diffusion"),
-            layout: Some(&advection_pipeline_layout),
+            layout: Some(&diffusion_pipeline_layout),
             module: &diffusion_shader,
             entry_point: "main",
         });
@@ -784,6 +834,8 @@ impl Context {
             uniform_bind_group,
             advection_forward_bind_group,
             advection_reverse_bind_group,
+            advection_forward_direction_bind_group,
+            advection_reverse_direction_bind_group,
             adjust_advection_bind_group,
             divergence_bind_group,
             divergence_sample_bind_group,
@@ -807,19 +859,14 @@ impl Context {
         &'cpass self,
         queue: &wgpu::Queue,
         cpass: &mut wgpu::ComputePass<'cpass>,
+        index: &mut usize,
     ) {
-        let mut uniforms = self.fluid_uniforms;
-        uniforms.direction = 1.0;
-        queue.write_buffer(
-            &self.fluid_uniform_buffer,
-            0,
-            bytemuck::cast_slice(&[uniforms]),
-        );
-
         let workgroup = self.get_workgroup_size();
         cpass.set_pipeline(&self.advection_pipeline);
         cpass.set_bind_group(0, &self.uniform_bind_group, &[]);
         cpass.set_bind_group(1, &self.advection_forward_bind_group, &[]);
+        cpass.set_bind_group(2, &self.advection_forward_direction_bind_group, &[]);
+        cpass.set_bind_group(3, &self.velocity_bind_groups[*index], &[]);
         cpass.dispatch_workgroups(workgroup.0, workgroup.1, workgroup.2);
     }
 
@@ -827,50 +874,53 @@ impl Context {
         &'cpass self,
         queue: &wgpu::Queue,
         cpass: &mut wgpu::ComputePass<'cpass>,
+        index: &mut usize,
     ) {
-        let mut uniforms = self.fluid_uniforms;
-        uniforms.direction = -1.0;
-        queue.write_buffer(
-            &self.fluid_uniform_buffer,
-            0,
-            bytemuck::cast_slice(&[uniforms]),
-        );
-
         let workgroup = self.get_workgroup_size();
         cpass.set_pipeline(&self.advection_pipeline);
         cpass.set_bind_group(0, &self.uniform_bind_group, &[]);
         cpass.set_bind_group(1, &self.advection_reverse_bind_group, &[]);
+        cpass.set_bind_group(2, &self.advection_reverse_direction_bind_group, &[]);
+        cpass.set_bind_group(3, &self.velocity_bind_groups[*index], &[]);
         cpass.dispatch_workgroups(workgroup.0, workgroup.1, workgroup.2);
     }
 
-    pub fn adjust_advection<'cpass>(&'cpass self, cpass: &mut wgpu::ComputePass<'cpass>) {
+    pub fn adjust_advection<'cpass>(
+        &'cpass self,
+        cpass: &mut wgpu::ComputePass<'cpass>,
+        index: &mut usize,
+    ) {
         let workgroup = self.get_workgroup_size();
         cpass.set_pipeline(&self.adjust_advection_pipeline);
         cpass.set_bind_group(0, &self.uniform_bind_group, &[]);
         cpass.set_bind_group(1, &self.adjust_advection_bind_group, &[]);
-        cpass.set_bind_group(2, &self.velocity_bind_groups[0], &[]);
+        cpass.set_bind_group(2, &self.velocity_bind_groups[*index], &[]);
         cpass.dispatch_workgroups(workgroup.0, workgroup.1, workgroup.2);
+
+        *index = 1 - *index;
     }
 
-    pub fn diffuse<'cpass>(&'cpass self, cpass: &mut wgpu::ComputePass<'cpass>) {
+    pub fn diffuse<'cpass>(&'cpass self, cpass: &mut wgpu::ComputePass<'cpass>, index: &mut usize) {
         let workgroup = self.get_workgroup_size();
         cpass.set_pipeline(&self.diffusion_pipeline);
         cpass.set_bind_group(0, &self.uniform_bind_group, &[]);
 
-        let mut index = 1;
-
         for _ in 0..self.diffusion_iterations {
-            cpass.set_bind_group(1, &self.velocity_bind_groups[index], &[]);
+            cpass.set_bind_group(1, &self.velocity_bind_groups[*index], &[]);
             cpass.dispatch_workgroups(workgroup.0, workgroup.1, workgroup.2);
-            index = 1 - index;
+            *index = 1 - *index;
         }
     }
 
-    pub fn calculate_divergence<'cpass>(&'cpass self, cpass: &mut wgpu::ComputePass<'cpass>) {
+    pub fn calculate_divergence<'cpass>(
+        &'cpass self,
+        cpass: &mut wgpu::ComputePass<'cpass>,
+        index: &mut usize,
+    ) {
         let workgroup = self.get_workgroup_size();
         cpass.set_pipeline(&self.divergence_pipeline);
         cpass.set_bind_group(0, &self.divergence_bind_group, &[]);
-        cpass.set_bind_group(1, &self.velocity_bind_groups[1], &[]);
+        cpass.set_bind_group(1, &self.velocity_bind_groups[*index], &[]);
         cpass.dispatch_workgroups(workgroup.0, workgroup.1, workgroup.2);
     }
 
@@ -880,7 +930,7 @@ impl Context {
         for pressure_texture in self.pressure_textures.iter() {
             queue.write_texture(
                 wgpu::ImageCopyTexture {
-                    texture: &pressure_texture,
+                    texture: pressure_texture,
                     mip_level: 0,
                     origin: wgpu::Origin3d::ZERO,
                     aspect: wgpu::TextureAspect::All,
@@ -923,13 +973,18 @@ impl Context {
         }
     }
 
-    pub fn subtract_gradient<'cpass>(&'cpass self, cpass: &mut wgpu::ComputePass<'cpass>) {
+    pub fn subtract_gradient<'cpass>(
+        &'cpass self,
+        cpass: &mut wgpu::ComputePass<'cpass>,
+        index: &mut usize,
+    ) {
         let workgroup = self.get_workgroup_size();
         cpass.set_pipeline(&self.subtract_gradient_pipeline);
         cpass.set_bind_group(0, &self.uniform_bind_group, &[]);
         cpass.set_bind_group(1, &self.pressure_bind_groups[0], &[]); // TODO: get correct index
-        cpass.set_bind_group(2, &self.velocity_bind_groups[1], &[]);
+        cpass.set_bind_group(2, &self.velocity_bind_groups[*index], &[]);
         cpass.dispatch_workgroups(workgroup.0, workgroup.1, workgroup.2);
+        *index = 1 - *index;
     }
 
     pub fn get_fluid_size(&self) -> wgpu::Extent3d {
