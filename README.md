@@ -24,7 +24,7 @@
 ## Screensavers
 
 #### [Buy Flux as a Windows screensaver →][store]
-Help support development by letting your PC idle with style. More platforms coming soon! Source code at [sandydoo/flux-screensavers][flux-screensavers-url].
+Help support development by letting your PC idle with style.
 
 ## Backstory
 
@@ -106,6 +106,5 @@ pnpm build
 
 [license-url]: https://github.com/sandydoo/flux/blob/main/LICENSE
 [maintainer-url]: https://github.com/sandydoo/
-[flux-screensavers-url]: https://github.com/sandydoo/flux-screensavers/
 [twitter]: https://twitter.com/sandy_doo/
 [store]: https://sandydoo.gumroad.com/l/flux
