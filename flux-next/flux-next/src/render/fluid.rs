@@ -20,8 +20,7 @@ struct FluidUniforms {
     r_beta: f32,
     center_factor: f32,
     stencil_factor: f32,
-    direction: f32,
-    padding: f32,
+    padding: [f32; 2],
 }
 
 impl FluidUniforms {
@@ -37,8 +36,7 @@ impl FluidUniforms {
             r_beta: 0.25,
             center_factor,
             stencil_factor,
-            direction: 1.0,
-            padding: 0.0,
+            padding: [0.0, 0.0],
         }
     }
 }

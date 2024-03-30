@@ -6,8 +6,7 @@ struct FluidUniforms {
   r_beta: f32,
   center_factor: f32,
   stencil_factor: f32,
-  direction: f32,
-  padding: f32,
+  padding: vec2<f32>,
 }
 
 @group(0) @binding(0) var<uniform> uniforms: FluidUniforms;
@@ -16,6 +15,7 @@ struct FluidUniforms {
 @group(1) @binding(0) var out_texture: texture_storage_2d<rg32float, write>;
 
 @group(2) @binding(0) var<uniform> direction: Dir;
+
 @group(3) @binding(0) var velocity_texture: texture_2d<f32>;
 @group(3) @binding(1) var out_velocity_texture: texture_storage_2d<rg32float, write>;
 

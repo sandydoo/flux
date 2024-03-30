@@ -6,8 +6,7 @@ struct FluidUniforms {
   r_beta: f32,
   center_factor: f32,
   stencil_factor: f32,
-  direction: f32,
-  padding: f32,
+  padding: vec2<f32>,
 }
 
 @group(0) @binding(0) var<uniform> uniforms: FluidUniforms;
@@ -28,7 +27,6 @@ fn main(
 
   let size = vec2<f32>(textureDimensions(velocity_texture));
   let sample_position = vec2<f32>(global_id.xy);
-  // Again, we’re supposed to scale to texel space here, but don’t.
   // TODO: floor here does not look good. How is it different from the GL version?
   let min_max_sampling_position = (0.5 + round((sample_position + 1.0) - uniforms.timestep * velocity)) / size;
   let l = textureSampleLevel(velocity_texture, linear_sampler, min_max_sampling_position, 0.0, vec2<i32>(-1, 0)).xy;
