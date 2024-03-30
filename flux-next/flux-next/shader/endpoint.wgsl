@@ -58,7 +58,8 @@ fn main_vs(
   // endpoint we’re on in the fragment.
   let midpoint_vector = vec2<f32>(endpoint.y, -endpoint.x);
 
-  let endpoint_opacity = clamp(color.a + (1.0 - color.a), 0.0, 1.0);
+  let endpoint_threshold = 1.0;
+  let endpoint_opacity = clamp(color.a + max(0.0, endpoint_threshold - color.a), 0.0, 1.0);
   let top_color = vec4<f32>(color.rgb, endpoint_opacity);
 
   // The color of the lower half of the endpoint is less obvious. We’re
