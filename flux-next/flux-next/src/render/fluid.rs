@@ -506,7 +506,7 @@ impl Context {
         let advection_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("shader:advection"),
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!(
-                "../../shader/advect.wgsl"
+                "../../shader/advect.comp.wgsl"
             ))),
         });
 
@@ -590,7 +590,7 @@ impl Context {
         let diffusion_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("shader:diffusion"),
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!(
-                "../../shader/diffuse.wgsl"
+                "../../shader/diffuse.comp.wgsl"
             ))),
         });
 
