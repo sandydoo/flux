@@ -414,6 +414,7 @@ impl Context {
                     count: None,
                 }],
             });
+
         let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("bind group:uniform"),
             layout: &uniform_bind_group_layout,
@@ -471,6 +472,7 @@ impl Context {
                     }),
                 }],
             });
+
         let advection_forward_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("bind_group:advection_forward"),
             layout: &advection_bind_group_layout,

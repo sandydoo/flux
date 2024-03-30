@@ -67,7 +67,7 @@ impl App {
 }
 
 fn main() -> Result<(), impl std::error::Error> {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("error")).init();
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(1)
