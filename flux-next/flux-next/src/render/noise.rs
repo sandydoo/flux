@@ -409,7 +409,10 @@ impl NoiseGeneratorBuilder {
     }
 }
 
-fn create_texture(device: &wgpu::Device, size: &wgpu::Extent3d) -> (wgpu::Texture, wgpu::TextureView) {
+fn create_texture(
+    device: &wgpu::Device,
+    size: &wgpu::Extent3d,
+) -> (wgpu::Texture, wgpu::TextureView) {
     let texture = device.create_texture(&wgpu::TextureDescriptor {
         label: Some("texture:noise"),
         size: *size,
@@ -428,7 +431,7 @@ fn create_texture(device: &wgpu::Device, size: &wgpu::Extent3d) -> (wgpu::Textur
         label: Some("view:noise"),
         ..Default::default()
     });
-    
+
     (texture, texture_view)
 }
 

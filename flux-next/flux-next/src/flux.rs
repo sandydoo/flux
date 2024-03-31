@@ -167,15 +167,18 @@ impl Flux {
             depth_or_array_layers: 1,
         };
 
-        self.lines.resize(device, queue, screen_size, &grid, &self.settings);
+        self.lines
+            .resize(device, queue, screen_size, &grid, &self.settings);
 
         self.grid = grid;
         self.screen_size = screen_size;
 
         // self.fluid.resize(device, self.grid.scaling_ratio);
-        self.noise_generator
-            .resize(device, 2 * self.settings.fluid_size, self.grid.scaling_ratio);
-     
+        self.noise_generator.resize(
+            device,
+            2 * self.settings.fluid_size,
+            self.grid.scaling_ratio,
+        );
     }
 
     pub fn animate(

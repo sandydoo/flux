@@ -9,7 +9,7 @@ use wgpu::util::DeviceExt;
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Direction {
     pub direction: f32,
-    _padding: [u32; 3]
+    _padding: [u32; 3],
 }
 
 #[repr(C)]
@@ -437,12 +437,18 @@ impl Context {
 
         let forward_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("uniform:forward"),
-            contents: bytemuck::cast_slice(&[Direction { direction: 1.0, _padding: [0; 3]}]),
+            contents: bytemuck::cast_slice(&[Direction {
+                direction: 1.0,
+                _padding: [0; 3],
+            }]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
         let reverse_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("uniform:reverse"),
-            contents: bytemuck::cast_slice(&[Direction { direction: -1.0, _padding: [0; 3]}]),
+            contents: bytemuck::cast_slice(&[Direction {
+                direction: -1.0,
+                _padding: [0; 3],
+            }]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
