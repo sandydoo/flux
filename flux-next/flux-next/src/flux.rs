@@ -149,9 +149,10 @@ impl Flux {
         })
     }
 
-    // TODO: handle errors
     pub fn resize(
         &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
         logical_width: u32,
         logical_height: u32,
         physical_width: u32,
@@ -160,19 +161,21 @@ impl Flux {
         let grid = grid::Grid::new(logical_width, logical_height, self.settings.grid_spacing);
 
         // TODO: fetch line state from GPU and resample for new grid
+        let screen_size = wgpu::Extent3d {
+            width: logical_width,
+            height: logical_height,
+            depth_or_array_layers: 1,
+        };
 
-        // self.drawer
-        //     .resize(
-        //         logical_width,
-        //         logical_height,
-        //         physical_width,
-        //         physical_height,
-        //     )
-        //     .unwrap();
-        // self.fluid.resize(self.drawer.scaling_ratio()).unwrap();
-        // self.noise_generator
-        //     .resize(2 * self.settings.fluid_size, self.drawer.scaling_ratio())
-        //     .unwrap();
+        self.lines.resize(device, queue, screen_size, &grid, &self.settings);
+
+        self.grid = grid;
+        self.screen_size = screen_size;
+
+        // self.fluid.resize(device, self.grid.scaling_ratio);
+        self.noise_generator
+            .resize(device, 2 * self.settings.fluid_size, self.grid.scaling_ratio);
+     
     }
 
     pub fn animate(

@@ -222,6 +222,8 @@ async fn run(
 
                     let logical_size = new_size.to_logical(window.scale_factor());
                     app.flux.resize(
+                        &device, 
+                        &command_queue,
                         logical_size.width,
                         logical_size.height,
                         physical_size.width,

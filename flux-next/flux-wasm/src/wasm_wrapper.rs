@@ -181,6 +181,8 @@ impl Flux {
             self.canvas.set_height(physical_height);
 
             self.instance.resize(
+                &self.device,
+                &self.queue,
                 logical_width,
                 logical_height,
                 physical_width,

@@ -27,6 +27,7 @@ impl ScalingRatio {
         self.y.round() as u32
     }
 }
+
 pub struct Grid {
     pub width: u32,
     pub height: u32,

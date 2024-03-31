@@ -21,28 +21,26 @@ pub struct NoiseGenerator {
 }
 
 impl NoiseGenerator {
-    pub fn resize(&mut self, size: u32, scaling_ratio: grid::ScalingRatio) {
-        // if scaling_ratio == self.scaling_ratio {
-        //     return;
-        // }
+    pub fn resize(&mut self, device: &wgpu::Device, size: u32, scaling_ratio: grid::ScalingRatio) {
+        if scaling_ratio == self.scaling_ratio {
+            return;
+        }
 
-        // self.scaling_ratio = scaling_ratio;
-        // let (width, height) = (
-        //     size * self.scaling_ratio.rounded_x(),
-        //     size * self.scaling_ratio.rounded_y(),
-        // );
-        // self.texture = Framebuffer::new(
-        //     &self.context,
-        //     width,
-        //     height,
-        //     TextureOptions {
-        //         mag_filter: glow::LINEAR,
-        //         min_filter: glow::LINEAR,
-        //         format: glow::RG16F,
-        //         ..Default::default()
-        //     },
-        // )?;
-        // self.texture.with_data(None::<&[f16]>)
+        let (width, height) = (
+            size * scaling_ratio.rounded_x(),
+            size * scaling_ratio.rounded_y(),
+        );
+        let size = wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        };
+
+        let (texture, texture_view) = create_texture(&device, &size);
+
+        self.scaling_ratio = scaling_ratio;
+        self.texture = texture;
+        self.texture_view = texture_view;
     }
 
     pub fn update(&mut self, new_settings: &[settings::Noise]) {
@@ -152,19 +150,7 @@ impl NoiseGeneratorBuilder {
             depth_or_array_layers: 1,
         };
 
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("texture:noise"),
-            size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            // TODO: try RG16Float
-            format: wgpu::TextureFormat::Rg32Float,
-            view_formats: &[],
-            usage: wgpu::TextureUsages::TEXTURE_BINDING
-                | wgpu::TextureUsages::STORAGE_BINDING
-                | wgpu::TextureUsages::COPY_DST,
-        });
+        let (texture, texture_view) = create_texture(device, &size);
 
         let linear_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("sampler:linear"),
@@ -172,11 +158,6 @@ impl NoiseGeneratorBuilder {
             min_filter: wgpu::FilterMode::Linear,
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
-            ..Default::default()
-        });
-
-        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor {
-            label: Some("view:noise"),
             ..Default::default()
         });
 
@@ -426,6 +407,29 @@ impl NoiseGeneratorBuilder {
             inject_noise_pipeline,
         }
     }
+}
+
+fn create_texture(device: &wgpu::Device, size: &wgpu::Extent3d) -> (wgpu::Texture, wgpu::TextureView) {
+    let texture = device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("texture:noise"),
+        size: *size,
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        // TODO: try RG16Float
+        format: wgpu::TextureFormat::Rg32Float,
+        view_formats: &[],
+        usage: wgpu::TextureUsages::TEXTURE_BINDING
+            | wgpu::TextureUsages::STORAGE_BINDING
+            | wgpu::TextureUsages::COPY_DST,
+    });
+
+    let texture_view = texture.create_view(&wgpu::TextureViewDescriptor {
+        label: Some("view:noise"),
+        ..Default::default()
+    });
+    
+    (texture, texture_view)
 }
 
 pub struct NoiseChannel {

@@ -101,7 +101,10 @@ pub struct Context {
     line_uniform_buffer: wgpu::Buffer,
     line_buffers: Vec<wgpu::Buffer>,
 
+    linear_sampler: wgpu::Sampler,
+    uniform_bind_group_layout: wgpu::BindGroupLayout,
     uniform_bind_group: wgpu::BindGroup,
+    lines_bind_group_layout: wgpu::BindGroupLayout,
     line_bind_groups: Vec<wgpu::BindGroup>,
 
     place_lines_pipeline: wgpu::ComputePipeline,
@@ -160,6 +163,94 @@ impl Context {
         );
     }
 
+    // TODO: resample the line state in a compute shader
+    // TODO: dedupe with new
+    pub fn resize(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        screen_size: wgpu::Extent3d,
+        grid: &Grid,
+        settings: &Settings,
+    ) {
+        self.update(device, queue, screen_size, grid, settings);
+
+        let basepoints_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("buffer:basepoints"),
+            contents: bytemuck::cast_slice(&grid.basepoints),
+            usage: wgpu::BufferUsages::VERTEX
+                | wgpu::BufferUsages::STORAGE
+                | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let lines = vec![Line::zeroed(); grid.line_count as usize];
+
+        let line_buffers = (0..2)
+            .map(|i| {
+                device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some(format!("buffer:lines_{}", i).as_str()),
+                    contents: bytemuck::cast_slice(&lines),
+                    usage: wgpu::BufferUsages::VERTEX
+                        | wgpu::BufferUsages::STORAGE
+                        | wgpu::BufferUsages::COPY_DST,
+                })
+            })
+            .collect::<Vec<_>>();
+
+        let line_bind_groups = (0..2)
+            .map(|i| {
+                device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("bind_group:lines"),
+                    layout: &self.lines_bind_group_layout,
+                    entries: &[
+                        // lines
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: line_buffers[i].as_entire_binding(),
+                        },
+                        // out_lines
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: line_buffers[(i + 1) % 2].as_entire_binding(),
+                        },
+                    ],
+                })
+            })
+            .collect::<Vec<_>>();
+
+        self.uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("bind_group:uniforms"),
+            layout: &self.uniform_bind_group_layout,
+            entries: &[
+                // uniforms
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &self.line_uniform_buffer,
+                        offset: 0,
+                        size: None,
+                    }),
+                },
+                // basepoints
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: basepoints_buffer.as_entire_binding(),
+                },
+                // linear_sampler
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::Sampler(&self.linear_sampler),
+                },
+            ],
+        });
+
+        self.line_count = grid.line_count;
+        self.work_group_count = ((grid.line_count as f32) / 64.0).ceil() as u32;
+        self.line_buffers = line_buffers;
+        self.line_bind_groups = line_bind_groups;
+        self.basepoints_buffer = basepoints_buffer;
+    }
+
     pub fn new(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -179,6 +270,7 @@ impl Context {
             contents: bytemuck::cast_slice(&[ENDPOINT_VERTICES]),
             usage: wgpu::BufferUsages::VERTEX,
         });
+
         let line_uniforms = LineUniforms::new(screen_size, grid, settings);
 
         let line_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -564,7 +656,10 @@ impl Context {
             line_uniform_buffer,
             line_buffers,
 
+            linear_sampler,
+            uniform_bind_group_layout,
             uniform_bind_group,
+            lines_bind_group_layout,
             line_bind_groups,
 
             place_lines_pipeline,
