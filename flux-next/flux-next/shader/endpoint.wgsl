@@ -26,26 +26,14 @@ struct VertexOutput {
 // TODO: you can use storage buffers for this instead of messing around with vertex buffers.
 @vertex
 fn main_vs(
-  @builtin(vertex_index) vindex: u32,
   @location(0) endpoint: vec2<f32>, // 0
   @location(1) velocity: vec2<f32>, // 8
   @location(2) color: vec4<f32>, // 16
   @location(3) color_velocity: vec3<f32>, // 32
   @location(4) width: f32, // 44
-  @location(5) _vertex: vec2<f32>, // 48
-  @location(6) basepoint: vec2<f32>, // 56
+  @location(5) basepoint: vec2<f32>, // 48
+  @location(6) vertex: vec2<f32>, // 56
 ) -> VertexOutput {
-  // TODO: var is not a good idea. Use vertex or storage buffer.
-  var vertices = array(
-    vec2<f32>(-1.0, -1.0),
-    vec2<f32>(-1.0, 1.0),
-    vec2<f32>(1.0, -1.0),
-    vec2<f32>(1.0, -1.0),
-    vec2<f32>(-1.0, 1.0),
-    vec2<f32>(1.0, 1.0),
-  );
-  let vertex = vertices[vindex];
-
   var point
     = vec2<f32>(uniforms.aspect, 1.0) * uniforms.zoom * (basepoint * 2.0 - 1.0)
     + endpoint

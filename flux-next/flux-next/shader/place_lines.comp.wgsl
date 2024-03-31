@@ -14,10 +14,6 @@
 
 const tau = 6.283185307179586;
 
-struct Basepoint {
-  position: vec2<f32>,
-}
-
 // TODO: f16?
 struct Line {
   endpoint: vec2<f32>,
@@ -43,7 +39,7 @@ struct LineUniforms {
 }
 
 @group(0) @binding(0) var<uniform> uniforms: LineUniforms;
-@group(0) @binding(1) var<storage, read> basepoints: array<Basepoint>;
+@group(0) @binding(1) var<storage, read> basepoints: array<vec2<f32>>;
 @group(0) @binding(2) var linear_sampler: sampler;
 
 @group(1) @binding(0) var<storage, read> lines: array<Line>;
@@ -132,7 +128,7 @@ fn snoise(v: vec3<f32>) -> f32 {
 @compute
 @workgroup_size(64)
 fn main(
-    @builtin(global_invocation_id) global_id: vec3<u32>,
+  @builtin(global_invocation_id) global_id: vec3<u32>,
 ) {
   let total = arrayLength(&lines);
   let index = global_id.x;
@@ -140,7 +136,7 @@ fn main(
     return;
   }
 
-  let basepoint = basepoints[index].position;
+  let basepoint = basepoints[index];
   let line = lines[index];
   let velocity = textureSampleLevel(velocity_texture, linear_sampler, basepoint, 0.0).xy;
   let noise = snoise(vec3(uniforms.line_noise_scale * basepoint, uniforms.line_noise_offset_1));
@@ -197,6 +193,6 @@ fn main(
     new_velocity,
     new_color,
     new_color_velocity,
-    new_line_width
+    new_line_width,
   );
 }

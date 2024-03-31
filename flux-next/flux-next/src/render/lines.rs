@@ -94,7 +94,8 @@ pub struct Context {
     work_group_count: u32,
     frame_num: usize,
 
-    vertices_buffer: wgpu::Buffer,
+    line_vertex_buffer: wgpu::Buffer,
+    endpoint_vertex_buffer: wgpu::Buffer,
     basepoints_buffer: wgpu::Buffer,
     line_uniforms: LineUniforms,
     line_uniform_buffer: wgpu::Buffer,
@@ -167,12 +168,17 @@ impl Context {
         grid: &Grid,
         settings: &Settings,
     ) -> Self {
-        let vertices_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let line_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("buffer:vertices"),
             contents: bytemuck::cast_slice(&LINE_VERTICES),
             usage: wgpu::BufferUsages::VERTEX,
         });
 
+        let endpoint_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("buffer:endpoints"),
+            contents: bytemuck::cast_slice(&[ENDPOINT_VERTICES]),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
         let line_uniforms = LineUniforms::new(screen_size, grid, settings);
 
         let line_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -189,7 +195,7 @@ impl Context {
                 | wgpu::BufferUsages::COPY_DST,
         });
 
-        let mut lines = vec![Line::zeroed(); grid.line_count as usize];
+        let lines = vec![Line::zeroed(); grid.line_count as usize];
 
         let line_buffers = (0..2)
             .map(|i| {
@@ -461,12 +467,12 @@ impl Context {
             },
             wgpu::VertexBufferLayout {
                 array_stride: 2 * std::mem::size_of::<f32>() as wgpu::BufferAddress,
-                step_mode: wgpu::VertexStepMode::Vertex,
+                step_mode: wgpu::VertexStepMode::Instance,
                 attributes: &wgpu::vertex_attr_array![5 => Float32x2],
             },
             wgpu::VertexBufferLayout {
                 array_stride: 2 * std::mem::size_of::<f32>() as wgpu::BufferAddress,
-                step_mode: wgpu::VertexStepMode::Instance,
+                step_mode: wgpu::VertexStepMode::Vertex,
                 attributes: &wgpu::vertex_attr_array![6 => Float32x2],
             },
         ];
@@ -551,7 +557,8 @@ impl Context {
             work_group_count,
             frame_num: 0,
 
-            vertices_buffer,
+            line_vertex_buffer,
+            endpoint_vertex_buffer,
             basepoints_buffer,
             line_uniforms,
             line_uniform_buffer,
@@ -590,8 +597,8 @@ impl Context {
         rpass.set_pipeline(&self.draw_line_pipeline);
         rpass.set_bind_group(0, &self.uniform_bind_group, &[]);
         rpass.set_vertex_buffer(0, self.line_buffers[self.frame_num].slice(..));
-        rpass.set_vertex_buffer(1, self.vertices_buffer.slice(..));
-        rpass.set_vertex_buffer(2, self.basepoints_buffer.slice(..));
+        rpass.set_vertex_buffer(1, self.basepoints_buffer.slice(..));
+        rpass.set_vertex_buffer(2, self.line_vertex_buffer.slice(..));
         rpass.draw(0..6, 0..self.line_count);
     }
 
@@ -599,8 +606,8 @@ impl Context {
         rpass.set_pipeline(&self.draw_endpoint_pipeline);
         rpass.set_bind_group(0, &self.uniform_bind_group, &[]);
         rpass.set_vertex_buffer(0, self.line_buffers[self.frame_num].slice(..));
-        rpass.set_vertex_buffer(1, self.vertices_buffer.slice(..));
-        rpass.set_vertex_buffer(2, self.basepoints_buffer.slice(..));
+        rpass.set_vertex_buffer(1, self.basepoints_buffer.slice(..));
+        rpass.set_vertex_buffer(2, self.endpoint_vertex_buffer.slice(..));
         rpass.draw(0..6, 0..self.line_count);
     }
 }
@@ -619,4 +626,14 @@ pub static LINE_VERTICES: [f32; 12] = [
     -0.5, 0.0,
      0.5, 1.0,
      0.5, 0.0,
+];
+
+#[rustfmt::skip]
+pub static ENDPOINT_VERTICES: [f32; 12] = [
+    -1.0, -1.0,
+    -1.0,  1.0,
+     1.0, -1.0,
+     1.0, -1.0,
+    -1.0,  1.0,
+     1.0,  1.0,
 ];

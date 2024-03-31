@@ -29,8 +29,8 @@ fn main_vs(
   @location(2) color: vec4<f32>, // 16
   @location(3) color_velocity: vec3<f32>, // 32
   @location(4) width: f32, // 44
-  @location(5) vertex: vec2<f32>, // 48
-  @location(6) basepoint: vec2<f32>, // 56
+  @location(5) basepoint: vec2<f32>, // 48
+  @location(6) vertex: vec2<f32>, // 56
 ) -> VertexOutput { // 64
   var x_basis = vec2<f32>(-endpoint.y, endpoint.x);
   x_basis /= length(x_basis) + 0.0001; // safely normalize
