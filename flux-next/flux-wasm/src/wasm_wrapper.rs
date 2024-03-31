@@ -32,6 +32,80 @@ impl Flux {
             .update(&self.device, &self.queue, &Arc::new(settings));
     }
 
+    #[wasm_bindgen]
+    pub fn save_image(&mut self, bitmap: web_sys::ImageBitmap) {
+        let width = bitmap.width();
+        let height = bitmap.height();
+        let size = wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        };
+        let source = wgpu::ImageCopyExternalImage {
+            source: wgpu::ExternalImageSource::ImageBitmap(bitmap),
+            origin: wgpu::Origin2d::ZERO,
+            flip_y: false,
+        };
+
+        // Create a buffer to store the image data
+        let texture = self.device.create_texture(&wgpu::TextureDescriptor {
+            label: None,
+            size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            view_formats: &[],
+            usage: wgpu::TextureUsages::COPY_DST
+                | wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::RENDER_ATTACHMENT,
+        });
+
+        let dest = wgpu::ImageCopyTextureTagged {
+            texture: &texture,
+            mip_level: 0,
+            origin: wgpu::Origin3d::ZERO,
+            aspect: wgpu::TextureAspect::All,
+            color_space: wgpu::PredefinedColorSpace::Srgb,
+            premultiplied_alpha: false,
+        };
+
+        self.queue
+            .copy_external_image_to_texture(&source, dest, size);
+
+        let texture = dest.texture;
+        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+        let layout = self
+            .device
+            .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: None,
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                }],
+            });
+        self.instance.color_bind_group =
+            Some(self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: None,
+                layout: &layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&texture_view),
+                }],
+            }));
+        self.instance.lines.color_mode = 2;
+        self.instance
+            .lines
+            .update_line_color_mode(&self.device, &self.queue);
+    }
+
     #[wasm_bindgen(constructor)]
     pub async fn new(settings_object: &JsValue) -> Result<Flux, JsValue> {
         console_log::init_with_level(log::Level::Trace).expect("cannot enable logging");

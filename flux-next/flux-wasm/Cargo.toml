@@ -21,6 +21,7 @@ optional = true
 [dependencies]
 console_log.workspace = true
 flux-next.workspace = true
+image.workspace = true
 js-sys.workspace = true
 log.workspace = true
 serde.workspace = true
