@@ -11,7 +11,6 @@ struct LineUniforms {
   line_noise_blend_factor: f32,
   color_mode: u32,
   delta_time: f32,
-  padding: f32,
 }
 
 @group(0) @binding(0) var<uniform> uniforms: LineUniforms;

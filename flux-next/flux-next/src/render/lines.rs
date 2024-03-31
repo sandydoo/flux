@@ -1,5 +1,5 @@
 use crate::grid::Grid;
-use crate::settings::{self, Settings};
+use crate::settings::Settings;
 
 use bytemuck::Zeroable;
 use std::borrow::Cow;
@@ -26,7 +26,7 @@ struct LineUniforms {
     color_mode: u32, // 44
 
     delta_time: f32, // 48
-    padding: f32,
+    _padding: [u32; 3],
 }
 
 impl LineUniforms {
@@ -48,7 +48,7 @@ impl LineUniforms {
             line_noise_blend_factor: 0.0,
             color_mode: settings.color_mode.clone().into(),
             delta_time: 1.0 / 60.0, // Initial value, will be updated every frame
-            padding: 0.0,
+            _padding: [0; 3],
         }
     }
 
