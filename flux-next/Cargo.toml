@@ -12,8 +12,7 @@ repository = "https://github.com/sandydoo/flux/"
 authors = ["Sander Melnikov <hey@sandydoo.me"]
 
 [workspace.dependencies.wgpu]
-branch = "trunk"
-git = "https://github.com/gfx-rs/wgpu.git"
+version = "0.19"
 
 [workspace.dependencies.image]
 features = ["jpeg", "png"]
