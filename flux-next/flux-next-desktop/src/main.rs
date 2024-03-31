@@ -117,11 +117,6 @@ async fn run(
         })
         .await
         .expect("Failed to find an appropiate adapter");
-    print!(
-        "{:?}\n{:?}",
-        adapter.features(),
-        adapter.limits().max_push_constant_size
-    );
 
     // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
     let mut limits = wgpu::Limits::default().using_resolution(adapter.limits());
@@ -265,7 +260,7 @@ fn get_preferred_format(capabilities: &wgpu::SurfaceCapabilities) -> wgpu::Textu
     // Prefer non-srgb formats, as we will be doing linear math in the shaders.
     // If the swapchain doesn't support any non-srgb formats, we will fall back to srgb.
     let preferred_formats = [
-        wgpu::TextureFormat::Rgb10a2Unorm, // TODO: does 10-bit make a difference here?
+        // wgpu::TextureFormat::Rgb10a2Unorm, // TODO: does 10-bit make a difference here?
         wgpu::TextureFormat::Bgra8Unorm,
         wgpu::TextureFormat::Rgba8Unorm,
         wgpu::TextureFormat::Bgra8UnormSrgb,
