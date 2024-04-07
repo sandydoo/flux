@@ -81,13 +81,13 @@ type PressureMode
 
 type ColorMode
     = Preset ColorPreset
+    | ImageFile String
 
 
 type ColorPreset
     = Original
     | Plasma
     | Poolside
-    | Freedom
 
 
 type alias Noise =
@@ -179,7 +179,7 @@ type SettingMsg
     | SetPressureMode Float
     | SetDiffusionIterations Int
     | SetPressureIterations Int
-    | SetColorPreset ColorPreset
+    | SetColorMode ColorMode
     | SetLineLength Float
     | SetLineWidth Float
     | SetLineBeginOffset Float
@@ -214,8 +214,8 @@ updateSettings msg settings =
         SetPressureIterations newPressureIterations ->
             { settings | pressureIterations = newPressureIterations }
 
-        SetColorPreset newColorPreset ->
-            { settings | colorMode = Preset newColorPreset }
+        SetColorMode newColorMode ->
+            { settings | colorMode = newColorMode }
 
         SetLineLength newLineLength ->
             { settings | lineLength = newLineLength }
@@ -374,12 +374,6 @@ view model =
 
 viewSettings : Settings -> Html Msg
 viewSettings settings =
-    let
-        whenColorModeIsPreset colorMode f =
-            case colorMode of
-                Preset colorPreset ->
-                    f colorPreset
-    in
     Html.ul
         [ HA.class "control-list" ]
     <|
@@ -401,15 +395,20 @@ viewSettings settings =
                 ]
             ]
         , Html.h2 [ HA.class "col-span-2-md" ] [ Html.text "Colors" ]
-        , whenColorModeIsPreset settings.colorMode <|
-            \colorPreset ->
-                viewButtonGroup (SetColorPreset >> SaveSetting)
-                    colorPreset
-                    [ ( "Original", Original )
-                    , ( "Plasma", Plasma )
-                    , ( "Poolside", Poolside )
-                    , ( "🇺🇦", Freedom )
+        , Html.div
+            [ HA.class "col-span-2-md"
+            , HA.style "overflow-x" "scroll"
+            ]
+            [ Html.div [ HA.style "white-space" "nowrap" ] <|
+                List.map (viewGalleryItem settings)
+                    [ { name = "Original", colorMode = Preset Original, previewImage = "colors/original.png" }
+                    , { name = "Plasma", colorMode = Preset Plasma, previewImage = "colors/plasma.png" }
+                    , { name = "Poolside", colorMode = Preset Poolside, previewImage = "colors/poolside.png" }
+                    , { name = "Gumdrop", colorMode = ImageFile "colors/gumdrop.png", previewImage = "colors/gumdrop.png" }
+                    , { name = "Silver", colorMode = ImageFile "colors/silver.png", previewImage = "colors/silver.png" }
+                    , { name = "Freedom", colorMode = ImageFile "colors/freedom2.png", previewImage = "colors/freedom2.png" }
                     ]
+            ]
         , Html.h2
             [ HA.class "col-span-2-md" ]
             [ Html.text "Look" ]
@@ -595,12 +594,12 @@ viewSettings settings =
             ++ viewDebug settings.mode
 
 
-viewButtonGroup : (value -> msg) -> value -> List ( String, value ) -> Html msg
+viewButtonGroup : (value -> msg) -> Maybe value -> List ( String, value ) -> Html msg
 viewButtonGroup onClick active options =
     let
         isActive : value -> String
         isActive value =
-            if value == active then
+            if Just value == active then
                 "active"
 
             else
@@ -716,7 +715,7 @@ viewDebug : Mode -> List (Html Msg)
 viewDebug mode =
     [ Html.h2 [ HA.class "col-span-2-md" ] [ Html.text "Debug" ]
     , viewButtonGroup (SetMode >> SaveSetting)
-        mode
+        (Just mode)
         [ ( "Normal", Normal )
         , ( "Noise", DebugNoise )
         , ( "Fluid", DebugFluid )
@@ -725,6 +724,38 @@ viewDebug mode =
         --, ( "Divergence", DebugDivergence )
         ]
     ]
+
+
+type alias GalleryItem =
+    { name : String
+    , colorMode : ColorMode
+    , previewImage : String
+    }
+
+
+viewGalleryItem : Settings -> GalleryItem -> Html Msg
+viewGalleryItem settings { name, colorMode, previewImage } =
+    Html.button
+        [ HA.type_ "button"
+        , HA.class "gallery-item"
+        , Event.onClick (SaveSetting (SetColorMode colorMode))
+        ]
+        [ Html.img
+            [ HA.src previewImage
+            , HA.attribute "loading" "lazy"
+            , HA.attribute "decoding" "async"
+            , HA.class "gallery-icon"
+            , HA.style "object-fit" "cover"
+            , HA.classList [ ( "active", colorMode == settings.colorMode ) ]
+            ]
+            []
+        , Html.span
+            [ HA.style "text-align" "center"
+            , HA.style "width" "100%"
+            , HA.style "margin-top" "8px"
+            ]
+            [ Html.text name ]
+        ]
 
 
 viewControl : Control number -> Html Msg
@@ -862,6 +893,11 @@ encodeColorMode colorMode =
                 [ ( "Preset", encodeColorPreset preset )
                 ]
 
+        ImageFile path ->
+            Encode.object
+                [ ( "ImageFile", Encode.string path )
+                ]
+
 
 encodeColorPreset : ColorPreset -> Encode.Value
 encodeColorPreset =
@@ -879,9 +915,6 @@ colorPresetToString colorPreset =
 
         Poolside ->
             "Poolside"
-
-        Freedom ->
-            "Freedom"
 
 
 encodeNoise : Noise -> Encode.Value

@@ -302,6 +302,39 @@
         text-align: right;
       }
 
+      .gallery {
+      }
+
+      .gallery-item {
+        margin: 0 10px 10px 0;
+        display: inline-flex;
+        flex-direction: column;
+      }
+
+      .gallery-item:focus-visible {
+        outline: none;
+      }
+
+      .gallery-item:focus-visible .gallery-icon {
+        outline: 2px solid var(--body-color);
+        outline-offset: -2px;
+      }
+
+      .gallery-icon {
+        width: 110px;
+        height: 110px;
+        border-radius: 8px;
+        border: 1px solid var(--body-sub-color);
+        background-color: black;
+        overflow: hidden;
+        transition: outline 0.15s;
+      }
+
+      .gallery-icon.active {
+        outline: 2px solid var(--body-color);
+        outline-offset: -2px;
+      }
+
       footer {
         position: absolute;
         bottom: 24px;
