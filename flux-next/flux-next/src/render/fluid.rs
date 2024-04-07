@@ -522,6 +522,9 @@ impl Context {
             layout: Some(&advection_pipeline_layout),
             module: &advection_shader,
             entry_point: "main",
+            // TODO: use pipeline constants for direction once #5500 lands
+            // https://github.com/gfx-rs/wgpu/pull/5500
+            // constants: HashMap::from([("direction", 1)]),
         });
 
         let adjust_advection_bind_group_layout =
