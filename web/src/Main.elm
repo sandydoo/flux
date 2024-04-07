@@ -719,9 +719,8 @@ viewDebug mode =
         [ ( "Normal", Normal )
         , ( "Noise", DebugNoise )
         , ( "Fluid", DebugFluid )
-
-        --, ( "Pressure", DebugPressure )
-        --, ( "Divergence", DebugDivergence )
+        , ( "Pressure", DebugPressure )
+        , ( "Divergence", DebugDivergence )
         ]
     ]
 
