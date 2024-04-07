@@ -1,19 +1,3 @@
-// uniform mediump vec4 uColorWheel[6];
-
-// vec4 getColor(vec4 wheel[6], float angle) {
-//   float slice = TAU / 6.0;
-//   float rawIndex = mod(angle, TAU) / slice;
-//   float index = floor(rawIndex);
-//   float nextIndex = mod(index + 1.0, 6.0);
-//   float interpolate = fract(rawIndex);
-
-//   vec4 currentColor = wheel[int(index)];
-//   vec4 nextColor = wheel[int(nextIndex)];
-//   return mix(currentColor, nextColor, interpolate);
-// }
-
-const tau = 6.283185307179586;
-
 // TODO: f16?
 struct Line {
   endpoint: vec2<f32>,
@@ -47,6 +31,7 @@ struct LineUniforms {
 @group(1) @binding(1) var<storage, read_write> out_lines: array<Line>;
 
 @group(2) @binding(0) var color_texture: texture_2d<f32>;
+@group(2) @binding(1) var<storage, read> color_buffer: array<vec4<f32>>;
 
 @group(3) @binding(0) var velocity_texture: texture_2d<f32>;
 
@@ -166,11 +151,12 @@ fn main(
       color = vec3<f32>(saturate(vec2<f32>(1.0, 0.66) * (0.5 + velocity)), 0.5);
     }
 
-    // Preset with color wheel
+    // Color wheel
     case 1u: {
-      let angle = atan2(velocity.x, velocity.y);
-      color = vec3(0.0); // TODO
-      // color = getColor(uColorWheel, angle).rgb;
+      let angle = atan2(velocity.y, velocity.x);
+      color = get_color(angle + pi, tau).rgb;
+      // Using the velocity length instead of the angle
+      // color = get_color(2.0 * length(velocity), 1.3).rgb;
     }
 
     case 2u: {
@@ -198,4 +184,22 @@ fn main(
     new_color_velocity,
     new_line_width,
   );
+}
+
+const pi = 3.141592653589793;
+const tau = 2.0 * pi;
+
+// Get a color from the ring buffer of colors.
+// Limit specifies the value at which the color should wrap around.
+fn get_color(value: f32, limit: f32) -> vec4<f32> {
+  let size = f32(arrayLength(&color_buffer));
+  let slice = limit / size;
+  let raw_index = (value % limit) / slice;
+  let index = floor(raw_index);
+  let next_index = (index + 1.0) % size;
+  let interpolate = fract(raw_index);
+
+  let current_color = color_buffer[u32(index)];
+  let next_color = color_buffer[u32(next_index)];
+  return mix(current_color, next_color, interpolate);
 }

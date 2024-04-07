@@ -1,3 +1,4 @@
+use crate::render::texture;
 use crate::{grid, render, rng, settings};
 use settings::Settings;
 
@@ -19,7 +20,6 @@ pub struct Flux {
     debug_texture: render::texture::Context,
 
     pub color_image: Arc<Mutex<Option<image::RgbaImage>>>,
-    pub color_bind_group: Option<wgpu::BindGroup>,
 
     // A timestamp in milliseconds. Either host or video time.
     last_timestamp: f64,
@@ -49,29 +49,16 @@ impl Flux {
         image: &image::RgbaImage,
     ) {
         let texture_view = render::color::load_color_texture(device, queue, image);
-        let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: None,
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::COMPUTE,
-                ty: wgpu::BindingType::Texture {
-                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                    multisampled: false,
-                },
-                count: None,
-            }],
-        });
-        self.color_bind_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: None,
-            layout: &layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::TextureView(&texture_view),
-            }],
-        }));
-        self.lines.color_mode = 2;
-        self.lines.update_line_color_mode(device, queue);
+        self.sample_colors_from_texture_view(device, queue, texture_view);
+    }
+
+    pub fn sample_colors_from_texture_view(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        texture_view: wgpu::TextureView,
+    ) {
+        self.lines.update_color_bindings(device, queue, Some(texture_view), None);
     }
 
     pub fn new(
@@ -139,7 +126,6 @@ impl Flux {
             noise_generator,
             debug_texture,
             color_image: Arc::new(Mutex::new(None)),
-            color_bind_group: None,
 
             last_timestamp: 0.0,
             elapsed_time: 0.0,
@@ -267,7 +253,6 @@ impl Flux {
 
             self.lines.place_lines(
                 &mut cpass,
-                &self.color_bind_group,
                 self.fluid.get_velocity_bind_group(velocity_index),
             );
         }

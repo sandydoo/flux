@@ -1,5 +1,5 @@
 use crate::grid::Grid;
-use crate::settings::Settings;
+use crate::settings::{ColorMode, Settings};
 
 use bytemuck::Zeroable;
 use std::borrow::Cow;
@@ -89,8 +89,6 @@ struct Line {
 
 pub struct Context {
     line_count: u32,
-    pub color_mode: u32,
-    color_bind_group: wgpu::BindGroup,
     work_group_count: u32,
     frame_num: usize,
 
@@ -107,7 +105,13 @@ pub struct Context {
     lines_bind_group_layout: wgpu::BindGroupLayout,
     line_bind_groups: Vec<wgpu::BindGroup>,
 
+    pub color_mode: u32,
     color_texture_sampler: wgpu::Sampler,
+    color_texture_view: wgpu::TextureView,
+    color_buffer: wgpu::Buffer,
+    color_bind_group_layout: wgpu::BindGroupLayout,
+    color_bind_group: wgpu::BindGroup,
+
     place_lines_pipeline: wgpu::ComputePipeline,
     draw_line_pipeline: wgpu::RenderPipeline,
     draw_endpoint_pipeline: wgpu::RenderPipeline,
@@ -131,11 +135,65 @@ impl Context {
             new_line_uniforms
         };
 
+        if let ColorMode::Preset(preset) = settings.color_mode {
+            if let Some(color_wheel) = preset.to_color_wheel() {
+                self.color_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+                    label: Some("buffer:color"),
+                    size: 4 * (color_wheel.len() as u64),
+                    usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::STORAGE,
+                    mapped_at_creation: false,
+                });
+
+                queue.write_buffer(&self.color_buffer, 0, &bytemuck::cast_slice(&[color_wheel]));
+
+                self.color_mode = 1;
+                self.update_color_bindings(device, queue, None, None);
+            }
+        }
+
         queue.write_buffer(
             &self.line_uniform_buffer,
             0,
             bytemuck::cast_slice(&[self.line_uniforms]),
         );
+    }
+
+    pub fn update_color_bindings(
+        self: &mut Self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        some_color_texture_view: Option<wgpu::TextureView>,
+        some_color_buffer: Option<wgpu::Buffer>,
+    ) {
+        if let Some(color_texture_view) = some_color_texture_view {
+            self.color_texture_view = color_texture_view;
+            self.color_mode = 2;
+        }
+        if let Some(color_buffer) = some_color_buffer {
+            self.color_buffer = color_buffer;
+            self.color_mode = 1;
+        }
+
+        self.color_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("bind_group:color"),
+            layout: &self.color_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&self.color_texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &self.color_buffer,
+                        offset: 0,
+                        size: None,
+                    }),
+                },
+            ],
+        });
+
+        self.update_line_color_mode(device, queue);
     }
 
     pub fn tick_line_uniforms(
@@ -468,27 +526,56 @@ impl Context {
 
         let color_texture_view = color_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
+        let color_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("buffer:color"),
+            size: 4 * 4,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::STORAGE,
+            mapped_at_creation: false,
+        });
+
         let color_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: None,
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
                     },
-                    count: None,
-                }],
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                ],
             });
         let color_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,
             layout: &color_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::TextureView(&color_texture_view),
-            }],
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&color_texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &color_buffer,
+                        offset: 0,
+                        size: None,
+                    }),
+                },
+            ],
         });
 
         // TODO: reuse layout from fluid
@@ -654,8 +741,6 @@ impl Context {
 
         Self {
             line_count: grid.line_count,
-            color_mode: line_uniforms.color_mode,
-            color_bind_group,
             work_group_count,
             frame_num: 0,
 
@@ -673,6 +758,12 @@ impl Context {
             lines_bind_group_layout,
             line_bind_groups,
 
+            color_mode: line_uniforms.color_mode,
+            color_texture_view,
+            color_buffer,
+            color_bind_group_layout,
+            color_bind_group,
+
             place_lines_pipeline,
             draw_line_pipeline,
             draw_endpoint_pipeline,
@@ -682,17 +773,12 @@ impl Context {
     pub fn place_lines<'cpass>(
         &'cpass mut self,
         cpass: &mut wgpu::ComputePass<'cpass>,
-        color_bind_group: &'cpass Option<wgpu::BindGroup>,
         velocity_bind_group: &'cpass wgpu::BindGroup,
     ) {
         cpass.set_pipeline(&self.place_lines_pipeline);
         cpass.set_bind_group(0, &self.uniform_bind_group, &[]);
         cpass.set_bind_group(1, &self.line_bind_groups[self.frame_num], &[]);
-        if let Some(bg) = color_bind_group {
-            cpass.set_bind_group(2, bg, &[]);
-        } else {
-            cpass.set_bind_group(2, &self.color_bind_group, &[])
-        }
+        cpass.set_bind_group(2, &self.color_bind_group, &[]);
         cpass.set_bind_group(3, velocity_bind_group, &[]);
         cpass.dispatch_workgroups(self.work_group_count, 1, 1);
 

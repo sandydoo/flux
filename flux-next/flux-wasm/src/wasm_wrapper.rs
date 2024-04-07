@@ -76,34 +76,11 @@ impl Flux {
         let texture = dest.texture;
         let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        let layout = self
-            .device
-            .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: None,
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                }],
-            });
-        self.instance.color_bind_group =
-            Some(self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: None,
-                layout: &layout,
-                entries: &[wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&texture_view),
-                }],
-            }));
-        self.instance.lines.color_mode = 2;
-        self.instance
-            .lines
-            .update_line_color_mode(&self.device, &self.queue);
+        self.instance.sample_colors_from_texture_view(
+            &self.device,
+            &self.queue,
+            texture_view,
+        );
     }
 
     #[wasm_bindgen(constructor)]

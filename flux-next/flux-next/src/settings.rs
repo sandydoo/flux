@@ -115,24 +115,22 @@ pub enum ColorPreset {
     Freedom,
 }
 
+impl ColorPreset {
+    pub fn to_color_wheel(&self) -> Option<[f32; 24]> {
+        match self {
+            ColorPreset::Plasma => Some(COLOR_SCHEME_PLASMA),
+            ColorPreset::Poolside => Some(COLOR_SCHEME_POOLSIDE),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Noise {
     pub scale: f32,
     pub multiplier: f32,
     pub offset_increment: f32,
-}
-
-pub fn color_wheel_from_mode(color_mode: &ColorMode) -> [f32; 24] {
-    match color_mode {
-        ColorMode::Preset(color_preset) => match color_preset {
-            ColorPreset::Plasma => COLOR_SCHEME_PLASMA,
-            ColorPreset::Poolside => COLOR_SCHEME_POOLSIDE,
-            ColorPreset::Freedom => COLOR_SCHEME_FREEDOM,
-            _ => [0.0; 24],
-        },
-        _ => [0.0; 24],
-    }
 }
 
 #[rustfmt::skip]
@@ -144,6 +142,7 @@ pub static COLOR_SCHEME_PLASMA: [f32; 24] = [
     242.435 / 255.0, 156.752 / 255.0, 58.9794 / 255.0, 1.0,
     135.291 / 255.0, 152.793 / 255.0, 182.473 / 255.0, 1.0,
 ];
+
 #[rustfmt::skip]
 pub static COLOR_SCHEME_POOLSIDE: [f32; 24] = [
     76.0 / 255.0, 156.0 / 255.0, 228.0 / 255.0, 1.0,
@@ -152,13 +151,4 @@ pub static COLOR_SCHEME_POOLSIDE: [f32; 24] = [
     188.0 / 255.0, 228.0 / 255.0, 244.0 / 255.0, 1.0,
     124.0 / 255.0, 220.0 / 255.0, 236.0 / 255.0, 1.0,
     156.0 / 255.0, 208.0 / 255.0, 236.0 / 255.0, 1.0,
-];
-#[rustfmt::skip]
-pub static COLOR_SCHEME_FREEDOM: [f32; 24] = [
-    0.0 / 255.0,   87.0 / 255.0,  183.0 / 255.0, 1.0, // blue
-    0.0 / 255.0,   87.0 / 255.0,  183.0 / 255.0, 1.0, // blue
-    0.0 / 255.0,   87.0 / 255.0,  183.0 / 255.0, 1.0, // blue
-    1.0,           215.0 / 255.0, 0.0,           1.0, // yellow
-    1.0,           215.0 / 255.0, 0.0,           1.0, // yellow
-    1.0,           215.0 / 255.0, 0.0,           1.0, // yellow
 ];
