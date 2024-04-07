@@ -504,6 +504,7 @@ dependencies = [
  "rustc-hash",
  "serde",
  "thiserror",
+ "web-sys",
 ]
 
 [[package]]

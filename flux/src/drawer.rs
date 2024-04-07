@@ -9,7 +9,7 @@ use settings::Settings;
 use bytemuck::{Pod, Zeroable};
 use crevice::std140::AsStd140;
 use glow::HasContext;
-use image::{DynamicImage, GenericImage, Rgba, GenericImageView, Pixel};
+use image::{DynamicImage, GenericImage, GenericImageView, Rgba};
 use std::path;
 use std::rc::Rc;
 
@@ -316,6 +316,7 @@ impl Drawer {
             draw_texture_pass,
         };
 
+        #[cfg(not(target_arch = "wasm32"))]
         if let settings::ColorMode::ImageFile(ref path) = settings.color_mode {
             if drawer.set_color_texture_from_file(path).is_err() {
                 // Reset the color mode if we fail to process the image
@@ -351,6 +352,7 @@ impl Drawer {
             )),
         }]);
 
+        #[cfg(not(target_arch = "wasm32"))]
         if self.color_mode != new_settings.color_mode {
             if let settings::ColorMode::ImageFile(ref path) = new_settings.color_mode {
                 if self.set_color_texture_from_file(path).is_ok() {
@@ -359,6 +361,11 @@ impl Drawer {
             } else {
                 self.color_mode = new_settings.color_mode.clone();
             }
+        }
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            self.color_mode = new_settings.color_mode.clone();
         }
 
         // Update uniforms last
@@ -374,6 +381,7 @@ impl Drawer {
             .buffer_data();
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn set_color_texture_from_file(&mut self, path: &path::PathBuf) -> Result<(), Problem> {
         std::fs::read(path)
             .map_err(Problem::ReadImage)
@@ -422,6 +430,33 @@ impl Drawer {
         .map_err(Problem::Render)?;
         color_texture
             .with_data(Some(&mapped.to_rgba8()))
+            .map_err(Problem::Render)?;
+
+        self.color_texture = Some(color_texture);
+
+        Ok(())
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub fn set_color_texture_from_image_bitmap(
+        &mut self,
+        bitmap: &web_sys::ImageBitmap,
+    ) -> Result<(), Problem> {
+        let color_texture = render::Framebuffer::new(
+            &self.context,
+            bitmap.width(),
+            bitmap.height(),
+            render::TextureOptions {
+                mag_filter: glow::LINEAR,
+                min_filter: glow::LINEAR,
+                format: glow::RGBA8,
+                wrap_s: glow::MIRRORED_REPEAT,
+                wrap_t: glow::MIRRORED_REPEAT,
+            },
+        )
+        .map_err(Problem::Render)?;
+        color_texture
+            .with_image_bitmap(bitmap)
             .map_err(Problem::Render)?;
 
         self.color_texture = Some(color_texture);
@@ -593,7 +628,6 @@ fn increase_black_level(img: &DynamicImage, threshold: u8) -> DynamicImage {
 
     modified_img
 }
-
 
 #[repr(C)]
 #[derive(Clone, Copy)]

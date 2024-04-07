@@ -299,6 +299,55 @@ impl Framebuffer {
         Ok(())
     }
 
+    #[cfg(target_arch = "wasm32")]
+    pub fn with_image_bitmap(&self, bitmap: &web_sys::ImageBitmap) -> Result<()> {
+        let TextureFormat {
+            internal_format,
+            format,
+            type_,
+            size,
+        } = detect_texture_format(self.options.format)?;
+
+        // TODO: check that sizes match
+
+        unsafe {
+            self.context
+                .bind_texture(glow::TEXTURE_2D, Some(self.texture));
+
+            self.context.tex_image_2d_with_image_bitmap(
+                glow::TEXTURE_2D,
+                0,
+                internal_format as i32,
+                format,
+                type_,
+                bitmap,
+            );
+            // .map_err(|Err(Problem::CannotWriteToTexture))?;
+
+            self.context.bind_texture(glow::TEXTURE_2D, None);
+
+            self.context
+                .bind_framebuffer(glow::FRAMEBUFFER, Some(self.id));
+            self.context.framebuffer_texture_2d(
+                glow::FRAMEBUFFER,
+                glow::COLOR_ATTACHMENT0,
+                glow::TEXTURE_2D,
+                Some(self.texture),
+                0,
+            );
+
+            if self.context.check_framebuffer_status(glow::FRAMEBUFFER)
+                != glow::FRAMEBUFFER_COMPLETE
+            {
+                return Err(Problem::FramebufferIncomplete);
+            }
+
+            self.context.bind_framebuffer(glow::FRAMEBUFFER, None);
+        }
+
+        Ok(())
+    }
+
     pub fn draw_to<T>(&self, context: &Context, draw_call: T)
     where
         T: Fn(),

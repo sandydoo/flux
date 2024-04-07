@@ -1,5 +1,6 @@
 use flux::{self, settings};
 use gloo_utils::format::JsValueSerdeExt;
+use glow::HasContext;
 use serde::Serialize;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
@@ -23,6 +24,11 @@ impl Flux {
     pub fn set_settings(&mut self, settings_object: &JsValue) {
         let settings: settings::Settings = settings_object.into_serde().unwrap();
         self.instance.update(&Rc::new(settings));
+    }
+
+    #[wasm_bindgen]
+    pub fn save_image(&mut self, bitmap: web_sys::ImageBitmap) {
+        self.instance.sample_colors_from_image_bitmap(&bitmap);
     }
 
     #[wasm_bindgen(constructor)]

@@ -45,6 +45,13 @@ impl Flux {
         }
     }
 
+    #[cfg(target_arch = "wasm32")]
+    pub fn sample_colors_from_image_bitmap(&mut self, bitmap: &web_sys::ImageBitmap) {
+        if let Err(msg) = self.drawer.set_color_texture_from_image_bitmap(bitmap) {
+            log::error!("{}", msg);
+        }
+    }
+
     pub fn new(
         context: &render::Context,
         logical_width: u32,
