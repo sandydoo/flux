@@ -13,8 +13,10 @@ function setupFlux() {
   // Initialize WASM and run animation
   ui.ports.initFlux.subscribe(async function(settings) {
     if (navigator.gpu) {
+      console.log("Backend: WebGPU");
       flux = await new FluxNext(settings);
     } else {
+      console.log("Backend: WebGL2");
       flux = new Flux(settings);
     }
 
