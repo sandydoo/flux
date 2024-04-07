@@ -411,7 +411,7 @@ viewSettings settings =
             ]
         , Html.h2
             [ HA.class "col-span-2-md" ]
-            [ Html.text "Look" ]
+            [ Html.text "Appearance" ]
         , viewControl <|
             Control
                 "Line length"
