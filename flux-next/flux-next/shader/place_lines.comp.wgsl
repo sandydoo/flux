@@ -186,6 +186,8 @@ fn main(
   let new_color = vec4(
     saturate(line.color.rgb + uniforms.delta_time * new_color_velocity),
     width_boost,
+    // TODO: expose options?
+    // smoothstep(0.05, 0.7, length(velocity)),
   );
 
   out_lines[index] = Line(
