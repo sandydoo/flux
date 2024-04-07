@@ -26,8 +26,8 @@ fn main(
 
   let size = vec2<f32>(textureDimensions(velocity_texture));
   let sample_position = vec2<f32>(global_id.xy);
-  // TODO: floor here does not look good. How is it different from the GL version?
-  let min_max_sampling_position = (0.5 + round((sample_position + 1.0) - uniforms.timestep * velocity)) / size;
+  // NOTE: Using floor here produces very different results from the GL version.
+  let min_max_sampling_position = (0.5 + floor((sample_position + 1.0) - uniforms.timestep * velocity)) / size;
   let l = textureSampleLevel(velocity_texture, linear_sampler, min_max_sampling_position, 0.0, vec2<i32>(-1, 0)).xy;
   let r = textureSampleLevel(velocity_texture, linear_sampler, min_max_sampling_position, 0.0, vec2<i32>(1, 0)).xy;
   let b = textureSampleLevel(velocity_texture, linear_sampler, min_max_sampling_position, 0.0, vec2<i32>(0, -1)).xy;

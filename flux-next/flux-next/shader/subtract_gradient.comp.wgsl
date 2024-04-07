@@ -23,7 +23,7 @@ fn main(
   @builtin(global_invocation_id) global_id: vec3<u32>,
 ) {
   let size = textureDimensions(velocity_texture);
-  let sample_position = vec2<f32>(global_id.xy) / vec2<f32>(size);
+  let sample_position = (vec2<f32>(global_id.xy) + 0.5) / vec2<f32>(size);
 
   let pressure = textureLoad(pressure_texture, global_id.xy, 0).x;
 
