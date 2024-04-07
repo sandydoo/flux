@@ -76,11 +76,8 @@ impl Flux {
         let texture = dest.texture;
         let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        self.instance.sample_colors_from_texture_view(
-            &self.device,
-            &self.queue,
-            texture_view,
-        );
+        self.instance
+            .sample_colors_from_texture_view(&self.device, &self.queue, texture_view);
     }
 
     #[wasm_bindgen(constructor)]
