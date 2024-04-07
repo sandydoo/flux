@@ -107,6 +107,7 @@ pub struct Context {
     lines_bind_group_layout: wgpu::BindGroupLayout,
     line_bind_groups: Vec<wgpu::BindGroup>,
 
+    color_texture_sampler: wgpu::Sampler,
     place_lines_pipeline: wgpu::ComputePipeline,
     draw_line_pipeline: wgpu::RenderPipeline,
     draw_endpoint_pipeline: wgpu::RenderPipeline,
@@ -241,6 +242,11 @@ impl Context {
                     binding: 2,
                     resource: wgpu::BindingResource::Sampler(&self.linear_sampler),
                 },
+                // color_texture_sampler
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::Sampler(&self.color_texture_sampler),
+                },
             ],
         });
 
@@ -310,23 +316,14 @@ impl Context {
             ..Default::default()
         });
 
-        let color_texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("texture:color"),
-            // TODO: should this always be the same size? or should we upload a new one each time?
-            size: wgpu::Extent3d {
-                width: 256,
-                height: 256,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            view_formats: &[],
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+        let color_texture_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("sampler:color_texture"),
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            address_mode_u: wgpu::AddressMode::MirrorRepeat,
+            address_mode_v: wgpu::AddressMode::MirrorRepeat,
+            ..Default::default()
         });
-
-        let color_texture_view = color_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         let uniform_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -363,6 +360,13 @@ impl Context {
                         ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                         count: None,
                     },
+                    // color_texture_sampler
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 3,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
                 ],
             });
 
@@ -388,6 +392,11 @@ impl Context {
                 wgpu::BindGroupEntry {
                     binding: 2,
                     resource: wgpu::BindingResource::Sampler(&linear_sampler),
+                },
+                // color_texture_sampler
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::Sampler(&color_texture_sampler),
                 },
             ],
         });
@@ -458,6 +467,7 @@ impl Context {
         });
 
         let color_texture_view = color_texture.create_view(&wgpu::TextureViewDescriptor::default());
+
         let color_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: None,
@@ -657,6 +667,7 @@ impl Context {
             line_buffers,
 
             linear_sampler,
+            color_texture_sampler,
             uniform_bind_group_layout,
             uniform_bind_group,
             lines_bind_group_layout,

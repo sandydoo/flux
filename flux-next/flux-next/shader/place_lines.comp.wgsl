@@ -41,6 +41,7 @@ struct LineUniforms {
 @group(0) @binding(0) var<uniform> uniforms: LineUniforms;
 @group(0) @binding(1) var<storage, read> basepoints: array<vec2<f32>>;
 @group(0) @binding(2) var linear_sampler: sampler;
+@group(0) @binding(3) var color_texture_sampler: sampler;
 
 @group(1) @binding(0) var<storage, read> lines: array<Line>;
 @group(1) @binding(1) var<storage, read_write> out_lines: array<Line>;
@@ -173,7 +174,7 @@ fn main(
     }
 
     case 2u: {
-      color = textureSampleLevel(color_texture, linear_sampler, 2.0 * velocity + 0.5, 0.0).rgb;
+      color = textureSampleLevel(color_texture, color_texture_sampler, 2.0 * velocity + 0.5, 0.0).rgb;
       color_momentum_boost = 5.0;
       color_delta_boost = 10.0;
     }
