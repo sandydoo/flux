@@ -406,7 +406,7 @@ viewSettings settings =
                     , { name = "Poolside", colorMode = Preset Poolside, previewImage = "colors/poolside.png" }
                     , { name = "Gumdrop", colorMode = ImageFile "colors/gumdrop.png", previewImage = "colors/gumdrop.png" }
                     , { name = "Silver", colorMode = ImageFile "colors/silver.png", previewImage = "colors/silver.png" }
-                    , { name = "Freedom", colorMode = ImageFile "colors/freedom2.png", previewImage = "colors/freedom2.png" }
+                    , { name = "Freedom", colorMode = ImageFile "colors/freedom.png", previewImage = "colors/freedom.png" }
                     ]
             ]
         , Html.h2
