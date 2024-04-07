@@ -1,17 +1,22 @@
 import { Flux } from "../flux";
+import { Flux as FluxNext } from "../flux-next";
 import { Elm } from "./Main.elm";
 
-function setupFlux() {
-  let flux;
+let flux;
 
+function setupFlux() {
   // Set up Elm UI
   const ui = Elm.Main.init({
     node: document.getElementById("controls"),
   });
 
   // Initialize WASM and run animation
-  ui.ports.initFlux.subscribe(function(settings) {
-    flux = new Flux(settings);
+  ui.ports.initFlux.subscribe(async function(settings) {
+    if (navigator.gpu) {
+      flux = await new FluxNext(settings);
+    } else {
+      flux = new Flux(settings);
+    }
 
     function animate(timestamp) {
       flux.animate(timestamp);
@@ -28,9 +33,20 @@ function setupFlux() {
   });
 
   // Update settings
-  ui.ports.setSettings.subscribe(function(newSettings) {
+  ui.ports.setSettings.subscribe(async function(newSettings) {
+    if (newSettings.colorMode?.ImageFile) {
+      loadImage(newSettings.colorMode.ImageFile)
+        .then(bitmap => flux.save_image(bitmap));
+    }
+
     flux.settings = newSettings;
   });
 }
 
 window.addEventListener("DOMContentLoaded", setupFlux());
+
+async function loadImage(imageUrl) {
+  const response = await fetch(imageUrl);
+  const blob = await response.blob();
+  return createImageBitmap(blob, { resizeWidth: 500, resizeHeight: 500 });
+}

@@ -51,6 +51,7 @@ module.exports = (env, argv) => {
   };
 
   if (!skipWasmPack) {
+    // WebGL2
     config.plugins.push(
       new WasmPackPlugin({
         crateDirectory: path.resolve(__dirname, '../flux-wasm'),
@@ -58,6 +59,17 @@ module.exports = (env, argv) => {
           path.resolve(__dirname, '../flux')
         ],
         outDir: path.join(__dirname, 'flux'),
+      }),
+    );
+
+    // WebGPU
+    config.plugins.push(
+      new WasmPackPlugin({
+        crateDirectory: path.resolve(__dirname, '../flux-next/flux-wasm'),
+        watchDirectories: [
+          path.resolve(__dirname, '../flux-next')
+        ],
+        outDir: path.join(__dirname, 'flux-next'),
       }),
     );
   }
