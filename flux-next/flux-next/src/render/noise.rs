@@ -128,7 +128,7 @@ impl NoiseGeneratorBuilder {
         self.channels.push(NoiseChannel {
             settings: channel.clone(),
             scale: channel.scale,
-            offset_1: 4.0 * rng::gen::<f32>(),
+            offset_1: NoiseChannel::BLEND_THRESHOLD * rng::gen::<f32>(),
             offset_2: 0.0,
             blend_factor: 0.0,
         });
@@ -444,14 +444,14 @@ pub struct NoiseChannel {
 }
 
 impl NoiseChannel {
-    pub fn tick(&mut self, elapsed_time: f32) {
-        const BLEND_THRESHOLD: f32 = 20.0;
+    const BLEND_THRESHOLD: f32 = 1000.0;
 
+    pub fn tick(&mut self, elapsed_time: f32) {
         self.scale = self.settings.scale
             * (1.0 + 0.15 * (0.01 * elapsed_time * std::f32::consts::TAU).sin());
         self.offset_1 += self.settings.offset_increment;
 
-        if self.offset_1 > BLEND_THRESHOLD {
+        if self.offset_1 > Self::BLEND_THRESHOLD {
             self.blend_factor += self.settings.offset_increment;
             self.offset_2 += self.settings.offset_increment;
         }
