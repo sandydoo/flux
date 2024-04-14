@@ -41,8 +41,8 @@ impl Default for Settings {
             diffusion_iterations: 3,
             pressure_iterations: 20,
             color_mode: ColorMode::Preset(ColorPreset::Original),
-            line_length: 550.0,
-            line_width: 10.0,
+            line_length: 500.0,
+            line_width: 9.0,
             line_begin_offset: 0.4,
             line_variance: 0.45,
             grid_spacing: 15,
@@ -51,17 +51,17 @@ impl Default for Settings {
                 Noise {
                     scale: 2.5,
                     multiplier: 1.0,
-                    offset_increment: 0.0015,
+                    offset_increment: 0.001,
                 },
                 Noise {
                     scale: 15.0,
                     multiplier: 0.7,
-                    offset_increment: 0.0015 * 6.0,
+                    offset_increment: 0.001 * 6.0,
                 },
                 Noise {
                     scale: 30.0,
                     multiplier: 0.5,
-                    offset_increment: 0.0015 * 12.0,
+                    offset_increment: 0.001 * 12.0,
                 },
             ],
         }
@@ -152,3 +152,4 @@ pub static COLOR_SCHEME_POOLSIDE: [f32; 24] = [
     124.0 / 255.0, 220.0 / 255.0, 236.0 / 255.0, 1.0,
     156.0 / 255.0, 208.0 / 255.0, 236.0 / 255.0, 1.0,
 ];
+

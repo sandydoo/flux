@@ -106,12 +106,12 @@ defaultSettings =
     , fluidTimestep = 1.0 / 60.0
     , viscosity = 5.0
     , velocityDissipation = 0.0
-    , pressureMode = Retain
+    , pressureMode = ClearWith 0.0
     , diffusionIterations = 3
-    , pressureIterations = 19
+    , pressureIterations = 20
     , colorMode = Preset Original
-    , lineLength = 550.0
-    , lineWidth = 10.0
+    , lineLength = 500.0
+    , lineWidth = 9.0
     , lineBeginOffset = 0.4
     , lineVariance = 0.45
     , viewScale = 1.6
@@ -120,15 +120,15 @@ defaultSettings =
         Array.fromList
             [ { scale = 2.5
               , multiplier = 1.0
-              , offsetIncrement = 0.0015
+              , offsetIncrement = 0.001
               }
             , { scale = 15.0
               , multiplier = 0.7
-              , offsetIncrement = 0.0015 * 6.0
+              , offsetIncrement = 0.001 * 6.0
               }
             , { scale = 30.0
               , multiplier = 0.5
-              , offsetIncrement = 0.0015 * 12.0
+              , offsetIncrement = 0.001 * 12.0
               }
             ]
     }
