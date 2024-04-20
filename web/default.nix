@@ -3,6 +3,7 @@
   lib,
   stdenv,
   flux-wasm,
+  flux-next-wasm,
   mkYarnPackage,
 }: let
   packageJSON = builtins.fromJSON (builtins.readFile ./package.json);
@@ -18,36 +19,60 @@
     publishBinsFor = ["webpack" "gh-pages"];
   };
 
-  packageJson = ''
-    {
-      "files": [
-        "flux_wasm_bg.wasm",
-        "flux_wasm.js",
-        "flux_wasm_bg.js",
-        "flux_wasm.d.ts"
-      ],
-      "module": "flux_wasm.js",
-      "types": "flux_wasm.d.ts",
-      "sideEffects": false
-    }
-  '';
+  # Prepare the wasm package the same way that wasm-pack does.
+  # TODO: maybe do this in the flux-wasm build
+  prepareWasm = wasmPkg:
+    let
+      packageJson = ''
+        {
+          "files": [
+            "index_bg.wasm",
+            "indexjs",
+            "index_bg.js",
+            "index.d.ts"
+          ],
+          "module": "index.js",
+          "types": "index.d.ts",
+          "sideEffects": [
+            "./index.js",
+            "./snippets/*"
+          ]
+        }
+      '';
+
+    in
+    pkgs.runCommand "flux-wasm" {} ''
+      mkdir $out
+      ${wasm-bindgen-cli-0_2_91}/bin/wasm-bindgen \
+        --target bundler \
+        --out-name index \
+        --out-dir $out \
+        ${wasmPkg}/lib/flux_wasm.wasm
+
+      mv $out/index_bg.wasm $out/index_bg_unoptimized.wasm
+      ${pkgs.binaryen}/bin/wasm-opt -Os -o $out/index_bg.wasm $out/index_bg_unoptimized.wasm
+      echo '${packageJson}' > $out/package.json
+    '';
+
+  flux-wasm-packed = prepareWasm flux-wasm;
+  flux-next-wasm-packed = prepareWasm flux-next-wasm;
 
   gitignoreSource = pkgs.nix-gitignore.gitignoreSource;
 
   # Newer versions don't build flux-wasm properly. Last tested: 0.2.87.
-  wasm-bindgen-cli-0_2_83 = pkgs.wasm-bindgen-cli.overrideAttrs (drv: rec {
+  wasm-bindgen-cli-0_2_91 = pkgs.wasm-bindgen-cli.overrideAttrs (drv: rec {
     name = "wasm-bindgen-cli-${version}";
-    version = "0.2.83";
+    version = "0.2.91";
     src = pkgs.fetchCrate {
       inherit (drv) pname;
       inherit version;
-      hash = "sha256-+PWxeRL5MkIfJtfN3/DjaDlqRgBgWZMa6dBt1Q+lpd0=";
+      hash = "sha256-f/RK6s12ItqKJWJlA2WtOXtwX4Y0qa8bq/JHlLTAS3c=";
     };
 
     cargoDeps = drv.cargoDeps.overrideAttrs (lib.const {
       inherit src;
       name = "${drv.pname}-vendor.tar.gz";
-      outputHash = "sha256-snrU0D7YSDsF/NjckStk2wvqu1xNFXMJ9UxSAVK06pE=";
+      outputHash = "sha256-UcqGAeHfov0yABuxfxpHCFJKkJqaOtrDJY+LL0/sKSM=";
     });
 
     doCheck = false;
@@ -68,7 +93,7 @@ in
       yarn
       nodePackages.pnpm
       elmPackages.elm
-      wasm-bindgen-cli-0_2_83
+      wasm-bindgen-cli-0_2_91
       binaryen
     ];
 
@@ -96,15 +121,8 @@ in
     installPhase = ''
       mkdir -p $out
 
-      mkdir -p ./flux
-      wasm-bindgen \
-        --target bundler \
-        --out-dir ./flux \
-        ${flux-wasm}/lib/flux_wasm.wasm
-
-      mv flux/flux_wasm_bg.wasm flux/flux_wasm_bg_unoptimized.wasm
-      wasm-opt -Os -o flux/flux_wasm_bg.wasm flux/flux_wasm_bg_unoptimized.wasm
-      echo '${packageJson}' > ./flux/package.json
+      ln -s ${flux-wasm-packed} ./flux
+      ln -s ${flux-next-wasm-packed} ./flux-next
 
       webpack \
         --mode production \

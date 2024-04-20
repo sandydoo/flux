@@ -68,12 +68,13 @@
         rustfmt = rustToolchain;
       });
 
-      crateNameFromCargoToml = packageName: craneLib.crateNameFromCargoToml {cargoToml = ./${packageName}/Cargo.toml;};
+      crateNameFromCargoToml = packagePath:
+        craneLib.crateNameFromCargoToml {cargoToml = lib.path.append packagePath "Cargo.toml";};
 
       crossCompileFor = {
         hostPkgs,
         targetTriple,
-        packageName,
+        packagePath,
       }: let
         rustToolchain = hostPkgs.pkgsBuildHost.rust-bin.stable.latest.default.override {
           targets = [targetTriple];
@@ -95,9 +96,9 @@
         inherit rustToolchain;
 
         package = craneLib.buildPackage rec {
-          inherit (crateNameFromCargoToml packageName) pname version;
+          inherit (crateNameFromCargoToml packagePath) pname version;
           src = ./.;
-          cargoExtraArgs = "-p ${packageName} --target ${targetTriple}";
+          cargoExtraArgs = "-p ${packagePath} --target ${targetTriple}";
 
           # HOST_CC = "${pkgsCross.stdenv.cc.nativePrefix}cc";
           preConfigure = ''
@@ -136,28 +137,41 @@
           default = packages.flux-web;
 
           flux = craneLib.buildPackage {
-            inherit (crateNameFromCargoToml "flux") pname version;
+            inherit (crateNameFromCargoToml ./flux) pname version;
             src = ./.;
             cargoExtraArgs = "-p flux";
             doCheck = true;
           };
 
           flux-wasm = craneLib.buildPackage {
-            inherit (crateNameFromCargoToml "flux-wasm") pname version;
+            inherit (crateNameFromCargoToml ./flux-wasm) pname version;
             src = ./.;
 
             # By default, crane adds the `--workspace` flag to all commands.
             # This is a bit of an issue because it builds all the packages in
             # the workspace, even those that don’t support the wasm32 target (hi
             # glutin).
-            cargoBuildCommand = "cargo build --release";
-            cargoCheckCommand = "cargo check --release";
-            cargoExtraArgs = "--package flux-wasm --target wasm32-unknown-unknown";
+            cargoExtraArgs = "--package flux-wasm";
+            CARGO_BUILD_TARGET = "wasm32-unknown-unknown";
             doCheck = false; # This doesn’t disable the checks…
           };
 
+          # TODO: move out to flux-next
+          flux-next-wasm = craneLib.buildPackage {
+            pname = "flux-next-wasm";
+            src = lib.cleanSourceWith {
+              src = ./flux-next;
+              filter = path: type:
+                (lib.hasSuffix "\.wgsl" path) ||
+                (craneLib.filterCargoSources path type);
+            };
+            cargoExtraArgs = "--package flux-wasm";
+            CARGO_BUILD_TARGET = "wasm32-unknown-unknown";
+            doCheck = false;
+          };
+
           flux-web = pkgs.callPackage ./web/default.nix {
-            inherit (packages) flux-wasm;
+            inherit (packages) flux-wasm flux-next-wasm;
           };
 
           flux-desktop-wrapped = let
@@ -187,7 +201,7 @@
             };
 
           flux-desktop = craneLib.buildPackage {
-            inherit (crateNameFromCargoToml "flux-desktop") pname version;
+            inherit (crateNameFromCargoToml ./flux-desktop) pname version;
             src = ./.;
             release = true;
             cargoExtraArgs = "-p flux-desktop";
