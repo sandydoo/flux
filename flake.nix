@@ -178,6 +178,7 @@
             runtimeLibraries = with pkgs; [
               wayland
               wayland-protocols
+              libxkbcommon
               xorg.libX11
               xorg.libXcursor
               xorg.libXrandr
