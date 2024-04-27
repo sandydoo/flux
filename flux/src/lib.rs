@@ -1,10 +1,8 @@
-mod data;
-mod drawer;
-mod fluid;
 mod flux;
-mod noise;
-mod render;
+mod grid;
+pub mod render;
 mod rng;
-
-pub use crate::flux::Flux;
 pub mod settings;
+
+pub use flux::Flux;
+pub use settings::Settings;

@@ -1,5 +1,5 @@
+import { Flux as FluxGL } from "../flux-gl";
 import { Flux } from "../flux";
-import { Flux as FluxNext } from "../flux-next";
 import { Elm } from "./Main.elm";
 
 let flux;
@@ -14,10 +14,10 @@ function setupFlux() {
   ui.ports.initFlux.subscribe(async function(settings) {
     if (navigator.gpu) {
       console.log("Backend: WebGPU");
-      flux = await new FluxNext(settings);
+      flux = await new Flux(settings);
     } else {
       console.log("Backend: WebGL2");
-      flux = new Flux(settings);
+      flux = new FluxGL(settings);
     }
 
     function animate(timestamp) {

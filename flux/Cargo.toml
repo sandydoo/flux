@@ -1,32 +1,22 @@
 [package]
 name = "flux"
-version = "4.6.0"
-description = "An open-source tribute to the macOS Drift screensaver"
-authors = ["Sander Melnikov <hey@sandydoo.me"]
-repository = "https://github.com/sandydoo/flux/"
-license = "MIT"
+version.workspace = true
+description.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+edition.workspace = true
 publish = false
-edition = "2021"
-
-build = "build.rs"
 
 [dependencies]
-bytemuck = { version = "1.4", features = ["derive"] }
-crevice = { version  = "0.14", features = [ "std", "nalgebra" ] }
-getrandom = { version = "0.2", features = ["js"] }
-glow = "0.13"
-half = { version = "2", features = ["bytemuck"] }
-log = "0.4"
-nalgebra = { version = "0.32", features = [ "mint" ] }
-mint = "0.5"
-rand = { version = "0.8.5", features = ["getrandom"] }
-rustc-hash = "1.1"
-serde = { version = "1", features = ["derive"] }
-thiserror = "1"
-image = { version = "0.24.5", features = ["jpeg", "png"] }
-rand_seeder = "0.2.3"
-rand_pcg = "0.3.1"
-
-[target.wasm32-unknown-unknown.dependencies.web-sys]
-version = "0.3"
-features = ["ImageBitmap"]
+bytemuck.workspace = true
+getrandom.workspace = true
+image.workspace = true
+log.workspace = true
+rand.workspace = true
+rand_pcg.workspace = true
+rand_seeder.workspace = true
+rustc-hash.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+wgpu.workspace = true

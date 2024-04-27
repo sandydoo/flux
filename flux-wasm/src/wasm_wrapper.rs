@@ -1,17 +1,22 @@
 use flux::{self, settings};
 use gloo_utils::format::JsValueSerdeExt;
-use glow::HasContext;
 use serde::Serialize;
 use std::rc::Rc;
+use std::sync::Arc;
+
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::Window;
+use winit::event_loop::EventLoop;
+use winit::platform::web::WindowBuilderExtWebSys;
 
 #[wasm_bindgen]
 pub struct Flux {
     canvas: Canvas,
-    #[allow(dead_code)]
-    context: Rc<glow::Context>,
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+    window: Arc<winit::window::Window>,
+    window_surface: wgpu::Surface<'static>,
     logical_width: u32,
     logical_height: u32,
     pixel_ratio: f64,
@@ -23,35 +28,156 @@ impl Flux {
     #[wasm_bindgen(setter)]
     pub fn set_settings(&mut self, settings_object: &JsValue) {
         let settings: settings::Settings = settings_object.into_serde().unwrap();
-        self.instance.update(&Rc::new(settings));
+        self.instance
+            .update(&self.device, &self.queue, &Arc::new(settings));
     }
 
     #[wasm_bindgen]
     pub fn save_image(&mut self, bitmap: web_sys::ImageBitmap) {
-        self.instance.sample_colors_from_image_bitmap(&bitmap);
+        let width = bitmap.width();
+        let height = bitmap.height();
+        let size = wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        };
+        let source = wgpu::ImageCopyExternalImage {
+            source: wgpu::ExternalImageSource::ImageBitmap(bitmap),
+            origin: wgpu::Origin2d::ZERO,
+            flip_y: false,
+        };
+
+        // Create a buffer to store the image data
+        let texture = self.device.create_texture(&wgpu::TextureDescriptor {
+            label: None,
+            size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            view_formats: &[],
+            usage: wgpu::TextureUsages::COPY_DST
+                | wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::RENDER_ATTACHMENT,
+        });
+
+        let dest = wgpu::ImageCopyTextureTagged {
+            texture: &texture,
+            mip_level: 0,
+            origin: wgpu::Origin3d::ZERO,
+            aspect: wgpu::TextureAspect::All,
+            color_space: wgpu::PredefinedColorSpace::Srgb,
+            premultiplied_alpha: false,
+        };
+
+        self.queue
+            .copy_external_image_to_texture(&source, dest, size);
+
+        let texture = dest.texture;
+        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+        self.instance
+            .sample_colors_from_texture_view(&self.device, &self.queue, texture_view);
     }
 
     #[wasm_bindgen(constructor)]
-    pub fn new(settings_object: &JsValue) -> Result<Flux, JsValue> {
-        console_log::init_with_level(log::Level::Debug).expect("cannot enable logging");
+    pub async fn new(settings_object: &JsValue) -> Result<Flux, JsValue> {
+        console_log::init_with_level(log::Level::Trace).expect("cannot enable logging");
 
-        let (
-            canvas,
-            gl,
-            logical_width,
-            logical_height,
-            physical_width,
-            physical_height,
-            pixel_ratio,
-        ) = get_rendering_context("canvas")?;
-        let context = Rc::new(gl);
-        let settings: Rc<settings::Settings> = match settings_object.into_serde() {
-            Ok(settings) => Rc::new(settings),
+        set_panic_hook();
+
+        let event_loop = EventLoop::new().unwrap();
+
+        let element_id = "canvas";
+        let window = web_sys::window().expect("no global `window` exists");
+        let document = window.document().expect("should have a document on window");
+        let html_canvas = document
+            .get_element_by_id(element_id)
+            .map(|element| element.dyn_into::<web_sys::HtmlCanvasElement>())
+            .unwrap_or_else(|| {
+                panic!(
+                    "I expected to find a canvas element with id `{}`",
+                    element_id
+                )
+            })?;
+
+        let pixel_ratio: f64 = window.device_pixel_ratio();
+        let logical_width = html_canvas.client_width() as u32;
+        let logical_height = html_canvas.client_height() as u32;
+        let (physical_width, physical_height) =
+            physical_from_logical_size(logical_width, logical_height, pixel_ratio);
+        html_canvas.set_width(physical_width);
+        html_canvas.set_height(physical_height);
+
+        let window = winit::window::WindowBuilder::new()
+            .with_canvas(Some(html_canvas.clone()))
+            .build(&event_loop)
+            .unwrap();
+
+        let canvas = Canvas::new(html_canvas);
+
+        let settings = match settings_object.into_serde() {
+            Ok(settings) => Arc::new(settings),
             Err(msg) => return Err(JsValue::from_str(&msg.to_string())),
         };
 
+        let window = Arc::new(window);
+        let mut instance_desc = wgpu::InstanceDescriptor::default();
+        instance_desc.backends = wgpu::Backends::BROWSER_WEBGPU;
+        let wgpu_instance = wgpu::Instance::new(instance_desc);
+        let window_surface = wgpu_instance
+            .create_surface(Arc::clone(&window))
+            .expect("Failed to create surface");
+        let adapter = wgpu_instance
+            .request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::HighPerformance,
+                force_fallback_adapter: false,
+                compatible_surface: Some(&window_surface),
+            })
+            .await
+            .expect("Failed to find an appropiate adapter");
+
+        log::debug!("{:?}\n{:?}", adapter.get_info(), adapter.features(),);
+
+        // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
+        let mut limits = wgpu::Limits::downlevel_defaults().using_resolution(adapter.limits());
+
+        let features = wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES
+            | wgpu::Features::FLOAT32_FILTERABLE;
+
+        let (device, queue) = adapter
+            .request_device(
+                &wgpu::DeviceDescriptor {
+                    label: None,
+                    required_features: features,
+                    required_limits: limits,
+                },
+                None,
+            )
+            .await
+            .expect("Failed to create device");
+
+        let swapchain_capabilities = window_surface.get_capabilities(&adapter);
+        let swapchain_format = swapchain_capabilities.formats[0];
+        log::debug!("Swapchain format: {:?}", swapchain_format);
+
+        let config = wgpu::SurfaceConfiguration {
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            format: swapchain_format,
+            width: physical_width,
+            height: physical_height,
+            present_mode: wgpu::PresentMode::AutoVsync,
+            desired_maximum_frame_latency: 2,
+            alpha_mode: swapchain_capabilities.alpha_modes[0],
+            view_formats: vec![],
+        };
+
+        window_surface.configure(&device, &config);
+
         let flux = flux::Flux::new(
-            &context,
+            &device,
+            &queue,
+            swapchain_format,
             logical_width,
             logical_height,
             physical_width,
@@ -63,15 +189,35 @@ impl Flux {
         Ok(Self {
             instance: flux,
             canvas,
+            device,
+            queue,
+            window,
+            window_surface,
             logical_width,
             logical_height,
             pixel_ratio,
-            context,
         })
     }
 
     pub fn animate(&mut self, timestamp: f64) {
-        self.instance.animate(timestamp);
+        let frame = self
+            .window_surface
+            .get_current_texture()
+            .expect("Failed to acquire next swap chain texture");
+        let view = frame
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("flux:render"),
+            });
+
+        self.instance
+            .animate(&self.device, &self.queue, &mut encoder, &view, timestamp);
+
+        self.queue.submit(Some(encoder.finish()));
+        frame.present();
     }
 
     pub fn resize(&mut self, logical_width: u32, logical_height: u32) {
@@ -83,6 +229,8 @@ impl Flux {
             self.canvas.set_height(physical_height);
 
             self.instance.resize(
+                &self.device,
+                &self.queue,
                 logical_width,
                 logical_height,
                 physical_width,
@@ -92,99 +240,6 @@ impl Flux {
             self.logical_width = logical_width;
             self.logical_height = logical_height;
         }
-    }
-}
-
-pub fn get_rendering_context(
-    element_id: &str,
-) -> Result<(Canvas, glow::Context, u32, u32, u32, u32, f64), JsValue> {
-    use web_sys::WebGl2RenderingContext as GL;
-
-    set_panic_hook();
-
-    let window = window();
-    let document = window.document().expect("I expected to find a document");
-    let html_canvas = document.get_element_by_id(element_id).unwrap_or_else(|| {
-        panic!(
-            "I expected to find a canvas element with id `{}`",
-            element_id
-        )
-    });
-    let html_canvas: web_sys::HtmlCanvasElement =
-        html_canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
-
-    let pixel_ratio: f64 = window.device_pixel_ratio();
-    let logical_width = html_canvas.client_width() as u32;
-    let logical_height = html_canvas.client_height() as u32;
-    let (physical_width, physical_height) =
-        physical_from_logical_size(logical_width, logical_height, pixel_ratio);
-    html_canvas.set_width(physical_width);
-    html_canvas.set_height(physical_height);
-
-    let canvas = Canvas::new(html_canvas);
-
-    let options = ContextOptions {
-        // Disabling alpha can lead to poor performance on some platforms.
-        alpha: true,
-        depth: false,
-        stencil: false,
-        desynchronized: false,
-        antialias: false,
-        fail_if_major_performance_caveat: false,
-        // TODO: Revert to high-performance once dual-GPU issues on Chrome are
-        // resolved.
-        power_preference: "default",
-        premultiplied_alpha: true,
-        preserve_drawing_buffer: false,
-    }
-    .serialize();
-
-    let gl = if let Ok(Some(gl)) = canvas.get_context_with_context_options("webgl2", &options) {
-        let gl = gl.dyn_into::<GL>()?;
-        gl.get_extension("OES_texture_float")?;
-        gl.get_extension("OES_texture_float_linear")?;
-        gl.get_extension("EXT_color_buffer_float")?;
-        gl.get_extension("EXT_float_blend")?;
-
-        gl.disable(GL::BLEND);
-        gl.disable(GL::DEPTH_TEST);
-
-        glow::Context::from_webgl2_context(gl)
-    } else {
-        return Err(JsValue::from_str(
-            "Can’t create the WebGl2 rendering context",
-        ));
-    };
-
-    Ok((
-        canvas,
-        gl,
-        logical_width,
-        logical_height,
-        physical_width,
-        physical_height,
-        pixel_ratio,
-    ))
-}
-
-#[derive(Serialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct ContextOptions {
-    pub alpha: bool,
-    pub depth: bool,
-    pub stencil: bool,
-    pub desynchronized: bool,
-    pub antialias: bool,
-    pub fail_if_major_performance_caveat: bool,
-    pub power_preference: &'static str,
-    pub premultiplied_alpha: bool,
-    pub preserve_drawing_buffer: bool,
-}
-
-impl ContextOptions {
-    pub fn serialize(&self) -> JsValue {
-        // TODO: deal with result
-        JsValue::from_serde(self).unwrap()
     }
 }
 

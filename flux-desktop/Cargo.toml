@@ -1,16 +1,22 @@
 [package]
 name = "flux-desktop"
-version = "4.6.0"
-description = "An open-source tribute to the macOS Drift screensaver"
-authors = ["Sander Melnikov <hey@sandydoo.me"]
-repository = "https://github.com/sandydoo/flux/"
-license = "MIT"
+version.workspace = true
+description.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+edition.workspace = true
 publish = false
-edition = "2021"
 
 [dependencies]
-env_logger = "0.10"
-flux = { version = "4", path = "../flux" }
-glow = "0.13"
-glutin = "0.28"
-serde_json = "1"
+env_logger.workspace = true
+flux.workspace = true
+futures.workspace = true
+image.workspace = true
+log.workspace = true
+pollster.workspace = true
+raw-window-handle.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+wgpu.workspace = true
+winit.workspace = true

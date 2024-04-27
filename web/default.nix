@@ -3,7 +3,7 @@
   lib,
   stdenv,
   flux-wasm,
-  flux-next-wasm,
+  flux-gl-wasm,
   mkYarnPackage,
 }: let
   packageJSON = builtins.fromJSON (builtins.readFile ./package.json);
@@ -47,7 +47,7 @@
         --target bundler \
         --out-name index \
         --out-dir $out \
-        ${wasmPkg}/lib/flux_wasm.wasm
+        ${wasmPkg}/lib/${lib.replaceChars ["-"] ["_"] wasmPkg.pname}.wasm
 
       mv $out/index_bg.wasm $out/index_bg_unoptimized.wasm
       ${pkgs.binaryen}/bin/wasm-opt -Os -o $out/index_bg.wasm $out/index_bg_unoptimized.wasm
@@ -55,7 +55,7 @@
     '';
 
   flux-wasm-packed = prepareWasm flux-wasm;
-  flux-next-wasm-packed = prepareWasm flux-next-wasm;
+  flux-gl-wasm-packed = prepareWasm flux-gl-wasm;
 
   gitignoreSource = pkgs.nix-gitignore.gitignoreSource;
 
@@ -122,7 +122,7 @@ in
       mkdir -p $out
 
       ln -s ${flux-wasm-packed} ./flux
-      ln -s ${flux-next-wasm-packed} ./flux-next
+      ln -s ${flux-gl-wasm-packed} ./flux-gl
 
       webpack \
         --mode production \
