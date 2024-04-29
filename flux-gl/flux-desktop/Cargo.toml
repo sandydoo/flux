@@ -9,8 +9,8 @@ publish = false
 edition = "2021"
 
 [dependencies]
-env_logger = "0.10"
+env_logger.workspace = true
 flux = { version = "4", path = "../flux", package = "flux-gl"}
-glow = "0.13"
-glutin = "0.28"
-serde_json = "1"
+glow.workspace = true
+glutin.workspace = true
+serde_json.workspace = true

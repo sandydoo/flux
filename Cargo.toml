@@ -55,6 +55,10 @@ wasm-bindgen = "=0.2.92"
 wasm-bindgen-futures = "0.4.41"
 web-sys = "0.3"
 
+# GL
+glow = "0.13"
+glutin = "0.28"
+
 # The unoptimized build is too slow
 [profile.dev.package.image]
 opt-level = 3
