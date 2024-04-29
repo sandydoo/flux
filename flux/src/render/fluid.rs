@@ -522,6 +522,7 @@ impl Context {
             layout: Some(&advection_pipeline_layout),
             module: &advection_shader,
             entry_point: "main",
+            compilation_options: Default::default(),
             // TODO: use pipeline constants for direction once #5500 lands
             // https://github.com/gfx-rs/wgpu/pull/5500
             // constants: HashMap::from([("direction", 1)]),
@@ -595,6 +596,7 @@ impl Context {
                 layout: Some(&adjust_advection_pipeline_layout),
                 module: &adjust_advection_shader,
                 entry_point: "main",
+                compilation_options: Default::default(),
             });
 
         let diffusion_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -616,6 +618,7 @@ impl Context {
             layout: Some(&diffusion_pipeline_layout),
             module: &diffusion_shader,
             entry_point: "main",
+            compilation_options: Default::default(),
         });
 
         let divergence_bind_group_layout =
@@ -678,6 +681,7 @@ impl Context {
                 layout: Some(&divergence_pipeline_layout),
                 module: &divergence_shader,
                 entry_point: "main",
+                compilation_options: Default::default(),
             });
 
         let divergence_sample_bind_group_layout =
@@ -790,6 +794,7 @@ impl Context {
             layout: Some(&pressure_pipeline_layout),
             module: &pressure_shader,
             entry_point: "main",
+            compilation_options: Default::default(),
         });
 
         let subtract_gradient_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -816,6 +821,7 @@ impl Context {
                 layout: Some(&subtract_gradient_pipeline_layout),
                 module: &subtract_gradient_shader,
                 entry_point: "main",
+                compilation_options: Default::default(),
             });
 
         Self {
