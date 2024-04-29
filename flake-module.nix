@@ -43,17 +43,17 @@
       };
 
       fileSetForCrate = crate: lib.fileset.toSource {
-          root = ./.;
-          fileset = lib.fileset.unions [
-            ./Cargo.toml
-            ./Cargo.lock
-            ./flux
-            ./flux-desktop
-            ./flux-wasm
-            ./flux-gl
-            crate
-          ];
-        };
+        root = ./.;
+        fileset = lib.fileset.unions [
+          ./Cargo.toml
+          ./Cargo.lock
+          ./flux
+          ./flux-desktop
+          ./flux-wasm
+          ./flux-gl
+          crate
+        ];
+      };
     in {
     devShells = {
       default = pkgs.mkShell {
@@ -61,8 +61,6 @@
         inputsFrom = with config.packages; [flux flux-desktop flux-wasm];
         nativeBuildInputs = [rustToolchain];
       };
-    } // lib.optionalAttrs stdenv.isLinux {
-      # crossShell
     };
 
     packages = {
