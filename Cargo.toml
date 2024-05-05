@@ -29,14 +29,14 @@ version = "0.24"
 env_logger = "0.10"
 bytemuck = { version = "1.4", features = ["derive"] }
 flux = { path = "./flux" }
-futures = "0.3.30"
+futures = "0.3"
 getrandom = { version = "0.2", features = ["js"] }
 half = { version = "2", features = ["bytemuck"] }
 log = "0.4"
-pollster = "0.3.0"
-rand = { version = "0.8.5", features = ["getrandom"] }
-rand_seeder = "0.2.3"
-rand_pcg = "0.3.1"
+pollster = "0.3"
+rand = { version = "0.8", features = ["getrandom"] }
+rand_seeder = "0.2"
+rand_pcg = "0.3"
 raw-window-handle = "0.6"
 rustc-hash = "1.1"
 serde = { version = "1", features = ["derive"] }
@@ -52,7 +52,7 @@ gloo-utils = { version = "0.2", features = ["serde"] }
 js-sys = "0.3"
 # Match with Nix version
 wasm-bindgen = "=0.2.92"
-wasm-bindgen-futures = "0.4.41"
+wasm-bindgen-futures = "0.4"
 web-sys = "0.3"
 
 # GL
