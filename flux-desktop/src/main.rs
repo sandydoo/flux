@@ -55,7 +55,7 @@ impl App {
                         let mut boop = color_image.lock().unwrap();
                         *boop = Some(image);
                     }
-                    if let Err(_) = tx.send(Msg::DecodedImage).await {
+                    if tx.send(Msg::DecodedImage).await.is_err() {
                         log::error!("Failed to send decoded image message");
                     }
                 }
@@ -206,7 +206,7 @@ async fn run(
                     ..
                 } => elwt.exit(),
                 WindowEvent::DroppedFile(path) => {
-                    let bytes = std::fs::read(&path).unwrap();
+                    let bytes = std::fs::read(path).unwrap();
                     app.decode_image(bytes);
                     window.request_redraw();
                 }
