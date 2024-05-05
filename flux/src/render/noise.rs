@@ -260,7 +260,7 @@ impl NoiseGeneratorBuilder {
                 layout: Some(&pipeline_layout),
                 module: &generate_noise_shader,
                 entry_point: "main",
-                compilation_options: Default::default(),
+                // compilation_options: Default::default(),
             });
 
         let push_constants_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -390,7 +390,7 @@ impl NoiseGeneratorBuilder {
                 layout: Some(&inject_noise_pipeline_layout),
                 module: &inject_noise_shader,
                 entry_point: "main",
-                compilation_options: Default::default(),
+                // compilation_options: Default::default(),
             });
 
         NoiseGenerator {
