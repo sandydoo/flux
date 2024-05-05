@@ -4,7 +4,7 @@ version = "4.7.0"
 description = "An open-source tribute to the macOS Drift screensaver that runs in the browser"
 authors = ["Sander Melnikov <hey@sandydoo.me"]
 repository = "https://github.com/sandydoo/flux/"
-license = "MIT"
+license.workspace = true
 publish = false
 edition = "2021"
 
