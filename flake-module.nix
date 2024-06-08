@@ -16,7 +16,7 @@
         targets = [ "wasm32-unknown-unknown" ];
       };
 
-      craneLib = (crane.mkLib pkgs).overrideScope' (final: prev: {
+      craneLib = (crane.mkLib pkgs).overrideScope (final: prev: {
         rustc = rustToolchain;
         cargo = rustToolchain;
         rustfmt = rustToolchain;
