@@ -96,9 +96,9 @@ impl Default for ColorMode {
     }
 }
 
-impl Into<u32> for ColorMode {
-    fn into(self) -> u32 {
-        match self {
+impl From<ColorMode> for u32 {
+    fn from(val: ColorMode) -> Self {
+        match val {
             ColorMode::Preset(ColorPreset::Original) => 0,
             ColorMode::Preset(_) => 1,
             ColorMode::ImageFile(_) => 2,
@@ -152,4 +152,3 @@ pub static COLOR_SCHEME_POOLSIDE: [f32; 24] = [
     124.0 / 255.0, 220.0 / 255.0, 236.0 / 255.0, 1.0,
     156.0 / 255.0, 208.0 / 255.0, 236.0 / 255.0, 1.0,
 ];
-

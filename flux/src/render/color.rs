@@ -1,5 +1,4 @@
 use image::{DynamicImage, GenericImage, GenericImageView, Rgba, RgbaImage};
-use std::path;
 
 pub enum Problem {
     ReadImage(std::io::Error),
@@ -18,6 +17,7 @@ impl std::fmt::Display for Problem {
 }
 
 pub struct Context {
+    #[allow(dead_code)]
     texture: wgpu::Texture,
     pub texture_view: wgpu::TextureView,
 }

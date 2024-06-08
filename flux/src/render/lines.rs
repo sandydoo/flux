@@ -144,7 +144,7 @@ impl Context {
                     mapped_at_creation: false,
                 });
 
-                queue.write_buffer(&self.color_buffer, 0, &bytemuck::cast_slice(&[color_wheel]));
+                queue.write_buffer(&self.color_buffer, 0, bytemuck::cast_slice(&[color_wheel]));
 
                 self.color_mode = 1;
                 self.update_color_bindings(device, queue, None, None);
@@ -159,7 +159,7 @@ impl Context {
     }
 
     pub fn update_color_bindings(
-        self: &mut Self,
+        &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         some_color_texture_view: Option<wgpu::TextureView>,
@@ -198,7 +198,7 @@ impl Context {
 
     pub fn tick_line_uniforms(
         &mut self,
-        device: &wgpu::Device,
+        _device: &wgpu::Device,
         queue: &wgpu::Queue,
         timestep: f32,
         elapsed_time: f32,
@@ -212,7 +212,7 @@ impl Context {
         );
     }
 
-    pub fn update_line_color_mode(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+    pub fn update_line_color_mode(&mut self, _device: &wgpu::Device, queue: &wgpu::Queue) {
         self.line_uniforms.color_mode = self.color_mode;
 
         queue.write_buffer(
@@ -317,7 +317,7 @@ impl Context {
 
     pub fn new(
         device: &wgpu::Device,
-        queue: &wgpu::Queue,
+        _queue: &wgpu::Queue,
         swapchain_format: wgpu::TextureFormat,
         screen_size: wgpu::Extent3d,
         grid: &Grid,

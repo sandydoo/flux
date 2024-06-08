@@ -1,4 +1,3 @@
-use crate::render::texture;
 use crate::{grid, render, rng, settings};
 use settings::Settings;
 
@@ -58,7 +57,8 @@ impl Flux {
         queue: &wgpu::Queue,
         texture_view: wgpu::TextureView,
     ) {
-        self.lines.update_color_bindings(device, queue, Some(texture_view), None);
+        self.lines
+            .update_color_bindings(device, queue, Some(texture_view), None);
     }
 
     pub fn new(

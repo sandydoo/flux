@@ -36,7 +36,7 @@ impl NoiseGenerator {
             depth_or_array_layers: 1,
         };
 
-        let (texture, texture_view) = create_texture(&device, &size);
+        let (texture, texture_view) = create_texture(device, &size);
 
         self.scaling_ratio = scaling_ratio;
         self.texture = texture;
@@ -484,8 +484,7 @@ impl NoiseUniforms {
             scale: [
                 channel.scale * scaling_ratio.x(),
                 channel.scale * scaling_ratio.y(),
-            ]
-            .into(),
+            ],
             offset_1: channel.offset_1,
             offset_2: channel.offset_2,
             blend_factor: channel.blend_factor,
