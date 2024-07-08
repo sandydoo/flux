@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase")]
 pub struct Settings {
     pub mode: Mode,
     pub seed: Option<String>,
@@ -68,7 +68,7 @@ impl Default for Settings {
     }
 }
 
-#[derive(Clone, Default, Debug, Deserialize, Serialize)]
+#[derive(Clone, Default, Debug, Deserialize, Serialize, Eq, PartialEq)]
 pub enum Mode {
     #[default]
     Normal,
@@ -78,10 +78,16 @@ pub enum Mode {
     DebugDivergence,
 }
 
-#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub enum PressureMode {
     Retain,
     ClearWith(f32),
+}
+
+impl Default for PressureMode {
+    fn default() -> Self {
+        Self::ClearWith(0.0)
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
@@ -125,7 +131,7 @@ impl ColorPreset {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Noise {
     pub scale: f32,
