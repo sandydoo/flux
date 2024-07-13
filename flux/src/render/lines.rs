@@ -317,7 +317,7 @@ impl Context {
 
     pub fn new(
         device: &wgpu::Device,
-        _queue: &wgpu::Queue,
+        queue: &wgpu::Queue,
         swapchain_format: wgpu::TextureFormat,
         screen_size: wgpu::Extent3d,
         grid: &Grid,
@@ -744,7 +744,7 @@ impl Context {
 
         let work_group_count = ((grid.line_count as f32) / 64.0).ceil() as u32;
 
-        Self {
+        let mut lines = Self {
             line_count: grid.line_count,
             work_group_count,
             frame_num: 0,
@@ -772,7 +772,12 @@ impl Context {
             place_lines_pipeline,
             draw_line_pipeline,
             draw_endpoint_pipeline,
-        }
+        };
+
+        // TODO: optimize this away
+        lines.update(device, queue, screen_size, grid, settings);
+
+        lines
     }
 
     pub fn place_lines<'cpass>(
