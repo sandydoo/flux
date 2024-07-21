@@ -470,12 +470,13 @@ impl NoiseChannel {
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct NoiseUniforms {
-    scale: [f32; 2],
-    offset_1: f32,
-    offset_2: f32,
-    blend_factor: f32,
-    multiplier: f32,
-    padding: [f32; 2],
+    scale: [f32; 2],   // 0
+    offset_1: f32,     // 8
+    offset_2: f32,     // 12
+    blend_factor: f32, //16
+    multiplier: f32,   // 20
+    _padding: [u32; 2], // 24
+                       // roundUp(8, 24) = 24 -> 32 for uniform
 }
 
 impl NoiseUniforms {
@@ -489,7 +490,7 @@ impl NoiseUniforms {
             offset_2: channel.offset_2,
             blend_factor: channel.blend_factor,
             multiplier: channel.settings.multiplier,
-            padding: [0.0; 2],
+            _padding: [0; 2],
         }
     }
 }

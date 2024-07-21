@@ -26,7 +26,8 @@ struct LineUniforms {
     color_mode: u32, // 44
 
     delta_time: f32, // 48
-    _padding: [u32; 3],
+    _padding: u32,   // 52
+                     // roundUp(52, 8) = 56
 }
 
 impl LineUniforms {
@@ -48,7 +49,7 @@ impl LineUniforms {
             line_noise_blend_factor: 0.0,
             color_mode: settings.color_mode.clone().into(),
             delta_time: 1.0 / 60.0, // Initial value, will be updated every frame
-            _padding: [0; 3],
+            _padding: 0,
         }
     }
 

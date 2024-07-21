@@ -23,7 +23,7 @@ fn main(
   @builtin(global_invocation_id) global_id: vec3<u32>,
 ) {
   let size = textureDimensions(velocity_texture);
-  let sample_position = (vec2<f32>(global_id.xy) + 0.5) / vec2<f32>(size);
+  let sample_position = (vec2<f32>(global_id.xy) + 0.0) / vec2<f32>(size);
 
   let pressure = textureLoad(pressure_texture, global_id.xy, 0).x;
 
@@ -61,23 +61,18 @@ fn main(
   var boundary_condition = vec2<f32>(1.0);
   if (global_id.x == 0u) {
     boundary_condition.x = 0.0;
-    l = pressure;
-  }
-  if (global_id.x == size.x - 1u) {
+  } else if (global_id.x == size.x - 1u) {
     boundary_condition.x = 0.0;
-    r = pressure;
   }
   if (global_id.y == 0u) {
     boundary_condition.y = 0.0;
-    b = pressure;
-  }
-  if (global_id.y == size.y - 1u) {
+  } else if (global_id.y == size.y - 1u) {
     boundary_condition.y = 0.0;
-    t = pressure;
   }
 
   let velocity = textureLoad(velocity_texture, global_id.xy, 0).xy;
   let new_velocity = boundary_condition * (velocity - 0.5 * vec2<f32>(r - l, t - b));
+
 
   textureStore(out_velocity_texture, global_id.xy, vec4<f32>(new_velocity, 0.0, 0.0));
 }

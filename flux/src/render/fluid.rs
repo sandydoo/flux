@@ -9,20 +9,22 @@ use wgpu::util::DeviceExt;
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Direction {
-    pub direction: f32,
     _padding: [u32; 3],
+    pub direction: f32,
 }
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct FluidUniforms {
-    timestep: f32,
-    dissipation: f32,
-    alpha: f32,
-    r_beta: f32,
-    center_factor: f32,
-    stencil_factor: f32,
-    _padding: [u32; 2],
+    timestep: f32,       // 0
+    dissipation: f32,    // 4
+    alpha: f32,          // 8
+    r_beta: f32,         // 12
+    center_factor: f32,  // 16
+    stencil_factor: f32, // 20
+    _padding0: u32,      // 24
+    _padding1: u32,      // 28
+                         // roundUp(4, 24) = 24 -> roundUp to 32
 }
 
 impl FluidUniforms {
@@ -38,7 +40,8 @@ impl FluidUniforms {
             r_beta: 0.25,
             center_factor,
             stencil_factor,
-            _padding: [0; 2],
+            _padding0: 0,
+            _padding1: 0,
         }
     }
 }
@@ -442,16 +445,16 @@ impl Context {
         let forward_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("uniform:forward"),
             contents: bytemuck::cast_slice(&[Direction {
-                direction: 1.0,
                 _padding: [0; 3],
+                direction: 1.0,
             }]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
         let reverse_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("uniform:reverse"),
             contents: bytemuck::cast_slice(&[Direction {
-                direction: -1.0,
                 _padding: [0; 3],
+                direction: -1.0,
             }]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });

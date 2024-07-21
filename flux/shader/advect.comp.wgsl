@@ -19,6 +19,7 @@ struct FluidUniforms {
 @group(3) @binding(1) var out_velocity_texture: texture_storage_2d<rg32float, write>;
 
 struct Dir {
+  padding: vec3<u32>,
   direction: f32,
 }
 
@@ -34,7 +35,7 @@ fn main(
   let size = vec2<f32>(textureDimensions(velocity_texture));
   let sample_position = vec2<f32>(global_id.xy);
 
-  let advected_position = ((sample_position + 0.0) - direction.direction * uniforms.timestep * velocity) / size;
+  let advected_position = ((sample_position + 0.5) - direction.direction * uniforms.timestep * velocity) / size;
   let decay = 1.0 + uniforms.dissipation * uniforms.timestep;
   let new_velocity = textureSampleLevel(velocity_texture, linear_sampler, advected_position, 0.0).xy / decay;
   textureStore(out_texture, global_id.xy, vec4<f32>(new_velocity, 0.0, 0.0));
