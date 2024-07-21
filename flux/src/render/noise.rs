@@ -59,7 +59,7 @@ impl NoiseGenerator {
         queue.write_buffer(
             &self.push_constants_buffer,
             0,
-            bytemuck::cast_slice(&[timestep]),
+            bytemuck::cast_slice(&[0.0, 0.0, 0.0, timestep]),
         );
 
         queue.write_buffer(
@@ -265,7 +265,7 @@ impl NoiseGeneratorBuilder {
 
         let push_constants_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("uniform:noise"),
-            contents: bytemuck::cast_slice(&[0.0]),
+            contents: bytemuck::cast_slice(&[0.0, 0.0, 0.0, 0.0]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
