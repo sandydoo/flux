@@ -877,7 +877,7 @@ impl Context {
 
     pub fn advect_forward<'cpass>(
         &'cpass self,
-        queue: &wgpu::Queue,
+        _queue: &wgpu::Queue,
         cpass: &mut wgpu::ComputePass<'cpass>,
         index: &mut usize,
     ) {
@@ -892,7 +892,7 @@ impl Context {
 
     pub fn advect_reverse<'cpass>(
         &'cpass self,
-        queue: &wgpu::Queue,
+        _queue: &wgpu::Queue,
         cpass: &mut wgpu::ComputePass<'cpass>,
         index: &mut usize,
     ) {
@@ -970,6 +970,7 @@ impl Context {
         &'cpass self,
         queue: &wgpu::Queue,
         cpass: &mut wgpu::ComputePass<'cpass>,
+        index: &mut usize,
     ) {
         use settings::PressureMode::*;
         match self.pressure_mode {
@@ -984,27 +985,26 @@ impl Context {
         cpass.set_bind_group(0, &self.uniform_bind_group, &[]);
         cpass.set_bind_group(1, &self.divergence_sample_bind_group, &[]);
 
-        let mut index = 0;
-
         for _ in 0..self.pressure_iterations {
-            cpass.set_bind_group(2, &self.pressure_bind_groups[index], &[]);
+            cpass.set_bind_group(2, &self.pressure_bind_groups[*index], &[]);
             cpass.dispatch_workgroups(workgroup.0, workgroup.1, workgroup.2);
-            index = 1 - index;
+            *index = 1 - *index;
         }
     }
 
     pub fn subtract_gradient<'cpass>(
         &'cpass self,
         cpass: &mut wgpu::ComputePass<'cpass>,
-        index: &mut usize,
+        velocity_index: &mut usize,
+        pressure_index: &mut usize,
     ) {
         let workgroup = self.get_workgroup_size();
         cpass.set_pipeline(&self.subtract_gradient_pipeline);
         cpass.set_bind_group(0, &self.uniform_bind_group, &[]);
-        cpass.set_bind_group(1, &self.pressure_bind_groups[0], &[]); // TODO: get correct index
-        cpass.set_bind_group(2, &self.velocity_bind_groups[*index], &[]);
+        cpass.set_bind_group(1, &self.pressure_bind_groups[*pressure_index], &[]);
+        cpass.set_bind_group(2, &self.velocity_bind_groups[*velocity_index], &[]);
         cpass.dispatch_workgroups(workgroup.0, workgroup.1, workgroup.2);
-        *index = 1 - *index;
+        *velocity_index = 1 - *velocity_index;
     }
 
     pub fn get_fluid_size(&self) -> wgpu::Extent3d {

@@ -29,6 +29,7 @@ pub struct Flux {
     fluid_frame_time: f32,
 
     last_velocity_index: usize,
+    last_pressure_index: usize,
 }
 
 impl Flux {
@@ -132,6 +133,7 @@ impl Flux {
 
             fluid_frame_time: 0.0,
             last_velocity_index: 0,
+            last_pressure_index: 0,
         })
     }
 
@@ -203,6 +205,7 @@ impl Flux {
         }
 
         let mut velocity_index = self.last_velocity_index;
+        let mut pressure_index = self.last_pressure_index;
 
         while self.fluid_frame_time >= self.settings.fluid_timestep {
             self.noise_generator
@@ -232,9 +235,10 @@ impl Flux {
 
             self.fluid
                 .calculate_divergence(&mut cpass, &mut velocity_index);
-            self.fluid.solve_pressure(queue, &mut cpass);
             self.fluid
-                .subtract_gradient(&mut cpass, &mut velocity_index);
+                .solve_pressure(queue, &mut cpass, &mut pressure_index);
+            self.fluid
+                .subtract_gradient(&mut cpass, &mut velocity_index, &mut pressure_index);
 
             self.fluid_frame_time -= self.settings.fluid_timestep;
         }
