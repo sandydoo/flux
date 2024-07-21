@@ -77,8 +77,8 @@ impl NoiseGenerator {
 
     pub fn generate<'cpass>(&'cpass self, cpass: &mut wgpu::ComputePass<'cpass>) {
         let workgroup = (
-            self.texture.size().width / 8,
-            self.texture.size().height / 8,
+            self.texture.size().width / 16,
+            self.texture.size().height / 16,
             1,
         );
         cpass.set_pipeline(&self.generate_noise_pipeline);
@@ -93,8 +93,8 @@ impl NoiseGenerator {
         target_texture_size: wgpu::Extent3d,
     ) {
         let workgroup = (
-            target_texture_size.width / 8,
-            target_texture_size.height / 8,
+            target_texture_size.width / 16,
+            target_texture_size.height / 16,
             1,
         );
         cpass.set_pipeline(&self.inject_noise_pipeline);

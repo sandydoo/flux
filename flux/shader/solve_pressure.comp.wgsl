@@ -17,7 +17,7 @@ struct FluidUniforms {
 @group(2) @binding(1) var out_pressure_texture: texture_storage_2d<r32float, write>;
 
 @compute
-@workgroup_size(8, 8, 1)
+@workgroup_size(16, 16, 1)
 fn main(
   @builtin(global_invocation_id) global_id: vec3<u32>,
 ) {

@@ -108,7 +108,7 @@ fn make_noise(texel_position: vec2<f32>, channel: Channel) -> vec2<f32> {
 }
 
 @compute
-@workgroup_size(8, 8, 1)
+@workgroup_size(16, 16, 1)
 fn main(
   @builtin(global_invocation_id) global_id: vec3<u32>,
 ) {

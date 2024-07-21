@@ -868,7 +868,11 @@ impl Context {
 
     fn get_workgroup_size(&self) -> (u32, u32, u32) {
         let [width, height] = self.fluid_size;
-        ((width / 8.0).ceil() as u32, (height / 8.0).ceil() as u32, 1)
+        (
+            (width / 16.0).ceil() as u32,
+            (height / 16.0).ceil() as u32,
+            1,
+        )
     }
 
     pub fn advect_forward<'cpass>(
