@@ -2,6 +2,7 @@ use crate::grid;
 use crate::settings::{self, Settings};
 
 use std::borrow::Cow;
+use std::cell::RefCell;
 use std::sync::Arc;
 use wgpu::util::DeviceExt;
 
@@ -81,6 +82,9 @@ pub struct Context {
     divergence_pipeline: wgpu::ComputePipeline,
     pressure_pipeline: wgpu::ComputePipeline,
     subtract_gradient_pipeline: wgpu::ComputePipeline,
+
+    last_pressure_index: RefCell<usize>,
+    last_velocity_index: RefCell<usize>,
 }
 
 impl Context {
@@ -863,6 +867,9 @@ impl Context {
             divergence_pipeline,
             pressure_pipeline,
             subtract_gradient_pipeline,
+
+            last_pressure_index: RefCell::new(0),
+            last_velocity_index: RefCell::new(0),
         }
     }
 
@@ -879,14 +886,14 @@ impl Context {
         &'cpass self,
         _queue: &wgpu::Queue,
         cpass: &mut wgpu::ComputePass<'cpass>,
-        index: &mut usize,
     ) {
+        let velocity_index = self.last_velocity_index.borrow();
         let workgroup = self.get_workgroup_size();
         cpass.set_pipeline(&self.advection_pipeline);
         cpass.set_bind_group(0, &self.uniform_bind_group, &[]);
         cpass.set_bind_group(1, &self.advection_forward_bind_group, &[]);
         cpass.set_bind_group(2, &self.advection_forward_direction_bind_group, &[]);
-        cpass.set_bind_group(3, &self.velocity_bind_groups[*index], &[]);
+        cpass.set_bind_group(3, &self.velocity_bind_groups[*velocity_index], &[]);
         cpass.dispatch_workgroups(workgroup.0, workgroup.1, workgroup.2);
     }
 
@@ -894,53 +901,48 @@ impl Context {
         &'cpass self,
         _queue: &wgpu::Queue,
         cpass: &mut wgpu::ComputePass<'cpass>,
-        index: &mut usize,
     ) {
+        let velocity_index = self.last_velocity_index.borrow();
         let workgroup = self.get_workgroup_size();
         cpass.set_pipeline(&self.advection_pipeline);
         cpass.set_bind_group(0, &self.uniform_bind_group, &[]);
         cpass.set_bind_group(1, &self.advection_reverse_bind_group, &[]);
         cpass.set_bind_group(2, &self.advection_reverse_direction_bind_group, &[]);
-        cpass.set_bind_group(3, &self.velocity_bind_groups[*index], &[]);
+        cpass.set_bind_group(3, &self.velocity_bind_groups[*velocity_index], &[]);
         cpass.dispatch_workgroups(workgroup.0, workgroup.1, workgroup.2);
     }
 
-    pub fn adjust_advection<'cpass>(
-        &'cpass self,
-        cpass: &mut wgpu::ComputePass<'cpass>,
-        index: &mut usize,
-    ) {
+    pub fn adjust_advection<'cpass>(&'cpass self, cpass: &mut wgpu::ComputePass<'cpass>) {
+        let mut velocity_index = self.last_velocity_index.borrow_mut();
         let workgroup = self.get_workgroup_size();
         cpass.set_pipeline(&self.adjust_advection_pipeline);
         cpass.set_bind_group(0, &self.uniform_bind_group, &[]);
         cpass.set_bind_group(1, &self.adjust_advection_bind_group, &[]);
-        cpass.set_bind_group(2, &self.velocity_bind_groups[*index], &[]);
+        cpass.set_bind_group(2, &self.velocity_bind_groups[*velocity_index], &[]);
         cpass.dispatch_workgroups(workgroup.0, workgroup.1, workgroup.2);
 
-        *index = 1 - *index;
+        *velocity_index = 1 - *velocity_index;
     }
 
-    pub fn diffuse<'cpass>(&'cpass self, cpass: &mut wgpu::ComputePass<'cpass>, index: &mut usize) {
+    pub fn diffuse<'cpass>(&'cpass self, cpass: &mut wgpu::ComputePass<'cpass>) {
+        let mut velocity_index = self.last_velocity_index.borrow_mut();
         let workgroup = self.get_workgroup_size();
         cpass.set_pipeline(&self.diffusion_pipeline);
         cpass.set_bind_group(0, &self.uniform_bind_group, &[]);
 
         for _ in 0..self.diffusion_iterations {
-            cpass.set_bind_group(1, &self.velocity_bind_groups[*index], &[]);
+            cpass.set_bind_group(1, &self.velocity_bind_groups[*velocity_index], &[]);
             cpass.dispatch_workgroups(workgroup.0, workgroup.1, workgroup.2);
-            *index = 1 - *index;
+            *velocity_index = 1 - *velocity_index;
         }
     }
 
-    pub fn calculate_divergence<'cpass>(
-        &'cpass self,
-        cpass: &mut wgpu::ComputePass<'cpass>,
-        index: &mut usize,
-    ) {
+    pub fn calculate_divergence<'cpass>(&'cpass self, cpass: &mut wgpu::ComputePass<'cpass>) {
+        let velocity_index = self.last_velocity_index.borrow();
         let workgroup = self.get_workgroup_size();
         cpass.set_pipeline(&self.divergence_pipeline);
         cpass.set_bind_group(0, &self.divergence_bind_group, &[]);
-        cpass.set_bind_group(1, &self.velocity_bind_groups[*index], &[]);
+        cpass.set_bind_group(1, &self.velocity_bind_groups[*velocity_index], &[]);
         cpass.dispatch_workgroups(workgroup.0, workgroup.1, workgroup.2);
     }
 
@@ -970,7 +972,6 @@ impl Context {
         &'cpass self,
         queue: &wgpu::Queue,
         cpass: &mut wgpu::ComputePass<'cpass>,
-        index: &mut usize,
     ) {
         use settings::PressureMode::*;
         match self.pressure_mode {
@@ -980,24 +981,22 @@ impl Context {
             Retain => (),
         }
 
+        let mut pressure_index = self.last_pressure_index.borrow_mut();
         let workgroup = self.get_workgroup_size();
         cpass.set_pipeline(&self.pressure_pipeline);
         cpass.set_bind_group(0, &self.uniform_bind_group, &[]);
         cpass.set_bind_group(1, &self.divergence_sample_bind_group, &[]);
 
         for _ in 0..self.pressure_iterations {
-            cpass.set_bind_group(2, &self.pressure_bind_groups[*index], &[]);
+            cpass.set_bind_group(2, &self.pressure_bind_groups[*pressure_index], &[]);
             cpass.dispatch_workgroups(workgroup.0, workgroup.1, workgroup.2);
-            *index = 1 - *index;
+            *pressure_index = 1 - *pressure_index;
         }
     }
 
-    pub fn subtract_gradient<'cpass>(
-        &'cpass self,
-        cpass: &mut wgpu::ComputePass<'cpass>,
-        velocity_index: &mut usize,
-        pressure_index: &mut usize,
-    ) {
+    pub fn subtract_gradient<'cpass>(&'cpass self, cpass: &mut wgpu::ComputePass<'cpass>) {
+        let pressure_index = self.last_pressure_index.borrow();
+        let mut velocity_index = self.last_velocity_index.borrow_mut();
         let workgroup = self.get_workgroup_size();
         cpass.set_pipeline(&self.subtract_gradient_pipeline);
         cpass.set_bind_group(0, &self.uniform_bind_group, &[]);
@@ -1011,9 +1010,9 @@ impl Context {
         self.fluid_size_3d
     }
 
-    // TODO: fix texture index
     pub fn get_velocity_texture_view(&self) -> &wgpu::TextureView {
-        &self.velocity_texture_views[0]
+        let index = self.last_velocity_index.borrow();
+        &self.velocity_texture_views[*index]
     }
 
     pub fn get_advection_forward_texture_view(&self) -> &wgpu::TextureView {
@@ -1024,12 +1023,20 @@ impl Context {
         &self.divergence_texture_view
     }
 
-    // TODO: fix texture index
     pub fn get_pressure_texture_view(&self) -> &wgpu::TextureView {
-        &self.pressure_texture_views[0]
+        let index = self.last_pressure_index.borrow();
+        &self.pressure_texture_views[*index]
     }
 
-    pub fn get_velocity_bind_group(&self, index: usize) -> &wgpu::BindGroup {
-        &self.velocity_bind_groups[index]
+    pub fn get_read_velocity_bind_group(&self) -> &wgpu::BindGroup {
+        let index = self.last_velocity_index.borrow();
+        &self.velocity_bind_groups[*index]
+    }
+
+    pub fn get_write_velocity_bind_group(&self) -> &wgpu::BindGroup {
+        let mut index = self.last_velocity_index.borrow_mut();
+        let curr_index = *index;
+        *index = 1 - *index;
+        &self.velocity_bind_groups[curr_index]
     }
 }

@@ -27,9 +27,6 @@ pub struct Flux {
     elapsed_time: f32,
 
     fluid_frame_time: f32,
-
-    last_velocity_index: usize,
-    last_pressure_index: usize,
 }
 
 impl Flux {
@@ -132,8 +129,6 @@ impl Flux {
             elapsed_time: 0.0,
 
             fluid_frame_time: 0.0,
-            last_velocity_index: 0,
-            last_pressure_index: 0,
         })
     }
 
@@ -204,9 +199,6 @@ impl Flux {
             self.elapsed_time = timer_overflow;
         }
 
-        let mut velocity_index = self.last_velocity_index;
-        let mut pressure_index = self.last_pressure_index;
-
         while self.fluid_frame_time >= self.settings.fluid_timestep {
             self.noise_generator
                 .update_buffers(queue, self.settings.fluid_timestep);
@@ -218,33 +210,24 @@ impl Flux {
 
             self.noise_generator.generate(&mut cpass);
 
-            self.fluid
-                .advect_forward(queue, &mut cpass, &mut velocity_index);
-            self.fluid
-                .advect_reverse(queue, &mut cpass, &mut velocity_index);
-            self.fluid.adjust_advection(&mut cpass, &mut velocity_index);
-            self.fluid.diffuse(&mut cpass, &mut velocity_index);
+            self.fluid.advect_forward(queue, &mut cpass);
+            self.fluid.advect_reverse(queue, &mut cpass);
+            self.fluid.adjust_advection(&mut cpass);
+            self.fluid.diffuse(&mut cpass);
 
-            let velocity_bind_group = self.fluid.get_velocity_bind_group(velocity_index);
+            let velocity_bind_group = self.fluid.get_write_velocity_bind_group();
             self.noise_generator.inject_noise_into(
                 &mut cpass,
                 velocity_bind_group,
                 self.fluid.get_fluid_size(),
             );
-            velocity_index = 1 - velocity_index;
 
-            self.fluid
-                .calculate_divergence(&mut cpass, &mut velocity_index);
-            self.fluid
-                .solve_pressure(queue, &mut cpass, &mut pressure_index);
-            self.fluid
-                .subtract_gradient(&mut cpass, &mut velocity_index, &mut pressure_index);
+            self.fluid.calculate_divergence(&mut cpass);
+            self.fluid.solve_pressure(queue, &mut cpass);
+            self.fluid.subtract_gradient(&mut cpass);
 
             self.fluid_frame_time -= self.settings.fluid_timestep;
         }
-
-        // Save the last velocity index for the next frame
-        self.last_velocity_index = velocity_index;
 
         {
             self.lines
@@ -255,10 +238,8 @@ impl Flux {
                 timestamp_writes: None,
             });
 
-            self.lines.place_lines(
-                &mut cpass,
-                self.fluid.get_velocity_bind_group(velocity_index),
-            );
+            self.lines
+                .place_lines(&mut cpass, self.fluid.get_read_velocity_bind_group());
         }
     }
 
