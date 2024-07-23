@@ -10,6 +10,7 @@ struct FluidUniforms {
 
 @group(0) @binding(0) var<uniform> uniforms: FluidUniforms;
 @group(0) @binding(1) var linear_sampler: sampler;
+@group(0) @binding(1) var nearest_sampler: sampler;
 
 @group(1) @binding(0) var forward_advected_texture: texture_2d<f32>;
 @group(1) @binding(1) var reverse_advected_texture: texture_2d<f32>;
@@ -29,11 +30,11 @@ fn main(
   // NOTE: Using floor here produces very different results from the GL version.
   // Using floor individually on each dimensions also seems to produce different results!
   // floor produces a distinct diagonal bias, moving fluid in waves to/from the upper right corner.
-  let min_max_sampling_position = (0.5 + round(advected_position)) / size;
-  let l = textureSampleLevel(velocity_texture, linear_sampler, min_max_sampling_position, 0.0, vec2<i32>(-1, 0)).xy;
-  let r = textureSampleLevel(velocity_texture, linear_sampler, min_max_sampling_position, 0.0, vec2<i32>(1, 0)).xy;
-  let b = textureSampleLevel(velocity_texture, linear_sampler, min_max_sampling_position, 0.0, vec2<i32>(0, -1)).xy;
-  let t = textureSampleLevel(velocity_texture, linear_sampler, min_max_sampling_position, 0.0, vec2<i32>(0, 1)).xy;
+  let min_max_sampling_position = (0.5 + advected_position) / size;
+  let l = textureSampleLevel(velocity_texture, nearest_sampler, min_max_sampling_position, 0.0, vec2<i32>(-1, 0)).xy;
+  let r = textureSampleLevel(velocity_texture, nearest_sampler, min_max_sampling_position, 0.0, vec2<i32>(1, 0)).xy;
+  let b = textureSampleLevel(velocity_texture, nearest_sampler, min_max_sampling_position, 0.0, vec2<i32>(0, -1)).xy;
+  let t = textureSampleLevel(velocity_texture, nearest_sampler, min_max_sampling_position, 0.0, vec2<i32>(0, 1)).xy;
 
   let min_velocity = min(l, min(r, min(t, b)));
   let max_velocity = max(l, max(r, max(t, b)));
