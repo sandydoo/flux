@@ -25,11 +25,11 @@ fn main(
   let velocity = textureLoad(velocity_texture, global_id.xy, 0).xy;
 
   let size = vec2<f32>(textureDimensions(velocity_texture));
-  let sample_position = vec2<f32>(global_id.xy);
+  let advected_position  = (vec2<f32>(global_id.xy) + 1.0) - uniforms.timestep * velocity;
   // NOTE: Using floor here produces very different results from the GL version.
-  let pos2 = (vec2f(floor(sample_position.x + 1.0), floor(sample_position.y + 1.0)));
-  let adv = floor(sample_position + 1.0) - uniforms.timestep * velocity;
-  let min_max_sampling_position = (0.5 + (adv)) / size;
+  // Using floor individually on each dimensions also seems to produce different results!
+  // floor produces a distinct diagonal bias, moving fluid in waves to/from the upper right corner.
+  let min_max_sampling_position = (0.5 + round(advected_position)) / size;
   let l = textureSampleLevel(velocity_texture, linear_sampler, min_max_sampling_position, 0.0, vec2<i32>(-1, 0)).xy;
   let r = textureSampleLevel(velocity_texture, linear_sampler, min_max_sampling_position, 0.0, vec2<i32>(1, 0)).xy;
   let b = textureSampleLevel(velocity_texture, linear_sampler, min_max_sampling_position, 0.0, vec2<i32>(0, -1)).xy;
