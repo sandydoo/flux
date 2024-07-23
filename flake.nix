@@ -1,7 +1,6 @@
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
-    flake-utils.url = "github:numtide/flake-utils";
     flake-parts.url = "github:hercules-ci/flake-parts";
     crane = {
       url = "github:ipetkov/crane";
@@ -13,7 +12,6 @@
       url = "github:oxalica/rust-overlay";
       inputs = {
         nixpkgs.follows = "nixpkgs";
-        flake-utils.follows = "flake-utils";
       };
     };
     wgsl-analyzer-flake = {
@@ -21,7 +19,6 @@
       inputs = {
         nixpkgs.follows = "nixpkgs";
         crane.follows = "crane";
-        flake-utils.follows = "flake-utils";
       };
     };
   };
