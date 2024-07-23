@@ -44,24 +44,24 @@ impl Default for Settings {
             line_length: 500.0,
             line_width: 9.0,
             line_begin_offset: 0.4,
-            line_variance: 0.45,
+            line_variance: 0.5,
             grid_spacing: 15,
             view_scale: 1.6,
             noise_channels: vec![
                 Noise {
-                    scale: 2.5,
+                    scale: 2.8,
                     multiplier: 1.0,
-                    offset_increment: 0.001,
+                    offset_increment: 0.0025,
                 },
                 Noise {
                     scale: 15.0,
                     multiplier: 0.7,
-                    offset_increment: 0.001 * 6.0,
+                    offset_increment: 0.0025 * 6.0,
                 },
                 Noise {
                     scale: 30.0,
                     multiplier: 0.5,
-                    offset_increment: 0.001 * 12.0,
+                    offset_increment: 0.0025 * 12.0,
                 },
             ],
         }

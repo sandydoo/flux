@@ -113,22 +113,22 @@ defaultSettings =
     , lineLength = 500.0
     , lineWidth = 9.0
     , lineBeginOffset = 0.4
-    , lineVariance = 0.45
+    , lineVariance = 0.5
     , viewScale = 1.6
     , gridSpacing = 15
     , noiseChannels =
         Array.fromList
-            [ { scale = 2.5
+            [ { scale = 2.8
               , multiplier = 1.0
-              , offsetIncrement = 0.001
+              , offsetIncrement = 0.0025
               }
             , { scale = 15.0
               , multiplier = 0.7
-              , offsetIncrement = 0.001 * 6.0
+              , offsetIncrement = 0.0025 * 6.0
               }
             , { scale = 30.0
               , multiplier = 0.5
-              , offsetIncrement = 0.001 * 12.0
+              , offsetIncrement = 0.0025 * 12.0
               }
             ]
     }
