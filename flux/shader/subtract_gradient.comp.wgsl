@@ -74,6 +74,5 @@ fn main(
   let velocity = textureLoad(velocity_texture, global_id.xy, 0).xy;
   let new_velocity = boundary_condition * (velocity - 0.5 * vec2<f32>(r - l, t - b));
 
-
   textureStore(out_velocity_texture, global_id.xy, vec4<f32>(new_velocity, 0.0, 0.0));
 }
