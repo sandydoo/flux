@@ -634,7 +634,8 @@ impl Context {
                 layout: Some(&place_lines_pipeline_layout),
                 module: &place_lines_shader,
                 entry_point: "main",
-                // compilation_options: Default::default(),
+                compilation_options: Default::default(),
+                cache: None,
             });
 
         let draw_line_pipeline_layout =
@@ -692,18 +693,19 @@ impl Context {
                 module: &draw_line_shader,
                 entry_point: "main_vs",
                 buffers: &vertex_buffer_layouts,
-                // compilation_options: Default::default(),
+                compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
                 module: &draw_line_shader,
                 entry_point: "main_fs",
                 targets: &color_targets,
-                // compilation_options: Default::default(),
+                compilation_options: Default::default(),
             }),
             primitive: wgpu::PrimitiveState::default(),
             depth_stencil: None,
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
+            cache: None,
         });
 
         let draw_endpoint_pipeline_layout =
@@ -729,18 +731,19 @@ impl Context {
                     module: &draw_endpoint_shader,
                     entry_point: "main_vs",
                     buffers: &vertex_buffer_layouts,
-                    // compilation_options: Default::default(),
+                    compilation_options: Default::default(),
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &draw_endpoint_shader,
                     entry_point: "main_fs",
                     targets: &color_targets,
-                    // compilation_options: Default::default(),
+                    compilation_options: Default::default(),
                 }),
                 primitive: wgpu::PrimitiveState::default(),
                 depth_stencil: None,
                 multisample: wgpu::MultisampleState::default(),
                 multiview: None,
+                cache: None,
             });
 
         let work_group_count = ((grid.line_count as f32) / 64.0).ceil() as u32;

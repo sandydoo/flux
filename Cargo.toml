@@ -20,7 +20,7 @@ repository = "https://github.com/sandydoo/flux/"
 authors = ["Sander Melnikov <hey@sandydoo.me"]
 
 [workspace.dependencies.wgpu]
-version = "0.19"
+version = "22.0"
 
 [workspace.dependencies.image]
 features = ["jpeg", "png"]

@@ -154,13 +154,13 @@ impl Context {
                 module: &shader,
                 entry_point: "vs",
                 buffers: &[],
-                // compilation_options: Default::default(),
+                compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
                 entry_point: "fs",
                 targets: &[Some(swapchain_format.into())],
-                // compilation_options: Default::default(),
+                compilation_options: Default::default(),
             }),
             primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::TriangleStrip,
@@ -169,6 +169,7 @@ impl Context {
             depth_stencil: None,
             multisample: wgpu::MultisampleState::default(),
             multiview: Default::default(),
+            cache: None,
         });
 
         Self {
