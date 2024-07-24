@@ -65,7 +65,7 @@ Or open a development shell with all the neccessary tools:
 nix develop
 
 cd web
-yarn serve
+pnpm serve
 ```
 
 ### Manual build
@@ -76,7 +76,7 @@ There’s a few things you’re going to have to install.
 - cargo
 - wasm-pack
 - node
-- pnpm or yarn
+- pnpm
 - elm
 
 How you get these dependencies depends on the operating system you’re running. Here’s an example for macOS and Linux using rustup:

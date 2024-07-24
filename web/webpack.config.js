@@ -5,8 +5,8 @@ const WasmPackPlugin = require('@wasm-tool/wasm-pack-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
 
 module.exports = (env, argv) => {
-  const skipWasmPack = env['skip-wasm-pack'] ?? false;
-  const pathToElm = env['path-to-elm'];
+  const skipWasmPack = env['SKIP_WASM_PACK'] ?? false;
+  const elmBin = env['ELM_BIN'];
 
   console.log(env);
 
@@ -25,7 +25,7 @@ module.exports = (env, argv) => {
         use: {
           loader: 'elm-webpack-loader',
           options: {
-            pathToElm,
+            pathToElm: elmBin,
           },
         },
       }],

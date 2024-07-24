@@ -2,22 +2,12 @@
   pkgs,
   lib,
   stdenv,
+  pnpm,
   flux-wasm,
   flux-gl-wasm,
-  mkYarnPackage,
 }: let
   packageJSON = builtins.fromJSON (builtins.readFile ./package.json);
   version = packageJSON.version;
-
-  nodeModules = mkYarnPackage {
-    name = "flux-dependencies";
-    src = lib.cleanSourceWith {
-      src = ./.;
-      filter = name: type:
-        builtins.any (x: baseNameOf name == x) ["package.json" "yarn.lock"];
-    };
-    publishBinsFor = ["webpack" "gh-pages"];
-  };
 
   # Prepare the wasm package the same way that wasm-pack does.
   # TODO: maybe do this in the flux-wasm build
@@ -77,7 +67,7 @@
     doCheck = false;
   });
 in
-  stdenv.mkDerivation {
+  stdenv.mkDerivation (finalAttrs: {
     pname = "flux-web";
     inherit version;
     src = gitignoreSource [] ./.;
@@ -85,48 +75,40 @@ in
     nativeBuildInputs = with pkgs; [
       openssl
       pkg-config
-    ];
-
-    buildInputs = with pkgs; [
-      nodeModules
-      yarn
-      nodePackages.pnpm
+      nodejs
+      pnpm
+      pnpm.configHook
       elmPackages.elm
       wasm-bindgen-cli-0_2_92
       binaryen
     ];
 
-    passthru = {
-      inherit nodeModules;
+    pnpmDeps = pnpm.fetchDeps {
+      inherit (finalAttrs) pname src version;
+      hash = "sha256-xV7Il9x6rjaGqEBcJ4t9DfqHBjBqhLMgyu/BpyfOjxY=";
     };
 
-    patchPhase = ''
-      ln -sf ${nodeModules}/libexec/*/node_modules .
-    '';
-
-    # This is, rather confusingly, called relative to the current working
-    # directory, not the flake or this file. Make sure to run `nix develop` from
-    # the root directory!
-    shellHook = ''
-      ln -sf ${nodeModules}/libexec/*/node_modules ./web
-    '';
-
-    configurePhase = pkgs.elmPackages.fetchElmDeps {
+    preConfigure = pkgs.elmPackages.fetchElmDeps {
       elmPackages = import ./elm-srcs.nix;
       elmVersion = "0.19.1";
       registryDat = ./registry.dat;
     };
 
-    installPhase = ''
-      mkdir -p $out
-
+    preInstall = ''
       ln -s ${flux-wasm-packed} ./flux
       ln -s ${flux-gl-wasm-packed} ./flux-gl
-
-      webpack \
-        --mode production \
-        --output-path=$out \
-        --env skip-wasm-pack \
-        --env path-to-elm=${pkgs.elmPackages.elm}/bin/elm
     '';
-  }
+
+    installPhase = ''
+      runHook preInstall
+
+      mkdir -p $out
+
+      pnpm run build \
+        --output-path=$out \
+        --env SKIP_WASM_PACK \
+        --env ELM_BIN=${pkgs.elmPackages.elm}/bin/elm
+
+      runHook postInstall
+    '';
+  })
