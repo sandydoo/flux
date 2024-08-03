@@ -542,7 +542,8 @@ impl Drawer {
             );
 
             self.context.enable(glow::BLEND);
-            self.context.blend_func(glow::SRC_ALPHA, glow::ONE);
+            self.context
+                .blend_func_separate(glow::SRC_ALPHA, glow::ONE, glow::ONE, glow::ONE);
 
             self.draw_lines_pass.use_program();
             self.draw_lines_buffers[self.line_state_buffers.active_buffer].bind();
@@ -565,7 +566,8 @@ impl Drawer {
             );
 
             self.context.enable(glow::BLEND);
-            self.context.blend_func(glow::SRC_ALPHA, glow::ONE);
+            self.context
+                .blend_func_separate(glow::SRC_ALPHA, glow::ONE, glow::ONE, glow::ONE);
 
             self.draw_endpoints_pass.use_program();
             self.draw_endpoints_buffers[self.line_state_buffers.active_buffer].bind();
