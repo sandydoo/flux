@@ -108,27 +108,27 @@ defaultSettings =
     , velocityDissipation = 0.0
     , pressureMode = ClearWith 0.0
     , diffusionIterations = 3
-    , pressureIterations = 20
+    , pressureIterations = 19
     , colorMode = Preset Original
-    , lineLength = 500.0
+    , lineLength = 450.0
     , lineWidth = 9.0
     , lineBeginOffset = 0.4
-    , lineVariance = 0.5
+    , lineVariance = 0.55
     , viewScale = 1.6
     , gridSpacing = 15
     , noiseChannels =
         Array.fromList
             [ { scale = 2.8
               , multiplier = 1.0
-              , offsetIncrement = 0.0025
+              , offsetIncrement = 0.001
               }
             , { scale = 15.0
               , multiplier = 0.7
-              , offsetIncrement = 0.0025 * 6.0
+              , offsetIncrement = 0.001 * 6.0
               }
             , { scale = 30.0
               , multiplier = 0.5
-              , offsetIncrement = 0.0025 * 12.0
+              , offsetIncrement = 0.001 * 12.0
               }
             ]
     }
