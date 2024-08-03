@@ -38,7 +38,7 @@ fn main_vs(
   var point = vec2<f32>(uniforms.aspect, 1.0) * uniforms.zoom * (basepoint * 2.0 - 1.0)
     + endpoint * vertex.y
     + uniforms.line_width * width * x_basis * vertex.x;
-  
+
   point.x /= uniforms.aspect;
 
   let short_line_boost = 1.0 + (uniforms.line_width * width) / length(endpoint);
