@@ -9,8 +9,8 @@
 fn main(
   @builtin(global_invocation_id) global_id: vec3<u32>,
 ) {
-  let size = (textureDimensions(velocity_texture));
-  let sample_position = (vec2<f32>(global_id.xy)) / vec2<f32>(size);
+  let size = textureDimensions(velocity_texture);
+  let sample_position = vec2<f32>(global_id.xy) / vec2<f32>(size);
 
   let l = textureSampleLevel(velocity_texture, nearest_sampler, sample_position, 0.0, vec2<i32>(-1, 0)).x;
   let r = textureSampleLevel(velocity_texture, nearest_sampler, sample_position, 0.0, vec2<i32>(1, 0)).x;

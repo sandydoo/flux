@@ -115,7 +115,7 @@ fn main(
   let size = vec2<f32>(textureDimensions(out_texture));
   let texel_position = vec2<f32>(global_id.xy) / size;
 
-  var noise = vec2(0.0);
+  var noise = vec2f(0.0);
   for (var i = 0; i < 3; i = i + 1) {
     let channel = global.channels[i];
     noise += make_noise(texel_position, channel);

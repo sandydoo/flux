@@ -13,7 +13,6 @@ struct FluidUniforms {
 @group(0) @binding(2) var nearest_sampler: sampler;
 
 @group(1) @binding(0) var pressure_texture: texture_2d<f32>;
-@group(1) @binding(1) var out_pressure_texture: texture_storage_2d<r32float, write>;
 
 @group(2) @binding(0) var velocity_texture: texture_2d<f32>;
 @group(2) @binding(1) var out_velocity_texture: texture_storage_2d<rg32float, write>;
@@ -24,14 +23,14 @@ fn main(
   @builtin(global_invocation_id) global_id: vec3<u32>,
 ) {
   let size = textureDimensions(velocity_texture);
-  let sample_position = (vec2<f32>(global_id.xy) + 0.0) / vec2<f32>(size);
+  let sample_position = vec2<f32>(global_id.xy) / vec2<f32>(size);
 
   let pressure = textureLoad(pressure_texture, global_id.xy, 0).x;
 
-  var l = textureSampleLevel(pressure_texture, nearest_sampler, sample_position, 0.0, vec2<i32>(-1, 0)).x;
-  var r = textureSampleLevel(pressure_texture, nearest_sampler, sample_position, 0.0, vec2<i32>(1, 0)).x;
-  var b = textureSampleLevel(pressure_texture, nearest_sampler, sample_position, 0.0, vec2<i32>(0, -1)).x;
-  var t = textureSampleLevel(pressure_texture, nearest_sampler, sample_position, 0.0, vec2<i32>(0, 1)).x;
+  var l = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(-1, 0)).x;
+  var r = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(1, 0)).x;
+  var b = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(0, -1)).x;
+  var t = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(0, 1)).x;
 
   // Enforce the following boundary conditions:
   //
