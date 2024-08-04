@@ -12,12 +12,12 @@ build = "build.rs"
 
 [dependencies]
 bytemuck.workspace = true
-crevice = { version  = "0.14", features = [ "std", "nalgebra" ] }
+crevice = { version  = "0.16", features = [ "std", "nalgebra" ] }
 getrandom.workspace = true
 glow.workspace = true
 half = { version = "2", features = ["bytemuck"] }
 log.workspace = true
-nalgebra = { version = "0.32", features = [ "mint" ] }
+nalgebra = { version = "0.33", features = [ "mint" ] }
 mint = "0.5"
 rand.workspace = true
 rustc-hash.workspace = true

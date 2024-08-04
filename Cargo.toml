@@ -24,7 +24,7 @@ version = "22.0"
 
 [workspace.dependencies.image]
 features = ["jpeg", "png"]
-version = "0.24"
+version = "0.25"
 
 [workspace.dependencies]
 env_logger = "0.10"
