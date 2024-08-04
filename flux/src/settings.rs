@@ -41,7 +41,7 @@ impl Default for Settings {
             diffusion_iterations: 3,
             pressure_iterations: 19,
             color_mode: ColorMode::Preset(ColorPreset::Original),
-            line_length: 420.0,
+            line_length: 450.0,
             line_width: 9.0,
             line_begin_offset: 0.4,
             line_variance: 0.55,
@@ -49,7 +49,7 @@ impl Default for Settings {
             view_scale: 1.6,
             noise_channels: vec![
                 Noise {
-                    scale: 2.5,
+                    scale: 2.8,
                     multiplier: 1.0,
                     offset_increment: 0.001,
                 },
