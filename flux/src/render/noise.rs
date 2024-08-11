@@ -1,16 +1,22 @@
 use crate::{grid, rng, settings};
 
 use std::borrow::Cow;
+use std::sync::Arc;
 use wgpu::util::DeviceExt;
 
 pub struct NoiseGenerator {
     elapsed_time: f32, // TODO: reset
 
-    channels: Vec<NoiseChannel>,
     texture: wgpu::Texture,
     texture_view: wgpu::TextureView,
     scaling_ratio: grid::ScalingRatio,
 
+    uniforms: NoiseUniforms,
+
+    channel_settings: Vec<settings::Noise>,
+    channels: Vec<NoiseChannel>,
+
+    uniform_buffer: wgpu::Buffer,
     channel_buffer: wgpu::Buffer,
     bind_group: wgpu::BindGroup,
     push_constants_buffer: wgpu::Buffer,
@@ -43,18 +49,20 @@ impl NoiseGenerator {
         self.texture_view = texture_view;
     }
 
-    pub fn update(&mut self, new_settings: &[settings::Noise]) {
-        for (channel, new_setting) in self.channels.iter_mut().zip(new_settings.iter()) {
-            channel.settings = new_setting.clone();
-        }
+    pub fn update(&mut self, new_settings: &settings::Settings) {
+        self.uniforms.multiplier = new_settings.noise_multiplier;
+        self.channel_settings = new_settings.noise_channels.to_vec();
     }
 
     pub fn update_buffers(&mut self, queue: &wgpu::Queue, timestep: f32) {
         self.elapsed_time += timestep;
 
-        self.channels.iter_mut().for_each(|channel| {
-            channel.tick(self.elapsed_time);
-        });
+        self.channels
+            .iter_mut()
+            .zip(self.channel_settings.iter())
+            .for_each(|(channel, channel_settings)| {
+                channel.tick(channel_settings, self.elapsed_time);
+            });
 
         queue.write_buffer(
             &self.push_constants_buffer,
@@ -63,15 +71,15 @@ impl NoiseGenerator {
         );
 
         queue.write_buffer(
+            &self.uniform_buffer,
+            0,
+            bytemuck::cast_slice(&[self.uniforms]),
+        );
+
+        queue.write_buffer(
             &self.channel_buffer,
             0,
-            bytemuck::cast_slice(
-                &self
-                    .channels
-                    .iter()
-                    .map(|channel| NoiseUniforms::new(self.scaling_ratio, channel))
-                    .collect::<Vec<_>>(),
-            ),
+            bytemuck::cast_slice(&self.channels),
         );
     }
 
@@ -109,15 +117,21 @@ impl NoiseGenerator {
 }
 
 pub struct NoiseGeneratorBuilder {
+    settings: Arc<settings::Settings>,
     size: u32,
     scaling_ratio: grid::ScalingRatio,
-    channels: Vec<NoiseChannel>,
+    channels: Vec<settings::Noise>,
 }
 
 impl NoiseGeneratorBuilder {
     // TODO: just provide the final size, no scaling ratio
-    pub fn new(size: u32, scaling_ratio: grid::ScalingRatio) -> Self {
+    pub fn new(
+        size: u32,
+        scaling_ratio: grid::ScalingRatio,
+        settings: &Arc<settings::Settings>,
+    ) -> Self {
         NoiseGeneratorBuilder {
+            settings: Arc::clone(settings),
             size,
             scaling_ratio,
             channels: Vec::new(),
@@ -125,19 +139,20 @@ impl NoiseGeneratorBuilder {
     }
 
     pub fn add_channel(&mut self, channel: &settings::Noise) -> &Self {
-        self.channels.push(NoiseChannel {
-            settings: channel.clone(),
-            scale: channel.scale,
-            offset_1: NoiseChannel::BLEND_THRESHOLD * rng::gen::<f32>(),
-            offset_2: 0.0,
-            blend_factor: 0.0,
-        });
+        self.channels.push(channel.clone());
 
         self
     }
 
-    pub fn build(self, device: &wgpu::Device, queue: &wgpu::Queue) -> NoiseGenerator {
+    pub fn build(self, device: &wgpu::Device, _queue: &wgpu::Queue) -> NoiseGenerator {
         log::info!("🎛 Generating noise");
+
+        let uniforms = NoiseUniforms::new(&self.settings);
+        let channels = self
+            .channels
+            .iter()
+            .map(|channel| NoiseChannel::new(self.scaling_ratio, channel))
+            .collect::<Vec<_>>();
 
         let (width, height) = (
             self.size * self.scaling_ratio.rounded_x(),
@@ -162,19 +177,19 @@ impl NoiseGeneratorBuilder {
         });
 
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("uniform:NoiseChannels"),
-            contents: bytemuck::cast_slice(
-                &self
-                    .channels
-                    .iter()
-                    .map(|channel| NoiseUniforms::new(self.scaling_ratio, channel))
-                    .collect::<Vec<_>>(),
-            ),
+            label: Some("uniform:noise"),
+            contents: bytemuck::cast_slice(&[uniforms]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
+        let channel_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("storage:noise_channels"),
+            contents: bytemuck::cast_slice(&channels),
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+        });
+
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Noise bind group layout"),
+            label: Some("bind_group_layout:noise"),
             entries: &[
                 // noiseTexture
                 // wgpu::BindGroupLayoutEntry {
@@ -194,6 +209,7 @@ impl NoiseGeneratorBuilder {
                 //     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                 //     count: None,
                 // },
+                // uniforms
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
                     visibility: wgpu::ShaderStages::COMPUTE,
@@ -204,9 +220,20 @@ impl NoiseGeneratorBuilder {
                     },
                     count: None,
                 },
-                // outTexture
+                // channels
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                // outTexture
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
                     visibility: wgpu::ShaderStages::COMPUTE,
                     ty: wgpu::BindingType::StorageTexture {
                         access: wgpu::StorageTextureAccess::WriteOnly,
@@ -219,7 +246,7 @@ impl NoiseGeneratorBuilder {
         });
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Noise bind group"),
+            label: Some("bind_group:noise"),
             layout: &bind_group_layout,
             entries: &[
                 // wgpu::BindGroupEntry {
@@ -236,19 +263,27 @@ impl NoiseGeneratorBuilder {
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &channel_buffer,
+                        offset: 0,
+                        size: None,
+                    }),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
                     resource: wgpu::BindingResource::TextureView(&texture_view),
                 },
             ],
         });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Noise layout"),
+            label: Some("pipeline_layout:generate_noise"),
             bind_group_layouts: &[&bind_group_layout],
             push_constant_ranges: &[],
         });
 
         let generate_noise_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Generate noise shader"),
+            label: Some("shader:generate_noise"),
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!(
                 "../../shader/generate_noise.comp.wgsl"
             ))),
@@ -256,7 +291,7 @@ impl NoiseGeneratorBuilder {
 
         let generate_noise_pipeline =
             device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-                label: Some("Generate noise"),
+                label: Some("pipeline:generate_noise"),
                 layout: Some(&pipeline_layout),
                 module: &generate_noise_shader,
                 entry_point: "main",
@@ -265,7 +300,7 @@ impl NoiseGeneratorBuilder {
             });
 
         let push_constants_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("uniform:noise"),
+            label: Some("push_constants:noise"),
             contents: bytemuck::cast_slice(&[0.0, 0.0, 0.0, 0.0]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
@@ -398,8 +433,12 @@ impl NoiseGeneratorBuilder {
         NoiseGenerator {
             elapsed_time: 0.0,
 
-            channels: self.channels,
-            channel_buffer: uniform_buffer,
+            uniforms,
+            channel_settings: self.channels,
+            channels,
+
+            uniform_buffer,
+            channel_buffer,
             scaling_ratio: self.scaling_ratio,
             texture,
             texture_view,
@@ -439,25 +478,44 @@ fn create_texture(
     (texture, texture_view)
 }
 
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct NoiseChannel {
-    settings: settings::Noise,
-    scale: f32,
-    offset_1: f32,
-    offset_2: f32,
-    blend_factor: f32,
+    scale: [f32; 2],   // 0
+    offset_1: f32,     // 8
+    offset_2: f32,     // 12
+    blend_factor: f32, //16
+    multiplier: f32,   // 20
+    _padding: [u32; 2], // 24
+                       // roundUp(8, 24) = 24 -> 32 for uniform
 }
 
 impl NoiseChannel {
     const BLEND_THRESHOLD: f32 = 1000.0;
 
-    pub fn tick(&mut self, elapsed_time: f32) {
-        self.scale = self.settings.scale
+    pub fn new(scaling_ratio: grid::ScalingRatio, channel_settings: &settings::Noise) -> Self {
+        Self {
+            scale: [
+                channel_settings.scale * scaling_ratio.x(),
+                channel_settings.scale * scaling_ratio.y(),
+            ],
+            offset_1: Self::BLEND_THRESHOLD * rng::gen::<f32>(),
+            offset_2: 0.0,
+            blend_factor: 0.0,
+            multiplier: channel_settings.multiplier,
+            _padding: [0; 2],
+        }
+    }
+
+    pub fn tick(&mut self, channel_settings: &settings::Noise, elapsed_time: f32) {
+        let scale = channel_settings.scale
             * (1.0 + 0.15 * (0.01 * elapsed_time * std::f32::consts::TAU).sin());
-        self.offset_1 += self.settings.offset_increment;
+        self.scale = [scale, scale];
+        self.offset_1 += channel_settings.offset_increment;
 
         if self.offset_1 > Self::BLEND_THRESHOLD {
-            self.blend_factor += self.settings.offset_increment;
-            self.offset_2 += self.settings.offset_increment;
+            self.blend_factor += channel_settings.offset_increment;
+            self.offset_2 += channel_settings.offset_increment;
         }
 
         // Reset blending
@@ -472,27 +530,15 @@ impl NoiseChannel {
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct NoiseUniforms {
-    scale: [f32; 2],   // 0
-    offset_1: f32,     // 8
-    offset_2: f32,     // 12
-    blend_factor: f32, //16
-    multiplier: f32,   // 20
-    _padding: [u32; 2], // 24
-                       // roundUp(8, 24) = 24 -> 32 for uniform
+    multiplier: f32, // 0
+    _padding: [u32; 3],
 }
 
 impl NoiseUniforms {
-    fn new(scaling_ratio: grid::ScalingRatio, channel: &NoiseChannel) -> Self {
+    fn new(settings: &settings::Settings) -> Self {
         Self {
-            scale: [
-                channel.scale * scaling_ratio.x(),
-                channel.scale * scaling_ratio.y(),
-            ],
-            offset_1: channel.offset_1,
-            offset_2: channel.offset_2,
-            blend_factor: channel.blend_factor,
-            multiplier: channel.settings.multiplier,
-            _padding: [0; 2],
+            multiplier: settings.noise_multiplier,
+            _padding: [0, 0, 0],
         }
     }
 }

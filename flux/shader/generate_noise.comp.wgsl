@@ -1,3 +1,7 @@
+struct NoiseUniforms {
+  multiplier: f32,
+}
+
 struct Channel {
   scale: vec2<f32>,
   offset_1: f32,
@@ -7,12 +11,9 @@ struct Channel {
   padding: vec2<f32>,
 }
 
-struct Channels {
-  channels: array<Channel, 3>,
-}
-
-@group(0) @binding(0) var<uniform> global: Channels;
-@group(0) @binding(1) var out_texture: texture_storage_2d<rg32float, write>;
+@group(0) @binding(0) var<uniform> uniforms: NoiseUniforms;
+@group(0) @binding(1) var<storage, read> channels: array<Channel>;
+@group(0) @binding(2) var out_texture: texture_storage_2d<rg32float, write>;
 
 fn permute(x: vec4<f32>) -> vec4<f32> {
   return (((x * 34.0) + 1.0) * x) % 289.0;
@@ -116,11 +117,21 @@ fn main(
   let texel_position = vec2<f32>(global_id.xy) / size;
 
   var noise = vec2f(0.0);
-  for (var i = 0; i < 3; i = i + 1) {
-    let channel = global.channels[i];
+  let numChannels = arrayLength(&channels);
+  var i : u32 = 0u;
+  loop {
+    if (i >= numChannels) {
+      break;
+    }
+
+    let channel = channels[i];
     noise += make_noise(texel_position, channel);
+
+    continuing {
+      i = i + 1u;
+    }
   }
 
   // TODO: make strength factor configurable
-  textureStore(out_texture, global_id.xy, vec4<f32>(noise * 0.45, 0.0, 0.0));
+  textureStore(out_texture, global_id.xy, vec4<f32>(noise * uniforms.multiplier, 0.0, 0.0));
 }

@@ -34,7 +34,7 @@ impl Flux {
         self.settings = Arc::clone(settings);
         self.fluid
             .update(device, queue, self.grid.scaling_ratio, &self.settings);
-        self.noise_generator.update(&self.settings.noise_channels);
+        self.noise_generator.update(&self.settings);
         self.lines
             .update(device, queue, self.screen_size, &self.grid, &self.settings);
     }
@@ -96,8 +96,11 @@ impl Flux {
             settings,
         );
 
-        let mut noise_generator_builder =
-            render::noise::NoiseGeneratorBuilder::new(2 * settings.fluid_size, grid.scaling_ratio);
+        let mut noise_generator_builder = render::noise::NoiseGeneratorBuilder::new(
+            2 * settings.fluid_size,
+            grid.scaling_ratio,
+            settings,
+        );
         settings.noise_channels.iter().for_each(|channel| {
             noise_generator_builder.add_channel(channel);
         });

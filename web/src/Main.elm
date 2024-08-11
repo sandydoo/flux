@@ -62,6 +62,7 @@ type alias Settings =
     , lineVariance : Float
     , gridSpacing : Int
     , viewScale : Float
+    , noiseMultiplier : Float
     , noiseChannels : Array Noise
     }
 
@@ -116,6 +117,7 @@ defaultSettings =
     , lineVariance = 0.55
     , viewScale = 1.6
     , gridSpacing = 15
+    , noiseMultiplier = 0.45
     , noiseChannels =
         Array.fromList
             [ { scale = 2.8
@@ -184,13 +186,14 @@ type SettingMsg
     | SetLineWidth Float
     | SetLineBeginOffset Float
     | SetLineVariance Float
-    | SetNoiseChannel Int NoiseMsg
-
-
-type NoiseMsg
-    = SetNoiseScale Float
     | SetNoiseMultiplier Float
-    | SetNoiseOffsetIncrement Float
+    | SetNoiseChannel Int NoiseChannelMsg
+
+
+type NoiseChannelMsg
+    = SetNoiseChannelScale Float
+    | SetNoiseChannelMultiplier Float
+    | SetNoiseChannelOffsetIncrement Float
 
 
 updateSettings : SettingMsg -> Settings -> Settings
@@ -229,6 +232,9 @@ updateSettings msg settings =
         SetLineVariance newLineVariance ->
             { settings | lineVariance = newLineVariance }
 
+        SetNoiseMultiplier newNoiseMultiplier ->
+            { settings | noiseMultiplier = newNoiseMultiplier }
+
         SetNoiseChannel channelNumber noiseMsg ->
             let
                 maybeChannel =
@@ -236,22 +242,22 @@ updateSettings msg settings =
             in
             case maybeChannel of
                 Just channel ->
-                    { settings | noiseChannels = Array.set channelNumber (updateNoise noiseMsg channel) settings.noiseChannels }
+                    { settings | noiseChannels = Array.set channelNumber (updateNoiseChannel noiseMsg channel) settings.noiseChannels }
 
                 Nothing ->
                     settings
 
 
-updateNoise : NoiseMsg -> Noise -> Noise
-updateNoise msg noise =
+updateNoiseChannel : NoiseChannelMsg -> Noise -> Noise
+updateNoiseChannel msg noise =
     case msg of
-        SetNoiseScale newScale ->
+        SetNoiseChannelScale newScale ->
             { noise | scale = newScale }
 
-        SetNoiseMultiplier newMultiplier ->
+        SetNoiseChannelMultiplier newMultiplier ->
             { noise | multiplier = newMultiplier }
 
-        SetNoiseOffsetIncrement newOffsetIncrement ->
+        SetNoiseChannelOffsetIncrement newOffsetIncrement ->
             { noise | offsetIncrement = newOffsetIncrement }
 
 
@@ -579,6 +585,27 @@ viewSettings settings =
         , Html.h2
             [ HA.class "col-span-2-md" ]
             [ Html.text "Noise" ]
+        , viewControl <|
+            Control
+                "Noise strength"
+                """
+                Overall amount of velocity injected into the fluid.
+                """
+                (Slider
+                    { min = 0.0
+                    , max = 4.0
+                    , step = 0.1
+                    , value = settings.noiseMultiplier
+                    , onInput =
+                        \value ->
+                            String.toFloat value
+                                |> Maybe.withDefault 0.0
+                                |> SetNoiseMultiplier
+                                |> SaveSetting
+                    , toString = formatFloat 1
+                    }
+                )
+        , Html.h2 [ HA.class "col-span-2-md" ] [ Html.text "Noise channels" ]
         ]
             ++ (Array.toList <|
                     Array.indexedMap
@@ -619,7 +646,7 @@ viewButtonGroup onClick active options =
             options
 
 
-viewNoiseChannel : String -> (NoiseMsg -> SettingMsg) -> Noise -> Html Msg
+viewNoiseChannel : String -> (NoiseChannelMsg -> SettingMsg) -> Noise -> Html Msg
 viewNoiseChannel title setNoiseChannel noiseChannel =
     Html.div
         [ HA.class "control-list-single" ]
@@ -639,7 +666,7 @@ viewNoiseChannel title setNoiseChannel noiseChannel =
                         \value ->
                             String.toFloat value
                                 |> Maybe.withDefault 0.0
-                                |> SetNoiseScale
+                                |> SetNoiseChannelScale
                                 |> setNoiseChannel
                                 |> SaveSetting
                     , toString = formatFloat 1
@@ -648,7 +675,7 @@ viewNoiseChannel title setNoiseChannel noiseChannel =
         , viewControl <|
             Control
                 "Strength"
-                "The amount of force applied by the noise."
+                "The strength of the noise relative to the other channels."
                 (Slider
                     { min = 0.0
                     , max = 1.0
@@ -658,7 +685,7 @@ viewNoiseChannel title setNoiseChannel noiseChannel =
                         \value ->
                             String.toFloat value
                                 |> Maybe.withDefault 0.0
-                                |> SetNoiseMultiplier
+                                |> SetNoiseChannelMultiplier
                                 |> setNoiseChannel
                                 |> SaveSetting
                     , toString = formatFloat 2
@@ -702,7 +729,7 @@ viewNoiseChannel title setNoiseChannel noiseChannel =
                             String.toInt value
                                 |> Maybe.withDefault 0
                                 |> toSpeed
-                                |> SetNoiseOffsetIncrement
+                                |> SetNoiseChannelOffsetIncrement
                                 |> setNoiseChannel
                                 |> SaveSetting
                     , toString = String.fromInt
@@ -850,6 +877,7 @@ encodeSettings settings =
         , ( "lineVariance", Encode.float settings.lineVariance )
         , ( "gridSpacing", Encode.int settings.gridSpacing )
         , ( "viewScale", Encode.float settings.viewScale )
+        , ( "noiseMultiplier", Encode.float settings.noiseMultiplier )
         , ( "noiseChannels", Encode.array encodeNoise settings.noiseChannels )
         ]
 

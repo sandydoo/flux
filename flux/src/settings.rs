@@ -24,6 +24,7 @@ pub struct Settings {
     pub grid_spacing: u32,
     pub view_scale: f32,
 
+    pub noise_multiplier: f32,
     pub noise_channels: Vec<Noise>,
 }
 
@@ -47,6 +48,7 @@ impl Default for Settings {
             line_variance: 0.55,
             grid_spacing: 15,
             view_scale: 1.6,
+            noise_multiplier: 0.45,
             noise_channels: vec![
                 Noise {
                     scale: 2.8,
