@@ -41,7 +41,7 @@ fn main_vs(
 
   point.x /= uniforms.aspect;
 
-  let short_line_boost = 1.0 + (uniforms.line_width * width) / length(endpoint);
+  let short_line_boost = 1.0 + ((uniforms.line_width * width) / length(endpoint));
   let line_offset = uniforms.line_begin_offset / short_line_boost;
 
   return VertexOutput(
