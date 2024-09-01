@@ -12,9 +12,7 @@
     &nbsp;·&nbsp;
     <a href="https://www.youtube.com/watch?v=dURktAeZDa8">Watch&nbsp;recording</a>
     &nbsp;·&nbsp;
-    <a href="https://twitter.com/sandy_doo/">Follow&nbsp;me&nbsp;on&nbsp;Twitter</a>
-    &nbsp;·&nbsp;
-    <a href="https://ko-fi.com/sandydoo/">Support&nbsp;my&nbsp;work</a>
+    <a href="https://x.com/sandydoo/">Follow&nbsp;me&nbsp;on&nbsp;X</a>
   </p>
 </p>
 
@@ -106,5 +104,5 @@ pnpm build
 
 [license-url]: https://github.com/sandydoo/flux/blob/main/LICENSE
 [maintainer-url]: https://github.com/sandydoo/
-[twitter]: https://twitter.com/sandy_doo/
+[x]: https://x.com/sandydoo/
 [store]: https://sandydoo.gumroad.com/l/flux
