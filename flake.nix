@@ -14,13 +14,6 @@
         nixpkgs.follows = "nixpkgs";
       };
     };
-    wgsl-analyzer-flake = {
-      url = "github:wgsl-analyzer/wgsl-analyzer";
-      inputs = {
-        nixpkgs.follows = "nixpkgs";
-        crane.follows = "crane";
-      };
-    };
   };
 
   outputs = inputs@{
@@ -30,7 +23,6 @@
     flake-utils,
     crane,
     rust-overlay,
-    wgsl-analyzer-flake,
     ...
   }:
     flake-parts.lib.mkFlake { inherit inputs; } {
@@ -51,7 +43,6 @@
           inherit system;
           overlays = [
             (import rust-overlay)
-            wgsl-analyzer-flake.overlays.${system}.default
           ];
         };
 
