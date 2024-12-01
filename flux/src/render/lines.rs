@@ -1,4 +1,5 @@
 use crate::grid::Grid;
+use crate::render::view::ViewTransform;
 use crate::settings::{ColorMode, Settings};
 
 use bytemuck::Zeroable;
@@ -80,6 +81,26 @@ impl LineUniforms {
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct ViewUniform {
+    view_matrix: [[f32; 4]; 4],
+}
+
+impl From<ViewTransform> for ViewUniform {
+    fn from(view_transform: ViewTransform) -> Self {
+        Self {
+            view_matrix: view_transform.to_matrix().to_cols_array_2d(),
+        }
+    }
+}
+
+impl Default for ViewUniform {
+    fn default() -> Self {
+        Self::from(ViewTransform::default())
+    }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Line {
     endpoint: [f32; 2],
     velocity: [f32; 2],
@@ -96,6 +117,7 @@ pub struct Context {
     line_vertex_buffer: wgpu::Buffer,
     endpoint_vertex_buffer: wgpu::Buffer,
     basepoints_buffer: wgpu::Buffer,
+    view_uniform_buffer: wgpu::Buffer,
     line_uniforms: LineUniforms,
     line_uniform_buffer: wgpu::Buffer,
     line_buffers: Vec<wgpu::Buffer>,
@@ -103,6 +125,8 @@ pub struct Context {
     linear_sampler: wgpu::Sampler,
     uniform_bind_group_layout: wgpu::BindGroupLayout,
     uniform_bind_group: wgpu::BindGroup,
+    view_uniform_bind_group_layout: wgpu::BindGroupLayout,
+    view_uniform_bind_group: wgpu::BindGroup,
     lines_bind_group_layout: wgpu::BindGroupLayout,
     line_bind_groups: Vec<wgpu::BindGroup>,
 
@@ -156,6 +180,15 @@ impl Context {
             &self.line_uniform_buffer,
             0,
             bytemuck::cast_slice(&[self.line_uniforms]),
+        );
+    }
+
+    pub fn set_view_transform(&self, queue: &wgpu::Queue, view_transform: ViewTransform) {
+        let view_matrix = ViewUniform::from(view_transform);
+        queue.write_buffer(
+            &self.view_uniform_buffer,
+            0,
+            bytemuck::cast_slice(&[view_matrix]),
         );
     }
 
@@ -344,6 +377,12 @@ impl Context {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
+        let view_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("buffer:ViewUniforms"),
+            contents: bytemuck::cast_slice(&[ViewUniform::default()]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
         let basepoints_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("buffer:basepoints"),
             contents: bytemuck::cast_slice(&grid.basepoints),
@@ -458,6 +497,37 @@ impl Context {
                     resource: wgpu::BindingResource::Sampler(&color_texture_sampler),
                 },
             ],
+        });
+
+        let view_uniform_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("bind_group_layout:view_uniform"),
+                entries: &[
+                    // view_uniform
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                ],
+            });
+
+        let view_uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("bind_group:view_uniform"),
+            layout: &view_uniform_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                    buffer: &view_uniform_buffer,
+                    offset: 0,
+                    size: None,
+                }),
+            }],
         });
 
         let lines_bind_group_layout =
@@ -641,7 +711,7 @@ impl Context {
         let draw_line_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("pipeline_layout:draw_line"),
-                bind_group_layouts: &[&uniform_bind_group_layout],
+                bind_group_layouts: &[&uniform_bind_group_layout, &view_uniform_bind_group_layout],
                 push_constant_ranges: &[],
             });
 
@@ -711,7 +781,7 @@ impl Context {
         let draw_endpoint_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("pipeline_layout:draw_endpoint"),
-                bind_group_layouts: &[&uniform_bind_group_layout],
+                bind_group_layouts: &[&uniform_bind_group_layout, &view_uniform_bind_group_layout],
                 push_constant_ranges: &[],
             });
 
@@ -756,6 +826,7 @@ impl Context {
             line_vertex_buffer,
             endpoint_vertex_buffer,
             basepoints_buffer,
+            view_uniform_buffer,
             line_uniforms,
             line_uniform_buffer,
             line_buffers,
@@ -764,6 +835,8 @@ impl Context {
             color_texture_sampler,
             uniform_bind_group_layout,
             uniform_bind_group,
+            view_uniform_bind_group_layout,
+            view_uniform_bind_group,
             lines_bind_group_layout,
             line_bind_groups,
 
@@ -802,6 +875,7 @@ impl Context {
     pub fn draw_lines<'rpass>(&'rpass self, rpass: &mut wgpu::RenderPass<'rpass>) {
         rpass.set_pipeline(&self.draw_line_pipeline);
         rpass.set_bind_group(0, &self.uniform_bind_group, &[]);
+        rpass.set_bind_group(1, &self.view_uniform_bind_group, &[]);
         rpass.set_vertex_buffer(0, self.line_buffers[self.frame_num].slice(..));
         rpass.set_vertex_buffer(1, self.basepoints_buffer.slice(..));
         rpass.set_vertex_buffer(2, self.line_vertex_buffer.slice(..));
@@ -811,6 +885,7 @@ impl Context {
     pub fn draw_endpoints<'rpass>(&'rpass self, rpass: &mut wgpu::RenderPass<'rpass>) {
         rpass.set_pipeline(&self.draw_endpoint_pipeline);
         rpass.set_bind_group(0, &self.uniform_bind_group, &[]);
+        rpass.set_bind_group(1, &self.view_uniform_bind_group, &[]);
         rpass.set_vertex_buffer(0, self.line_buffers[self.frame_num].slice(..));
         rpass.set_vertex_buffer(1, self.basepoints_buffer.slice(..));
         rpass.set_vertex_buffer(2, self.endpoint_vertex_buffer.slice(..));

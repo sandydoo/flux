@@ -3,6 +3,10 @@ pub mod fluid;
 pub mod lines;
 pub mod noise;
 pub mod texture;
+pub mod view;
+
+pub use view::ScreenViewport;
+pub use view::ViewTransform;
 
 // pub struct GraphicsContext {
 //     pub device: wgpu::Device,

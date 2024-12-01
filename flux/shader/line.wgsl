@@ -14,6 +14,7 @@ struct LineUniforms {
 }
 
 @group(0) @binding(0) var<uniform> uniforms: LineUniforms;
+@group(1) @binding(0) var<uniform> view_matrix: mat4x4<f32>;
 
 struct VertexOutput {
   @builtin(position) position: vec4<f32>,
@@ -33,7 +34,7 @@ fn main_vs(
   @location(6) vertex: vec2<f32>, // 56
 ) -> VertexOutput { // 64
   var x_basis = vec2<f32>(-endpoint.y, endpoint.x);
-  x_basis /= length(x_basis) + 0.0001; // safely normalize
+  x_basis /= max(length(x_basis), 1e-10); // safely normalize
 
   var point = vec2<f32>(uniforms.aspect, 1.0) * uniforms.zoom * (basepoint * 2.0 - 1.0)
     + endpoint * vertex.y
@@ -44,8 +45,10 @@ fn main_vs(
   let short_line_boost = 1.0 + ((uniforms.line_width * width) / length(endpoint));
   let line_offset = uniforms.line_begin_offset / short_line_boost;
 
+  let transformed_point = view_matrix * vec4<f32>(point, 0.0, 1.0);
+
   return VertexOutput(
-    vec4<f32>(point, 0.0, 1.0),
+    transformed_point,
     vertex,
     color,
     line_offset,

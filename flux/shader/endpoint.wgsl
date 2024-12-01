@@ -14,6 +14,7 @@ struct LineUniforms {
 }
 
 @group(0) @binding(0) var<uniform> uniforms: LineUniforms;
+@group(1) @binding(0) var<uniform> view_matrix: mat4x4<f32>;
 
 struct VertexOutput {
   @builtin(position) f_position: vec4<f32>,
@@ -41,6 +42,8 @@ fn main_vs(
 
   point.x /= uniforms.aspect;
 
+  let transformed_point = view_matrix * vec4<f32>(point, 0.0, 1.0);
+
   // Rotate the endpoint vector 90°. We use this to detect which side of the
   // endpoint we’re on in the fragment.
   let midpoint_vector = vec2<f32>(endpoint.y, -endpoint.x);
@@ -67,7 +70,7 @@ fn main_vs(
   let bottom_color = vec4<f32>(color.rgb * endpoint_opacity - premultiplied_color, 1.0);
 
   return VertexOutput(
-    vec4<f32>(point, 0.0, 1.0),
+    transformed_point,
     vertex,
     midpoint_vector,
     top_color,

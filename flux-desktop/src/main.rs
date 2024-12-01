@@ -244,6 +244,7 @@ async fn run(
                         &command_queue,
                         &mut encoder,
                         &view,
+                        None,
                         start.elapsed().as_secs_f64() * 1000.0,
                     );
 

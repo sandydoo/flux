@@ -1,12 +1,12 @@
 [workspace]
 resolver = "2"
 members = [
-  "flux",
-  "flux-desktop",
-  "flux-wasm",
-  "flux-gl/flux",
-  "flux-gl/flux-desktop",
-  "flux-gl/flux-wasm",
+    "flux",
+    "flux-desktop",
+    "flux-wasm",
+    "flux-gl/flux",
+    "flux-gl/flux-desktop",
+    "flux-gl/flux-wasm",
 ]
 
 [workspace.package]
@@ -27,11 +27,13 @@ features = ["jpeg", "png"]
 version = "0.25"
 
 [workspace.dependencies]
+approx = "0.5.1"
 env_logger = "0.10"
 bytemuck = { version = "1.4", features = ["derive"] }
 flux = { path = "./flux" }
 futures = "0.3"
 getrandom = { version = "0.2", features = ["js"] }
+glam = "0.29.2"
 half = { version = "2", features = ["bytemuck"] }
 log = "0.4"
 pollster = "0.3"
@@ -66,7 +68,6 @@ opt-level = 3
 
 [profile.release]
 codegen-units = 1 # Allow further optimisations by disabling parallel compilation
-lto = true # Enable link-time optimisations
-opt-level = "s" # Optimise for size
-panic = "abort" # Strip expensive panic unwinding code
-
+lto = true        # Enable link-time optimisations
+opt-level = "s"   # Optimise for size
+panic = "abort"   # Strip expensive panic unwinding code

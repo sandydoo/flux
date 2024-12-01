@@ -10,7 +10,8 @@ const MAX_FRAME_TIME: f32 = 1.0 / 10.0;
 
 pub struct Flux {
     settings: Arc<Settings>,
-    screen_size: wgpu::Extent3d,
+    logical_size: wgpu::Extent3d,
+    physical_size: wgpu::Extent3d,
 
     grid: grid::Grid,
     fluid: render::fluid::Context,
@@ -36,7 +37,7 @@ impl Flux {
             .update(device, queue, self.grid.scaling_ratio, &self.settings);
         self.noise_generator.update(&self.settings);
         self.lines
-            .update(device, queue, self.screen_size, &self.grid, &self.settings);
+            .update(device, queue, self.logical_size, &self.grid, &self.settings);
     }
 
     pub fn sample_colors_from_image(
@@ -73,10 +74,14 @@ impl Flux {
 
         rng::init_from_seed(&settings.seed);
 
-        // Logical size
-        let screen_size = wgpu::Extent3d {
+        let logical_size = wgpu::Extent3d {
             width: logical_width,
             height: logical_height,
+            depth_or_array_layers: 1,
+        };
+        let physical_size = wgpu::Extent3d {
+            width: physical_width,
+            height: physical_height,
             depth_or_array_layers: 1,
         };
 
@@ -91,7 +96,7 @@ impl Flux {
             device,
             queue,
             swapchain_format,
-            screen_size,
+            logical_size,
             &grid,
             settings,
         );
@@ -119,7 +124,8 @@ impl Flux {
 
         Ok(Flux {
             settings: Arc::clone(settings),
-            screen_size,
+            logical_size,
+            physical_size,
 
             fluid,
             grid,
@@ -147,17 +153,23 @@ impl Flux {
         let grid = grid::Grid::new(logical_width, logical_height, self.settings.grid_spacing);
 
         // TODO: fetch line state from GPU and resample for new grid
-        let screen_size = wgpu::Extent3d {
+        let logical_size = wgpu::Extent3d {
             width: logical_width,
             height: logical_height,
             depth_or_array_layers: 1,
         };
+        let physical_size = wgpu::Extent3d {
+            width: physical_width,
+            height: physical_height,
+            depth_or_array_layers: 1,
+        };
 
         self.lines
-            .resize(device, queue, screen_size, &grid, &self.settings);
+            .resize(device, queue, logical_size, &grid, &self.settings);
 
         self.grid = grid;
-        self.screen_size = screen_size;
+        self.logical_size = logical_size;
+        self.physical_size = physical_size;
 
         // self.fluid.resize(device, self.grid.scaling_ratio);
         self.noise_generator.resize(
@@ -173,10 +185,11 @@ impl Flux {
         queue: &wgpu::Queue,
         encoder: &mut wgpu::CommandEncoder,
         view: &wgpu::TextureView,
+        screen_viewport: Option<render::ScreenViewport>,
         timestamp: f64,
     ) {
         self.compute(device, queue, encoder, timestamp);
-        self.render(device, queue, encoder, view);
+        self.render(device, queue, encoder, view, screen_viewport);
     }
 
     pub fn compute(
@@ -252,6 +265,7 @@ impl Flux {
         queue: &wgpu::Queue,
         encoder: &mut wgpu::CommandEncoder,
         view: &wgpu::TextureView,
+        screen_viewport: Option<render::ScreenViewport>,
     ) {
         encoder.push_debug_group("render lines");
 
@@ -274,6 +288,12 @@ impl Flux {
             use settings::Mode::*;
             match &self.settings.mode {
                 Normal => {
+                    let view_transform = screen_viewport
+                        .map(|ref sv| {
+                            render::ViewTransform::from_screen_viewport(&self.physical_size, sv)
+                        })
+                        .unwrap_or_default();
+                    self.lines.set_view_transform(queue, view_transform);
                     self.lines.draw_lines(&mut rpass);
                     self.lines.draw_endpoints(&mut rpass);
                 }

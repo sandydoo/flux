@@ -1,7 +1,5 @@
 use flux::{self, settings};
 use gloo_utils::format::JsValueSerdeExt;
-use serde::Serialize;
-use std::rc::Rc;
 use std::sync::Arc;
 
 use wasm_bindgen::prelude::*;
@@ -15,6 +13,7 @@ pub struct Flux {
     canvas: Canvas,
     device: wgpu::Device,
     queue: wgpu::Queue,
+    #[allow(dead_code)]
     window: Arc<winit::window::Window>,
     window_surface: wgpu::Surface<'static>,
     logical_width: u32,
@@ -140,7 +139,7 @@ impl Flux {
         log::debug!("{:?}\n{:?}", adapter.get_info(), adapter.features(),);
 
         // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
-        let mut limits = wgpu::Limits::downlevel_defaults().using_resolution(adapter.limits());
+        let limits = wgpu::Limits::downlevel_defaults().using_resolution(adapter.limits());
 
         let features = wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES
             | wgpu::Features::FLOAT32_FILTERABLE;
@@ -214,8 +213,14 @@ impl Flux {
                 label: Some("flux:render"),
             });
 
-        self.instance
-            .animate(&self.device, &self.queue, &mut encoder, &view, timestamp);
+        self.instance.animate(
+            &self.device,
+            &self.queue,
+            &mut encoder,
+            &view,
+            None,
+            timestamp,
+        );
 
         self.queue.submit(Some(encoder.finish()));
         frame.present();
