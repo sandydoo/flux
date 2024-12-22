@@ -18,7 +18,7 @@ impl ScreenViewport {
         }
     }
 
-    pub fn translate(&mut self, dx: i32, dy: i32)  {
+    pub fn translate(&mut self, dx: i32, dy: i32) {
         self.x += dx;
         self.y += dy;
     }

@@ -2,7 +2,7 @@ use crate::grid;
 use crate::settings::{self, Settings};
 
 use std::borrow::Cow;
-use std::sync::{Mutex, Arc};
+use std::sync::{Arc, Mutex};
 use wgpu::util::DeviceExt;
 
 #[repr(C)]
