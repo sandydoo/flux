@@ -119,6 +119,56 @@ mod test {
     }
 
     #[test]
+    fn test_ultrawide_and_side() {
+        let screen_size = wgpu::Extent3d {
+            width: 6000,
+            height: 1440,
+            ..Default::default()
+        };
+        assert_view_transform(
+            screen_size,
+            ScreenViewport::new(0, 0, 2560, 1440),
+            ViewTransform {
+                offset: [1.34375, 0.0],
+                scale: [2.34375, 1.0],
+            },
+        );
+        assert_view_transform(
+            screen_size,
+            ScreenViewport::new(2560, 0, 3440, 1440),
+            ViewTransform {
+                offset: [-0.74418604, 0.0],
+                scale: [1.744186, 1.0],
+            },
+        );
+    }
+
+    #[test]
+    fn test_two_halves() {
+        let screen_size = wgpu::Extent3d {
+            width: 2000,
+            height: 1000,
+            ..Default::default()
+        };
+        assert_view_transform(
+            screen_size,
+            ScreenViewport::new(0, 0, 1000, 1000),
+            ViewTransform {
+                offset: [1.0, 0.0],
+                scale: [2.0, 1.0],
+            },
+        );
+        assert_view_transform(
+            screen_size,
+            ScreenViewport::new(1000, 0, 1000, 1000),
+            ViewTransform {
+                offset: [-1.0, 0.0],
+                scale: [2.0, 1.0],
+            },
+        );
+    }
+
+    #[test]
     fn test_full_screen_viewport() {
         let screen_size = wgpu::Extent3d {
             width: 800,
@@ -161,9 +211,9 @@ mod test {
         };
         assert_view_transform(
             screen_size,
-            ScreenViewport::new(200, 150, 400, 300),
+            ScreenViewport::new(50, 75, 400, 300),
             ViewTransform {
-                offset: [1.5, -1.5],
+                offset: [0.75, -0.5],
                 scale: [2.0, 2.0],
             },
         );
@@ -180,7 +230,7 @@ mod test {
             screen_size,
             ScreenViewport::new(0, 150, 800, 300),
             ViewTransform {
-                offset: [0.0, -1.5],
+                offset: [0.0, 0.0],
                 scale: [1.0, 2.0],
             },
         );
@@ -197,7 +247,7 @@ mod test {
             screen_size,
             ScreenViewport::new(200, 0, 400, 600),
             ViewTransform {
-                offset: [1.5, 0.0],
+                offset: [0.0, 0.0],
                 scale: [2.0, 1.0],
             },
         );
@@ -214,7 +264,7 @@ mod test {
             screen_size,
             ScreenViewport::new(300, 200, 200, 200),
             ViewTransform {
-                offset: [2.25, -2.0],
+                offset: [0.0, 0.0],
                 scale: [4.0, 3.0],
             },
         );
