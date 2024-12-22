@@ -58,17 +58,20 @@ impl RelativeEq for ViewTransform {
 
 impl ViewTransform {
     pub fn from_screen_viewport(screen_size: &wgpu::Extent3d, viewport: &ScreenViewport) -> Self {
-        let scene_width = screen_size.width as f32;
-        let scene_height = screen_size.height as f32;
+        let screen_width = screen_size.width as f32;
+        let screen_height = screen_size.height as f32;
 
         let scale = [
-            scene_width / viewport.width as f32,
-            scene_height / viewport.height as f32,
+            screen_width / viewport.width as f32,
+            screen_height / viewport.height as f32,
         ];
 
+        let scale_dx = scale[0] - 1.0;
+        let scale_dy = scale[1] - 1.0;
+
         let offset = [
-            2.0 * (scene_width - viewport.width as f32 + viewport.x as f32) / scene_width,
-            -2.0 * (scene_height - viewport.height as f32 + viewport.y as f32) / scene_height,
+            scale_dx - (viewport.x as f32 * 2.0 / screen_width) * scale[0],
+            -scale_dy + (viewport.y as f32 * 2.0 / screen_height) * scale[1],
         ];
 
         Self { offset, scale }
