@@ -9,8 +9,10 @@ edition.workspace = true
 publish = false
 
 [dependencies]
+approx.workspace = true
 bytemuck.workspace = true
 getrandom.workspace = true
+glam.workspace = true
 image.workspace = true
 log.workspace = true
 rand.workspace = true
