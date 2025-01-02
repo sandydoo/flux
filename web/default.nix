@@ -85,7 +85,7 @@ in
 
     pnpmDeps = pnpm.fetchDeps {
       inherit (finalAttrs) pname src version;
-      hash = "sha256-xV7Il9x6rjaGqEBcJ4t9DfqHBjBqhLMgyu/BpyfOjxY=";
+      hash = "sha256-CHVjCvJOQ52vQc8yDabgIyTh+9d0HQelBO13vUiogT8=";
     };
 
     preConfigure = pkgs.elmPackages.fetchElmDeps {
