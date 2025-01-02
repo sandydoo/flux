@@ -15,7 +15,7 @@ jobs:
         uses: cachix/install-nix-action@v23
 
       - name: Build app
-        run: nix build .#flux-web
+        run: nix build .#web
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
