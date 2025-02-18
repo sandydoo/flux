@@ -46,7 +46,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
 tokio = { version = "1.36.0", features = ["full"] }
-winit = "0.30"
+winit = "0.29"
 
 # wasm32
 console_error_panic_hook = "0.1"
