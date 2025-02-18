@@ -546,7 +546,7 @@ impl Context {
             label: Some("Advection"),
             layout: Some(&advection_pipeline_layout),
             module: &advection_shader,
-            entry_point: "main",
+            entry_point: Some("main"),
             compilation_options: Default::default(),
             cache: None,
             // TODO: use pipeline constants for direction once #5500 lands
@@ -621,7 +621,7 @@ impl Context {
                 label: Some("pipeline:adjust_advection"),
                 layout: Some(&adjust_advection_pipeline_layout),
                 module: &adjust_advection_shader,
-                entry_point: "main",
+                entry_point: Some("main"),
                 compilation_options: Default::default(),
                 cache: None,
             });
@@ -644,7 +644,7 @@ impl Context {
             label: Some("Diffusion"),
             layout: Some(&diffusion_pipeline_layout),
             module: &diffusion_shader,
-            entry_point: "main",
+            entry_point: Some("main"),
             compilation_options: Default::default(),
             cache: None,
         });
@@ -708,7 +708,7 @@ impl Context {
                 label: Some("pipeline:divergence"),
                 layout: Some(&divergence_pipeline_layout),
                 module: &divergence_shader,
-                entry_point: "main",
+                entry_point: Some("main"),
                 compilation_options: Default::default(),
                 cache: None,
             });
@@ -822,7 +822,7 @@ impl Context {
             label: Some("pipeline:pressure"),
             layout: Some(&pressure_pipeline_layout),
             module: &pressure_shader,
-            entry_point: "main",
+            entry_point: Some("main"),
             compilation_options: Default::default(),
             cache: None,
         });
@@ -850,7 +850,7 @@ impl Context {
                 label: Some("pipeline:subtract_gradient"),
                 layout: Some(&subtract_gradient_pipeline_layout),
                 module: &subtract_gradient_shader,
-                entry_point: "main",
+                entry_point: Some("main"),
                 compilation_options: Default::default(),
                 cache: None,
             });

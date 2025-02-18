@@ -703,7 +703,7 @@ impl Context {
                 label: Some("pipeline:place_lines"),
                 layout: Some(&place_lines_pipeline_layout),
                 module: &place_lines_shader,
-                entry_point: "main",
+                entry_point: Some("main"),
                 compilation_options: Default::default(),
                 cache: None,
             });
@@ -761,13 +761,13 @@ impl Context {
             layout: Some(&draw_line_pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &draw_line_shader,
-                entry_point: "main_vs",
+                entry_point: Some("main_vs"),
                 buffers: &vertex_buffer_layouts,
                 compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
                 module: &draw_line_shader,
-                entry_point: "main_fs",
+                entry_point: Some("main_fs"),
                 targets: &color_targets,
                 compilation_options: Default::default(),
             }),
@@ -799,13 +799,13 @@ impl Context {
                 layout: Some(&draw_endpoint_pipeline_layout),
                 vertex: wgpu::VertexState {
                     module: &draw_endpoint_shader,
-                    entry_point: "main_vs",
+                    entry_point: Some("main_vs"),
                     buffers: &vertex_buffer_layouts,
                     compilation_options: Default::default(),
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &draw_endpoint_shader,
-                    entry_point: "main_fs",
+                    entry_point: Some("main_fs"),
                     targets: &color_targets,
                     compilation_options: Default::default(),
                 }),

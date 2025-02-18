@@ -294,7 +294,7 @@ impl NoiseGeneratorBuilder {
                 label: Some("pipeline:generate_noise"),
                 layout: Some(&pipeline_layout),
                 module: &generate_noise_shader,
-                entry_point: "main",
+                entry_point: Some("main"),
                 compilation_options: Default::default(),
                 cache: None,
             });
@@ -425,7 +425,7 @@ impl NoiseGeneratorBuilder {
                 label: Some("Inject noise"),
                 layout: Some(&inject_noise_pipeline_layout),
                 module: &inject_noise_shader,
-                entry_point: "main",
+                entry_point: Some("main"),
                 compilation_options: Default::default(),
                 cache: None,
             });
