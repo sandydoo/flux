@@ -103,7 +103,7 @@ pub fn load_color_texture(
     });
 
     queue.write_texture(
-        wgpu::ImageCopyTexture {
+        wgpu::TexelCopyTextureInfo {
             texture: &texture,
             mip_level: 0,
             origin: wgpu::Origin3d::ZERO,
@@ -111,7 +111,7 @@ pub fn load_color_texture(
         },
         // TODO: fix clone()
         &img.clone().into_raw(),
-        wgpu::ImageDataLayout {
+        wgpu::TexelCopyBufferLayout {
             offset: 0,
             bytes_per_row: Some(4 * width),
             rows_per_image: None,

@@ -40,7 +40,7 @@ impl Flux {
             height,
             depth_or_array_layers: 1,
         };
-        let source = wgpu::ImageCopyExternalImage {
+        let source = wgpu::CopyExternalImageSourceInfo {
             source: wgpu::ExternalImageSource::ImageBitmap(bitmap),
             origin: wgpu::Origin2d::ZERO,
             flip_y: false,
@@ -60,7 +60,7 @@ impl Flux {
                 | wgpu::TextureUsages::RENDER_ATTACHMENT,
         });
 
-        let dest = wgpu::ImageCopyTextureTagged {
+        let dest = wgpu::CopyExternalImageDestInfo {
             texture: &texture,
             mip_level: 0,
             origin: wgpu::Origin3d::ZERO,
@@ -123,7 +123,7 @@ impl Flux {
         let window = Arc::new(window);
         let mut instance_desc = wgpu::InstanceDescriptor::default();
         instance_desc.backends = wgpu::Backends::BROWSER_WEBGPU;
-        let wgpu_instance = wgpu::Instance::new(instance_desc);
+        let wgpu_instance = wgpu::Instance::new(&instance_desc);
         let window_surface = wgpu_instance
             .create_surface(Arc::clone(&window))
             .expect("Failed to create surface");
