@@ -33,7 +33,7 @@
     in
     pkgs.runCommand "flux-wasm" {} ''
       mkdir $out
-      ${wasm-bindgen-cli-0_2_92}/bin/wasm-bindgen \
+      ${lib.getExe pkgs.wasm-bindgen-cli_0_2_100} \
         --target bundler \
         --out-name index \
         --out-dir $out \
@@ -48,24 +48,6 @@
   flux-gl-wasm-packed = prepareWasm flux-gl-wasm;
 
   gitignoreSource = pkgs.nix-gitignore.gitignoreSource;
-
-  wasm-bindgen-cli-0_2_92 = pkgs.wasm-bindgen-cli.overrideAttrs (drv: rec {
-    name = "wasm-bindgen-cli-${version}";
-    version = "0.2.92";
-    src = pkgs.fetchCrate {
-      inherit (drv) pname;
-      inherit version;
-      hash = "sha256-1VwY8vQy7soKEgbki4LD+v259751kKxSxmo/gqE6yV0=";
-    };
-
-    cargoDeps = drv.cargoDeps.overrideAttrs (lib.const {
-      inherit src;
-      name = "${drv.pname}-vendor.tar.gz";
-      outputHash = "sha256-2R9oZ7T5ulNUrCmXlBzOni9v0ZL+ixUHXmbnbOMhBao=";
-    });
-
-    doCheck = false;
-  });
 in
   stdenv.mkDerivation (finalAttrs: {
     pname = "flux-web";
@@ -79,7 +61,7 @@ in
       pnpm
       pnpm.configHook
       elmPackages.elm
-      wasm-bindgen-cli-0_2_92
+      wasm-bindgen-cli_0_2_100
       binaryen
     ];
 
