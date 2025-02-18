@@ -37,7 +37,7 @@ glam = "0.29.2"
 half = { version = "2", features = ["bytemuck"] }
 log = "0.4"
 pollster = "0.4"
-rand = "0.9"
+rand = { version = "0.9", features = ["thread_rng"] }
 rand_pcg = "0.9"
 rand_seeder = "0.4"
 raw-window-handle = "0.6"
