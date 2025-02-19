@@ -511,6 +511,7 @@ impl NoiseChannel {
         let scale = channel_settings.scale
             * (1.0 + 0.15 * (0.01 * elapsed_time * std::f32::consts::TAU).sin());
         self.scale = [scale, scale];
+        self.multiplier = channel_settings.multiplier;
         self.offset_1 += channel_settings.offset_increment;
 
         if self.offset_1 > Self::BLEND_THRESHOLD {
