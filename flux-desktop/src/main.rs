@@ -249,6 +249,7 @@ async fn run(
                     );
 
                     command_queue.submit(Some(encoder.finish()));
+                    window.pre_present_notify();
                     frame.present();
                 }
                 _ => (),
