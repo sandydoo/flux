@@ -73,18 +73,6 @@
         release = true;
         cargoExtraArgs = "-p flux-gl-desktop";
         doCheck = true;
-        nativeBuildInputs =
-          lib.optionals stdenv.isDarwin
-          (with pkgs.darwin.apple_sdk.frameworks; [
-            AppKit
-            ApplicationServices
-            CoreFoundation
-            CoreGraphics
-            CoreVideo
-            Foundation
-            OpenGL
-            QuartzCore
-          ]);
       };
 
       flux-gl-wasm = craneLib.buildPackage {

@@ -103,17 +103,6 @@
         src = fileSetForCrate ./flux-desktop;
         release = true;
         cargoExtraArgs = "-p flux-desktop";
-        nativeBuildInputs =
-          lib.optionals stdenv.isDarwin
-          (with pkgs.darwin.apple_sdk.frameworks; [
-            AppKit
-            ApplicationServices
-            CoreFoundation
-            CoreGraphics
-            CoreVideo
-            Foundation
-            QuartzCore
-          ]);
       });
 
       flux-wasm = craneLib.buildPackage (individualCrateArgs // {
