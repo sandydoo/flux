@@ -17,7 +17,7 @@
         {
           "files": [
             "index_bg.wasm",
-            "indexjs",
+            "index.js",
             "index_bg.js",
             "index.d.ts"
           ],
