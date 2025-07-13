@@ -15,8 +15,12 @@ struct Channel {
 @group(0) @binding(1) var<storage, read> channels: array<Channel>;
 @group(0) @binding(2) var out_texture: texture_storage_2d<rg32float, write>;
 
+fn mod289(x: vec4<f32>) -> vec4<f32> {
+  return x - floor(x * (1.0 / 289.0)) * 289.0;
+}
+
 fn permute(x: vec4<f32>) -> vec4<f32> {
-  return (((x * 34.0) + 1.0) * x) % 289.0;
+  return mod289(((x * 34.0) + 1.0) * x);
 }
 
 fn snoise(v: vec3<f32>) -> f32 {
@@ -40,7 +44,7 @@ fn snoise(v: vec3<f32>) -> f32 {
   let x3 = x0 - 0.5;
 
   // Permutations
-  i = i % 289.0; // Avoid truncation effects in permutation
+  i = mod289(vec4<f32>(i.x, i.y, i.z, 0.0)).xyz; // Avoid truncation effects in permutation
   let p =
     permute(permute(permute(i.z + vec4(0.0, i1.z, i2.z, 1.0))
                           + i.y + vec4(0.0, i1.y, i2.y, 1.0))
