@@ -118,7 +118,7 @@ fn main(
   @builtin(global_invocation_id) global_id: vec3<u32>,
 ) {
   let size = vec2<f32>(textureDimensions(out_texture));
-  let texel_position = vec2<f32>(global_id.xy) / size;
+  let texel_position = (vec2<f32>(global_id.xy) + 0.5) / size;
 
   var noise = vec2f(0.0);
   let numChannels = arrayLength(&channels);
