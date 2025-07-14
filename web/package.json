@@ -24,7 +24,7 @@
     "elm-webpack-loader": "^8.0.0",
     "gh-pages": "^6.3.0",
     "html-webpack-plugin": "^5.6.3",
-    "webpack": "^5.99.9",
+    "webpack": "^5.100.1",
     "webpack-cli": "^6.0.1",
     "webpack-dev-server": "^5.2.2"
   },
