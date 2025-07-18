@@ -139,7 +139,8 @@ fn main(
   // Basically, smoothstep(0.0, 0.4, length(velocity));
   // Maybe width and opacity should be on different easings.
   let width_boost = saturate(2.5 * length(velocity));
-  let new_line_width = width_boost * width_boost * (3.0 - width_boost * 2.0);
+  let new_line_width = smoothstep(0.0, 1.0, width_boost);
+  let opacity = smoothstep(0.0, 1.0, width_boost);
 
   var color: vec3<f32>;
   var color_momentum_boost = 3.0;
@@ -172,9 +173,7 @@ fn main(
 
   let new_color = vec4(
     saturate(line.color.rgb + uniforms.delta_time * new_color_velocity),
-    width_boost,
-    // TODO: expose options?
-    // smoothstep(0.05, 0.7, length(velocity)),
+    opacity,
   );
 
   out_lines[index] = Line(
