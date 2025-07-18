@@ -125,7 +125,15 @@ fn main(
   let basepoint = basepoints[index];
   let line = lines[index];
   let velocity = textureSampleLevel(velocity_texture, linear_sampler, basepoint, 0.0).xy;
-  let noise = snoise(vec3(uniforms.line_noise_scale * basepoint, uniforms.line_noise_offset_1));
+
+  // Blend the two noises when reaching the limit of the offset
+  let scaled_pos = uniforms.line_noise_scale * basepoint;
+  let noise1 = snoise(vec3(scaled_pos, uniforms.line_noise_offset_1));
+  var noise = noise1;
+  if (uniforms.line_noise_blend_factor > 0.0) {
+    let noise2 = snoise(vec3(scaled_pos, uniforms.line_noise_offset_2));
+    noise = mix(noise1, noise2, uniforms.line_noise_blend_factor);
+  }
 
   let variance = mix(1.0 - uniforms.line_variance, 1.0, 0.5 + 0.5 * noise);
   let velocity_delta_boost = mix(3.0, 25.0, 1.0 - variance);
