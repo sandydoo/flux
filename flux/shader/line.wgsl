@@ -59,8 +59,9 @@ fn main_vs(
 fn main_fs(fs_input: VertexOutput) -> @location(0) vec4<f32> {
   let fade = smoothstep(fs_input.f_line_offset, 1.0, fs_input.f_vertex.y);
 
+  let edge_width = fwidth(fs_input.f_vertex.x);
   let x_offset = abs(fs_input.f_vertex.x);
-  let smooth_edges = 1.0 - smoothstep(0.5 - fwidth(x_offset), 0.5, x_offset);
+  let smooth_edges = 1.0 - smoothstep(0.5 - edge_width, 0.5, x_offset);
 
   return vec4<f32>(fs_input.f_color.rgb, fs_input.f_color.a * fade * smooth_edges);
 }
