@@ -93,8 +93,8 @@ fn main() -> Result<(), impl std::error::Error> {
     #[cfg(not(target_os = "macos"))]
     let window = WindowBuilder::new()
         .with_title("Flux")
-        .with_decorations(true)
-        .with_resizable(true)
+        .with_decorations(false)
+        .with_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
         .with_inner_size(logical_size)
         .build(&event_loop)
         .unwrap();
@@ -159,7 +159,37 @@ async fn run(
     window_surface.configure(&device, &config);
 
     let logical_size = physical_size.to_logical(window.scale_factor());
-    let settings = Arc::new(Settings::default());
+
+    let config_path = std::env::var_os("HOME")
+        .map(std::path::PathBuf::from)
+        .map(|p| p.join(".config").join("flux").join("settings.json"));
+
+    let settings = if let Some(path) = &config_path {
+        if path.exists() {
+            match std::fs::read_to_string(path) {
+                Ok(content) => match serde_json::from_str(&content) {
+                    Ok(s) => {
+                        log::info!("Loaded settings from {:?}", path);
+                        Arc::new(s)
+                    }
+                    Err(e) => {
+                        log::error!("Failed to parse settings: {}", e);
+                        Arc::new(Settings::default())
+                    }
+                },
+                Err(e) => {
+                    log::error!("Failed to read settings file: {}", e);
+                    Arc::new(Settings::default())
+                }
+            }
+        } else {
+            log::info!("No settings file found at {:?}, using defaults", path);
+            Arc::new(Settings::default())
+        }
+    } else {
+        Arc::new(Settings::default())
+    };
+
     let flux = Flux::new(
         &device,
         &command_queue,
