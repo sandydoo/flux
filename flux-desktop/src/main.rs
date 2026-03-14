@@ -16,6 +16,76 @@ use winit::{
 #[cfg(target_os = "macos")]
 use winit::platform::macos::WindowAttributesExtMacOS;
 
+#[cfg(target_os = "macos")]
+mod macos {
+    use std::ffi::c_void;
+
+    type CGColorSpaceRef = *const c_void;
+    type CFStringRef = *const c_void;
+
+    #[link(name = "CoreGraphics", kind = "framework")]
+    extern "C" {
+        static kCGColorSpaceExtendedSRGB: CFStringRef;
+        fn CGColorSpaceCreateWithName(name: CFStringRef) -> CGColorSpaceRef;
+        fn CFRelease(cf: *const c_void);
+    }
+
+    extern "C" {
+        fn sel_registerName(name: *const u8) -> *const c_void;
+    }
+
+    // objc_msgSend is NOT variadic — it uses the callee's calling convention.
+    // On ARM64, variadic and non-variadic conventions differ (stack vs registers),
+    // so we must call it with the correct function pointer type for each message.
+    #[allow(clashing_extern_declarations)]
+    extern "C" {
+        #[link_name = "objc_msgSend"]
+        fn objc_msg_send_bool(receiver: *mut c_void, sel: *const c_void, val: i32);
+        #[link_name = "objc_msgSend"]
+        fn objc_msg_send_ptr(receiver: *mut c_void, sel: *const c_void, val: *const c_void);
+    }
+
+    /// Set the CAMetalLayer's color space to extended linear sRGB and enable EDR.
+    ///
+    /// Uses wgpu's HAL API to access the Metal surface's layer directly.
+    pub fn enable_edr(surface: &wgpu::Surface) {
+        unsafe {
+            let hal_surface = surface.as_hal::<wgpu::hal::api::Metal>();
+            let Some(hal_surface) = hal_surface else {
+                log::warn!("Failed to access Metal HAL surface");
+                return;
+            };
+
+            let layer = hal_surface.render_layer().lock();
+            let layer_ptr = metal::foreign_types::ForeignType::as_ptr(&*layer) as *mut c_void;
+
+            // Enable extended dynamic range content
+            objc_msg_send_bool(
+                layer_ptr,
+                sel_registerName(b"setWantsExtendedDynamicRangeContent:\0".as_ptr()),
+                1,
+            );
+
+            // Set the color space to extended sRGB (non-linear).
+            // This preserves the sRGB gamma interpretation of our pixel values
+            // (matching the default layer behavior) while allowing values > 1.0
+            // to map to EDR brightness above SDR white.
+            let color_space = CGColorSpaceCreateWithName(kCGColorSpaceExtendedSRGB);
+            if !color_space.is_null() {
+                objc_msg_send_ptr(
+                    layer_ptr,
+                    sel_registerName(b"setColorspace:\0".as_ptr()),
+                    color_space,
+                );
+                CFRelease(color_space);
+                log::info!("Enabled EDR with extended sRGB color space");
+            } else {
+                log::warn!("Failed to create extended sRGB color space");
+            }
+        }
+    }
+}
+
 use flux::{Flux, Settings};
 
 struct App {
@@ -177,6 +247,9 @@ impl ApplicationHandler for FluxApp {
 
         window_surface.configure(&device, &config);
 
+        #[cfg(target_os = "macos")]
+        macos::enable_edr(&window_surface);
+
         let logical_size = physical_size.to_logical(window.scale_factor());
         let settings = Arc::new(Settings {
             seed: Some("1337".into()),
@@ -318,7 +391,13 @@ impl ApplicationHandler for FluxApp {
 fn get_preferred_format(capabilities: &wgpu::SurfaceCapabilities) -> wgpu::TextureFormat {
     // Prefer non-srgb formats, as we will be doing linear math in the shaders.
     // If the swapchain doesn't support any non-srgb formats, we will fall back to srgb.
+    //
+    // On macOS, prefer Rgba16Float for EDR support: values > 1.0 in the framebuffer
+    // map to brightness above SDR white when the CAMetalLayer is configured with
+    // an extended linear sRGB color space.
     let preferred_formats = [
+        #[cfg(target_os = "macos")]
+        wgpu::TextureFormat::Rgba16Float,
         wgpu::TextureFormat::Rgb10a2Unorm,
         wgpu::TextureFormat::Bgra8Unorm,
         wgpu::TextureFormat::Rgba8Unorm,

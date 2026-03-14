@@ -825,6 +825,7 @@ dependencies = [
  "futures",
  "image",
  "log",
+ "metal",
  "pollster",
  "raw-window-handle",
  "serde_json",

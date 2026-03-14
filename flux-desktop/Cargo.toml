@@ -20,3 +20,6 @@ serde_json.workspace = true
 tokio.workspace = true
 wgpu.workspace = true
 winit.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+metal = "0.33"
