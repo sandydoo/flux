@@ -13,4 +13,7 @@ env_logger.workspace = true
 flux = { version = "4", path = "../flux", package = "flux-gl"}
 glow.workspace = true
 glutin.workspace = true
+glutin-winit.workspace = true
+raw-window-handle.workspace = true
+winit.workspace = true
 serde_json.workspace = true

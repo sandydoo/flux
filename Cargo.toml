@@ -60,7 +60,8 @@ web-sys = "0.3"
 
 # GL
 glow = "0.13"
-glutin = "0.28"
+glutin = "0.32"
+glutin-winit = "0.5"
 
 # The unoptimized build is too slow
 [profile.dev.package.image]
