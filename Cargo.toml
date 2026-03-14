@@ -20,7 +20,7 @@ repository = "https://github.com/sandydoo/flux/"
 authors = ["Sander Melnikov <hey@sandydoo.me"]
 
 [workspace.dependencies.wgpu]
-version = "27.0"
+version = "28.0"
 
 [workspace.dependencies.image]
 features = ["jpeg", "png"]
@@ -32,14 +32,14 @@ env_logger = "0.11"
 bytemuck = { version = "1.4", features = ["derive"] }
 flux = { path = "./flux" }
 futures = "0.3"
-getrandom = { version = "0.3", features = ["wasm_js"] }
+getrandom = { version = "0.4", features = ["wasm_js"] }
 glam = "0.30"
 half = { version = "2", features = ["bytemuck"] }
 log = "0.4"
 pollster = "0.4"
-rand = { version = "0.9", features = ["thread_rng"] }
-rand_pcg = "0.9"
-rand_seeder = "0.4"
+rand = { version = "0.10", features = ["thread_rng"] }
+rand_pcg = "0.10"
+rand_seeder = "0.5"
 raw-window-handle = "0.6"
 rustc-hash = "2.1"
 serde = { version = "1", features = ["derive"] }
@@ -54,7 +54,7 @@ console_log = "1.0"
 gloo-utils = { version = "0.2", features = ["serde"] }
 js-sys = "0.3"
 # Match with Nix version
-wasm-bindgen = "=0.2.104"
+wasm-bindgen = "=0.2.114"
 wasm-bindgen-futures = "0.4"
 web-sys = "0.3"
 
