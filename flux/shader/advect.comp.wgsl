@@ -12,7 +12,7 @@ struct FluidUniforms {
 @group(0) @binding(1) var linear_sampler: sampler;
 @group(0) @binding(2) var nearest_sampler: sampler;
 
-@group(1) @binding(0) var out_texture: texture_storage_2d<rg32float, write>;
+@group(1) @binding(0) var out_texture: texture_storage_2d<rgba16float, write>;
 
 @group(2) @binding(0) var<uniform> direction: Dir;
 

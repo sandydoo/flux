@@ -9,7 +9,7 @@ struct PushConstants {
 @group(0) @binding(2) var linear_sampler: sampler;
 
 @group(1) @binding(0) var velocity_texture: texture_2d<f32>;
-@group(1) @binding(1) var out_velocity_texture: texture_storage_2d<rg32float, write>;
+@group(1) @binding(1) var out_velocity_texture: texture_storage_2d<rgba16float, write>;
 
 @compute
 @workgroup_size(16, 16, 1)
