@@ -24,7 +24,7 @@ struct App {
     rx: mpsc::Receiver<Msg>,
 
     flux: Flux,
-    settings: Arc<Settings>,
+    _settings: Arc<Settings>,
 
     color_image: Arc<Mutex<Option<RgbaImage>>>,
 }
@@ -211,7 +211,7 @@ impl ApplicationHandler for FluxApp {
             tx,
             rx,
             flux,
-            settings,
+            _settings: settings,
             color_image: Arc::new(Mutex::new(None)),
         });
 

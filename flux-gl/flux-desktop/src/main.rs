@@ -178,7 +178,7 @@ impl ApplicationHandler for App {
 
             WindowEvent::DroppedFile(path) => {
                 let settings = Settings {
-                    color_mode: ColorMode::ImageFile(path.into()),
+                    color_mode: ColorMode::ImageFile(path),
                     ..Default::default()
                 };
                 flux.update(&Rc::new(settings));

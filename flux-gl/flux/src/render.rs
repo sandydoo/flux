@@ -384,8 +384,6 @@ impl Framebuffer {
 }
 
 pub struct DoubleFramebuffer {
-    pub width: u32,
-    pub height: u32,
     front: RefCell<Framebuffer>,
     back: RefCell<Framebuffer>,
 }
@@ -400,8 +398,6 @@ impl DoubleFramebuffer {
         let front = Framebuffer::new(context, width, height, options)?;
         let back = Framebuffer::new(context, width, height, options)?;
         Ok(Self {
-            width,
-            height,
             front: RefCell::new(front),
             back: RefCell::new(back),
         })
@@ -813,7 +809,7 @@ impl Program {
     }
 
     pub fn get_uniform_location(&self, name: &str) -> Option<glow::UniformLocation> {
-        self.uniforms.get(name).map(|info| info.location.clone())
+        self.uniforms.get(name).map(|info| info.location)
     }
 
     pub fn get_uniform_block_location(&self, name: &str) -> Option<u32> {
@@ -856,13 +852,6 @@ struct UniformInfo {
     type_: u32,
     size: i32,
     location: glow::UniformLocation,
-}
-
-#[derive(Default)]
-pub struct Attribute {
-    pub location: Option<u32>,
-    pub data_type: GlDataType,
-    pub divisor: u32,
 }
 
 pub struct TransformFeedbackInfo<'a> {

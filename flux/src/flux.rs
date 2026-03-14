@@ -60,6 +60,7 @@ impl Flux {
             .update_color_bindings(device, queue, Some(texture_view), None);
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         device: &wgpu::Device,
         queue: &wgpu::Queue,

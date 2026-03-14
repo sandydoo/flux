@@ -27,7 +27,7 @@ struct FluidUniforms {
 }
 
 impl FluidUniforms {
-    pub fn new(size: &wgpu::Extent3d, settings: &Settings) -> Self {
+    pub fn new(_size: &wgpu::Extent3d, settings: &Settings) -> Self {
         // dx^2 / (rho * dt)
         let center_factor = 1.0 / (settings.viscosity * settings.fluid_timestep);
         let stencil_factor = 1.0 / (4.0 + center_factor);
@@ -56,13 +56,13 @@ pub struct Context {
     fluid_uniforms: FluidUniforms,
     fluid_uniform_buffer: wgpu::Buffer,
 
-    velocity_textures: [wgpu::Texture; 2],
+    _velocity_textures: [wgpu::Texture; 2],
     velocity_texture_views: [wgpu::TextureView; 2],
-    advection_forward_texture: wgpu::Texture,
+    _advection_forward_texture: wgpu::Texture,
     advection_forward_texture_view: wgpu::TextureView,
-    advection_reverse_texture: wgpu::Texture,
-    advection_reverse_texture_view: wgpu::TextureView,
-    divergence_texture: wgpu::Texture,
+    _advection_reverse_texture: wgpu::Texture,
+    _advection_reverse_texture_view: wgpu::TextureView,
+    _divergence_texture: wgpu::Texture,
     divergence_texture_view: wgpu::TextureView,
     pressure_textures: [wgpu::Texture; 2],
     pressure_texture_views: [wgpu::TextureView; 2],
@@ -93,7 +93,7 @@ pub struct Context {
 impl Context {
     pub fn update(
         &mut self,
-        device: &wgpu::Device,
+        _device: &wgpu::Device,
         queue: &wgpu::Queue,
         scaling_ratio: grid::ScalingRatio,
         settings: &Arc<Settings>,
@@ -131,7 +131,7 @@ impl Context {
 
     pub fn new(
         device: &wgpu::Device,
-        queue: &wgpu::Queue,
+        _queue: &wgpu::Queue,
         scaling_ratio: grid::ScalingRatio,
         settings: &Arc<Settings>,
     ) -> Self {
@@ -886,13 +886,13 @@ impl Context {
             fluid_uniforms,
             fluid_uniform_buffer,
 
-            velocity_textures,
+            _velocity_textures: velocity_textures,
             velocity_texture_views,
-            advection_forward_texture,
+            _advection_forward_texture: advection_forward_texture,
             advection_forward_texture_view,
-            advection_reverse_texture,
-            advection_reverse_texture_view,
-            divergence_texture,
+            _advection_reverse_texture: advection_reverse_texture,
+            _advection_reverse_texture_view: advection_reverse_texture_view,
+            _divergence_texture: divergence_texture,
             divergence_texture_view,
             pressure_textures,
             pressure_texture_views,

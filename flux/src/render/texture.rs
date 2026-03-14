@@ -2,11 +2,11 @@ use std::borrow::Cow;
 use wgpu::util::DeviceExt;
 
 pub struct Context {
-    bind_group_layout: wgpu::BindGroupLayout,
+    _bind_group_layout: wgpu::BindGroupLayout,
     bind_group: wgpu::BindGroup,
     texture_bind_groups: Vec<(String, wgpu::BindGroup)>,
-    sampler: wgpu::Sampler,
-    pipeline_layout: wgpu::PipelineLayout,
+    _sampler: wgpu::Sampler,
+    _pipeline_layout: wgpu::PipelineLayout,
     pipeline: wgpu::RenderPipeline,
 }
 
@@ -173,11 +173,11 @@ impl Context {
         });
 
         Self {
-            bind_group_layout,
+            _bind_group_layout: bind_group_layout,
             bind_group,
             texture_bind_groups,
-            sampler,
-            pipeline_layout,
+            _sampler: sampler,
+            _pipeline_layout: pipeline_layout,
             pipeline,
         }
     }

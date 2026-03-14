@@ -78,22 +78,22 @@ impl Grid {
     }
 }
 
-fn clamp_logical_size(width: u32, height: u32) -> (u32, u32) {
-    let width = width as f32;
-    let height = height as f32;
-
-    // TODO: Should we also clamp the upper bound?
-    let minimum_dimension = 800.0;
-    let scale = f32::max(minimum_dimension / width, minimum_dimension / height).max(1.0);
-    (
-        (width * scale).floor() as u32,
-        (height * scale).floor() as u32,
-    )
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
+
+    fn clamp_logical_size(width: u32, height: u32) -> (u32, u32) {
+        let width = width as f32;
+        let height = height as f32;
+
+        // TODO: Should we also clamp the upper bound?
+        let minimum_dimension = 800.0;
+        let scale = f32::max(minimum_dimension / width, minimum_dimension / height).max(1.0);
+        (
+            (width * scale).floor() as u32,
+            (height * scale).floor() as u32,
+        )
+    }
 
     #[derive(Copy, Clone, PartialEq, Debug)]
     struct LogicalSize {
