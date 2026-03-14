@@ -73,6 +73,7 @@ pub struct Context {
     advection_reverse_bind_group: wgpu::BindGroup,
     advection_forward_direction_bind_group: wgpu::BindGroup,
     advection_reverse_direction_bind_group: wgpu::BindGroup,
+    advection_reverse_input_bind_group: wgpu::BindGroup,
     adjust_advection_bind_group: wgpu::BindGroup,
     divergence_bind_group: wgpu::BindGroup,
     divergence_sample_bind_group: wgpu::BindGroup,
@@ -523,6 +524,25 @@ impl Context {
             }],
         });
 
+        // For the reverse advection pass (MacCormack step 2), the input should be the forward-advected texture, not the original velocity.
+        let advection_reverse_input_bind_group =
+            device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("bind_group:advection_reverse_input"),
+                layout: &velocity_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(
+                            &advection_forward_texture_view,
+                        ),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::TextureView(&velocity_texture_views[0]),
+                    },
+                ],
+            });
+
         let advection_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Advection layout"),
@@ -883,6 +903,7 @@ impl Context {
             advection_reverse_bind_group,
             advection_forward_direction_bind_group,
             advection_reverse_direction_bind_group,
+            advection_reverse_input_bind_group,
             adjust_advection_bind_group,
             divergence_bind_group,
             divergence_sample_bind_group,
@@ -929,13 +950,13 @@ impl Context {
         _queue: &wgpu::Queue,
         cpass: &mut wgpu::ComputePass<'cpass>,
     ) {
-        let velocity_index = self.last_velocity_index.lock().unwrap();
         let workgroup = self.get_workgroup_size();
         cpass.set_pipeline(&self.advection_pipeline);
         cpass.set_bind_group(0, &self.uniform_bind_group, &[]);
         cpass.set_bind_group(1, &self.advection_reverse_bind_group, &[]);
         cpass.set_bind_group(2, &self.advection_reverse_direction_bind_group, &[]);
-        cpass.set_bind_group(3, &self.velocity_bind_groups[*velocity_index], &[]);
+        // MacCormack step 2: re-advect the forward-advected result (not the original velocity)
+        cpass.set_bind_group(3, &self.advection_reverse_input_bind_group, &[]);
         cpass.dispatch_workgroups(workgroup.0, workgroup.1, workgroup.2);
     }
 
