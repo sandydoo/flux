@@ -58,7 +58,7 @@
     in {
     devShells = {
       default = pkgs.mkShell {
-        packages = with pkgs; [nixfmt-rfc-style wasm-pack cargo-outdated nodePackages.pnpm];
+        packages = with pkgs; [nixfmt wasm-pack cargo-outdated nodePackages.pnpm];
         inputsFrom = with config.packages; [flux flux-desktop flux-wasm];
         nativeBuildInputs = [rustToolchain];
       };
