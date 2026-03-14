@@ -532,7 +532,7 @@ impl Context {
                     &advection_direction_bind_group_layout,
                     &velocity_bind_group_layout,
                 ],
-                push_constant_ranges: &[],
+                immediate_size: 0,
             });
 
         let advection_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -606,7 +606,7 @@ impl Context {
                     &adjust_advection_bind_group_layout,
                     &velocity_bind_group_layout,
                 ],
-                push_constant_ranges: &[],
+                immediate_size: 0,
             });
 
         let adjust_advection_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -637,7 +637,7 @@ impl Context {
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("pipeline_layout:diffusion"),
                 bind_group_layouts: &[&uniform_bind_group_layout, &velocity_bind_group_layout],
-                push_constant_ranges: &[],
+                immediate_size: 0,
             });
 
         let diffusion_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
@@ -693,7 +693,7 @@ impl Context {
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("pipeline_layout:divergence"),
                 bind_group_layouts: &[&divergence_bind_group_layout, &velocity_bind_group_layout],
-                push_constant_ranges: &[],
+                immediate_size: 0,
             });
 
         let divergence_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -815,7 +815,7 @@ impl Context {
                     &divergence_sample_bind_group_layout,
                     &pressure_bind_group_layout,
                 ],
-                push_constant_ranges: &[],
+                immediate_size: 0,
             });
 
         let pressure_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
@@ -842,7 +842,7 @@ impl Context {
                     &pressure_bind_group_layout,
                     &velocity_bind_group_layout,
                 ],
-                push_constant_ranges: &[],
+                immediate_size: 0,
             });
 
         let subtract_gradient_pipeline =

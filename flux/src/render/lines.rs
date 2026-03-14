@@ -688,7 +688,7 @@ impl Context {
                     &color_bind_group_layout,
                     &velocity_bind_group_layout,
                 ],
-                push_constant_ranges: &[],
+                immediate_size: 0,
             });
 
         let place_lines_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -712,7 +712,7 @@ impl Context {
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("pipeline_layout:draw_line"),
                 bind_group_layouts: &[&uniform_bind_group_layout, &view_uniform_bind_group_layout],
-                push_constant_ranges: &[],
+                immediate_size: 0,
             });
 
         let draw_line_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -774,7 +774,7 @@ impl Context {
             primitive: wgpu::PrimitiveState::default(),
             depth_stencil: None,
             multisample: wgpu::MultisampleState::default(),
-            multiview: None,
+            multiview_mask: Default::default(),
             cache: None,
         });
 
@@ -782,7 +782,7 @@ impl Context {
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("pipeline_layout:draw_endpoint"),
                 bind_group_layouts: &[&uniform_bind_group_layout, &view_uniform_bind_group_layout],
-                push_constant_ranges: &[],
+                immediate_size: 0,
             });
 
         let draw_endpoint_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -812,7 +812,7 @@ impl Context {
                 primitive: wgpu::PrimitiveState::default(),
                 depth_stencil: None,
                 multisample: wgpu::MultisampleState::default(),
-                multiview: None,
+                multiview_mask: Default::default(),
                 cache: None,
             });
 

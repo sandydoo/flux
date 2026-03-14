@@ -279,7 +279,7 @@ impl NoiseGeneratorBuilder {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("pipeline_layout:generate_noise"),
             bind_group_layouts: &[&bind_group_layout],
-            push_constant_ranges: &[],
+            immediate_size: 0,
         });
 
         let generate_noise_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -410,7 +410,7 @@ impl NoiseGeneratorBuilder {
                     &inject_noise_bind_group_layout,
                     &inject_noise_bind_group_layout_2,
                 ],
-                push_constant_ranges: &[],
+                immediate_size: 0,
             });
 
         let inject_noise_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {

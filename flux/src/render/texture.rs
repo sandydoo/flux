@@ -137,7 +137,7 @@ impl Context {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
             bind_group_layouts: &[&bind_group_layout, &texture_bind_group_layout],
-            push_constant_ranges: &[],
+            immediate_size: 0,
         });
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -168,7 +168,7 @@ impl Context {
             },
             depth_stencil: None,
             multisample: wgpu::MultisampleState::default(),
-            multiview: Default::default(),
+            multiview_mask: Default::default(),
             cache: None,
         });
 
