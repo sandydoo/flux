@@ -750,45 +750,46 @@ impl Program {
         unsafe {
             match uniform.value {
                 UniformValue::UnsignedInt(value) => {
-                    context.uniform_1_u32(self.get_uniform_location(uniform.name).as_ref(), value)
+                    context.uniform_1_u32(self.get_uniform_location(uniform.name), value)
                 }
 
                 UniformValue::SignedInt(value) => {
-                    context.uniform_1_i32(self.get_uniform_location(uniform.name).as_ref(), value)
+                    context.uniform_1_i32(self.get_uniform_location(uniform.name), value)
                 }
 
                 UniformValue::Float(value) => {
-                    context.uniform_1_f32(self.get_uniform_location(uniform.name).as_ref(), value)
+                    context.uniform_1_f32(self.get_uniform_location(uniform.name), value)
                 }
 
                 UniformValue::Vec2(value) => context.uniform_2_f32(
-                    self.get_uniform_location(uniform.name).as_ref(),
+                    self.get_uniform_location(uniform.name),
                     value[0],
                     value[1],
                 ),
 
                 UniformValue::Vec3(value) => context.uniform_3_f32(
-                    self.get_uniform_location(uniform.name).as_ref(),
+                    self.get_uniform_location(uniform.name),
                     value[0],
                     value[1],
                     value[2],
                 ),
 
-                UniformValue::Vec3Array(value) => context
-                    .uniform_3_f32_slice(self.get_uniform_location(uniform.name).as_ref(), value),
+                UniformValue::Vec3Array(value) => {
+                    context.uniform_3_f32_slice(self.get_uniform_location(uniform.name), value)
+                }
 
-                UniformValue::Vec4Array(value) => context
-                    .uniform_4_f32_slice(self.get_uniform_location(uniform.name).as_ref(), value),
+                UniformValue::Vec4Array(value) => {
+                    context.uniform_4_f32_slice(self.get_uniform_location(uniform.name), value)
+                }
 
                 UniformValue::Mat4(value) => context.uniform_matrix_4_f32_slice(
-                    self.get_uniform_location(uniform.name).as_ref(),
+                    self.get_uniform_location(uniform.name),
                     false,
                     value,
                 ),
 
                 UniformValue::Texture2D(id) => {
-                    context
-                        .uniform_1_i32(self.get_uniform_location(uniform.name).as_ref(), id as i32);
+                    context.uniform_1_i32(self.get_uniform_location(uniform.name), id as i32);
                 }
             }
         }
@@ -808,8 +809,8 @@ impl Program {
         self.attributes.get(name).map(|info| info.location)
     }
 
-    pub fn get_uniform_location(&self, name: &str) -> Option<glow::UniformLocation> {
-        self.uniforms.get(name).map(|info| info.location)
+    pub fn get_uniform_location(&self, name: &str) -> Option<&glow::UniformLocation> {
+        self.uniforms.get(name).map(|info| &info.location)
     }
 
     pub fn get_uniform_block_location(&self, name: &str) -> Option<u32> {
