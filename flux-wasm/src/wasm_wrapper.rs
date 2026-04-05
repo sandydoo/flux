@@ -5,16 +5,12 @@ use std::sync::Arc;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::Window;
-use winit::event_loop::EventLoop;
-use winit::platform::web::WindowBuilderExtWebSys;
 
 #[wasm_bindgen]
 pub struct Flux {
     canvas: Canvas,
     device: wgpu::Device,
     queue: wgpu::Queue,
-    #[allow(dead_code)]
-    window: Arc<winit::window::Window>,
     window_surface: wgpu::Surface<'static>,
     logical_width: u32,
     logical_height: u32,
@@ -85,8 +81,6 @@ impl Flux {
 
         set_panic_hook();
 
-        let event_loop = EventLoop::new().unwrap();
-
         let element_id = "canvas";
         let window = web_sys::window().expect("no global `window` exists");
         let document = window.document().expect("should have a document on window");
@@ -108,24 +102,18 @@ impl Flux {
         html_canvas.set_width(physical_width);
         html_canvas.set_height(physical_height);
 
-        let window = winit::window::WindowBuilder::new()
-            .with_canvas(Some(html_canvas.clone()))
-            .build(&event_loop)
-            .unwrap();
-
-        let canvas = Canvas::new(html_canvas);
+        let canvas = Canvas::new(html_canvas.clone());
 
         let settings = match settings_object.into_serde() {
             Ok(settings) => Arc::new(settings),
             Err(msg) => return Err(JsValue::from_str(&msg.to_string())),
         };
 
-        let window = Arc::new(window);
         let mut instance_desc = wgpu::InstanceDescriptor::default();
         instance_desc.backends = wgpu::Backends::BROWSER_WEBGPU;
         let wgpu_instance = wgpu::Instance::new(&instance_desc);
         let window_surface = wgpu_instance
-            .create_surface(Arc::clone(&window))
+            .create_surface(wgpu::SurfaceTarget::Canvas(html_canvas))
             .expect("Failed to create surface");
         let adapter = wgpu_instance
             .request_adapter(&wgpu::RequestAdapterOptions {
@@ -190,7 +178,6 @@ impl Flux {
             canvas,
             device,
             queue,
-            window,
             window_surface,
             logical_width,
             logical_height,

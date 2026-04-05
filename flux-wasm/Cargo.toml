@@ -28,7 +28,6 @@ serde.workspace = true
 gloo-utils.workspace = true
 wasm-bindgen.workspace = true
 wgpu.workspace = true
-winit.workspace = true
 wasm-bindgen-futures.workspace = true
 
 [dependencies.web-sys]
