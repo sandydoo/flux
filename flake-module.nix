@@ -77,10 +77,10 @@
             wayland
             wayland-protocols
             libxkbcommon
-            xorg.libX11
-            xorg.libXcursor
-            xorg.libXrandr
-            xorg.libXi
+            libX11
+            libXcursor
+            libXrandr
+            libXi
           ];
         in
           # Can’t use symlinkJoin because of the hooks are passed to the
