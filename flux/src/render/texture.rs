@@ -38,7 +38,12 @@ impl Context {
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    // The sampler below uses Nearest filtering, so this binding
+                    // is non-filtering. Declaring it as `Filtering` would
+                    // gratuitously require the bound texture format to support
+                    // linear filtering — breaking the divergence (R32Float)
+                    // view in the FLOAT32_FILTERABLE fallback path.
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
                     count: None,
                 },
             ],
@@ -53,7 +58,10 @@ impl Context {
                     ty: wgpu::BindingType::Texture {
                         multisampled: false,
                         view_dimension: wgpu::TextureViewDimension::D2,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        // Pairs with the NonFiltering sampler above; the debug
+                        // viz only does nearest sampling so we don't need the
+                        // texture format to be filterable.
+                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
                     },
                     count: None,
                 }],

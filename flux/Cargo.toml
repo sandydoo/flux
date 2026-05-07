@@ -13,6 +13,7 @@ approx.workspace = true
 bytemuck.workspace = true
 getrandom.workspace = true
 glam.workspace = true
+half.workspace = true
 image.workspace = true
 log.workspace = true
 rand.workspace = true

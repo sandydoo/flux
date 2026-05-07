@@ -1,4 +1,6 @@
-use crate::{grid, rng, settings};
+use crate::{grid, rng, settings, BackendCaps};
+
+use super::downgrade_float_storage;
 
 use std::borrow::Cow;
 use std::sync::Arc;
@@ -9,6 +11,7 @@ pub struct NoiseGenerator {
 
     texture: wgpu::Texture,
     texture_view: wgpu::TextureView,
+    texture_format: wgpu::TextureFormat,
     scaling_ratio: grid::ScalingRatio,
 
     uniforms: NoiseUniforms,
@@ -42,7 +45,7 @@ impl NoiseGenerator {
             depth_or_array_layers: 1,
         };
 
-        let (texture, texture_view) = create_texture(device, &size);
+        let (texture, texture_view) = create_texture(device, &size, self.texture_format);
 
         self.scaling_ratio = scaling_ratio;
         self.texture = texture;
@@ -144,7 +147,12 @@ impl NoiseGeneratorBuilder {
         self
     }
 
-    pub fn build(self, device: &wgpu::Device, _queue: &wgpu::Queue) -> NoiseGenerator {
+    pub fn build(
+        self,
+        device: &wgpu::Device,
+        _queue: &wgpu::Queue,
+        caps: BackendCaps,
+    ) -> NoiseGenerator {
         log::info!("🎛 Generating noise");
 
         let uniforms = NoiseUniforms::new(&self.settings);
@@ -165,7 +173,18 @@ impl NoiseGeneratorBuilder {
             depth_or_array_layers: 1,
         };
 
-        let (texture, texture_view) = create_texture(device, &size);
+        // The noise texture is linearly sampled in `inject_noise.comp.wgsl`;
+        // Rg32Float requires `FLOAT32_FILTERABLE`. The shaders only touch the
+        // `.xy` channels, so widening the fallback to Rgba16Float is a no-op
+        // — see `downgrade_float_storage` for why we can't fall back to the
+        // narrower Rg16Float.
+        let noise_format = if caps.float32_filterable {
+            wgpu::TextureFormat::Rg32Float
+        } else {
+            wgpu::TextureFormat::Rgba16Float
+        };
+
+        let (texture, texture_view) = create_texture(device, &size, noise_format);
 
         let linear_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("sampler:linear"),
@@ -237,7 +256,7 @@ impl NoiseGeneratorBuilder {
                     visibility: wgpu::ShaderStages::COMPUTE,
                     ty: wgpu::BindingType::StorageTexture {
                         access: wgpu::StorageTextureAccess::WriteOnly,
-                        format: wgpu::TextureFormat::Rg32Float,
+                        format: noise_format,
                         view_dimension: wgpu::TextureViewDimension::D2,
                     },
                     count: None,
@@ -284,9 +303,10 @@ impl NoiseGeneratorBuilder {
 
         let generate_noise_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("shader:generate_noise"),
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!(
-                "../../shader/generate_noise.comp.wgsl"
-            ))),
+            source: wgpu::ShaderSource::Wgsl(downgrade_float_storage(
+                include_str!("../../shader/generate_noise.comp.wgsl"),
+                caps,
+            )),
         });
 
         let generate_noise_pipeline =
@@ -442,6 +462,7 @@ impl NoiseGeneratorBuilder {
             scaling_ratio: self.scaling_ratio,
             texture,
             texture_view,
+            texture_format: noise_format,
             bind_group,
             inject_noise_bind_group,
             push_constants_buffer,
@@ -455,6 +476,7 @@ impl NoiseGeneratorBuilder {
 fn create_texture(
     device: &wgpu::Device,
     size: &wgpu::Extent3d,
+    format: wgpu::TextureFormat,
 ) -> (wgpu::Texture, wgpu::TextureView) {
     let texture = device.create_texture(&wgpu::TextureDescriptor {
         label: Some("texture:noise"),
@@ -462,8 +484,7 @@ fn create_texture(
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
-        // TODO: try RG16Float
-        format: wgpu::TextureFormat::Rg32Float,
+        format,
         view_formats: &[],
         usage: wgpu::TextureUsages::TEXTURE_BINDING
             | wgpu::TextureUsages::STORAGE_BINDING

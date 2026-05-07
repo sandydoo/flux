@@ -1,5 +1,8 @@
 use crate::grid;
 use crate::settings::{self, Settings};
+use crate::BackendCaps;
+
+use super::downgrade_float_storage;
 
 use std::borrow::Cow;
 use std::sync::{Arc, Mutex};
@@ -133,6 +136,7 @@ impl Context {
         device: &wgpu::Device,
         _queue: &wgpu::Queue,
         scaling_ratio: grid::ScalingRatio,
+        caps: BackendCaps,
         settings: &Arc<Settings>,
     ) -> Self {
         let (width, height) = (
@@ -143,6 +147,17 @@ impl Context {
             width,
             height,
             depth_or_array_layers: 1,
+        };
+
+        // Pressure is linearly sampled in `subtract_gradient.comp.wgsl`, which
+        // requires `FLOAT32_FILTERABLE` for an R32Float texture. The shaders
+        // only touch the `.x` channel, so widening the fallback to Rgba16Float
+        // is semantically a no-op — see `downgrade_float_storage` for why we
+        // can't fall back to the narrower R16Float.
+        let pressure_format = if caps.float32_filterable {
+            wgpu::TextureFormat::R32Float
+        } else {
+            wgpu::TextureFormat::Rgba16Float
         };
 
         // Uniforms
@@ -229,7 +244,7 @@ impl Context {
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::R32Float,
+                format: pressure_format,
                 view_formats: &[],
                 usage: wgpu::TextureUsages::TEXTURE_BINDING
                     | wgpu::TextureUsages::STORAGE_BINDING
@@ -241,7 +256,7 @@ impl Context {
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::R32Float,
+                format: pressure_format,
                 view_formats: &[],
                 usage: wgpu::TextureUsages::STORAGE_BINDING
                     | wgpu::TextureUsages::TEXTURE_BINDING
@@ -737,12 +752,15 @@ impl Context {
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("bind_group_layout:divergence_sample"),
                 entries: &[
-                    // divergence_texture
+                    // divergence_texture — read with textureLoad in solve_pressure.comp.wgsl,
+                    // never linearly sampled, so the texture format does not need to be
+                    // filterable. Declaring `filterable: false` lets the divergence
+                    // texture stay R32Float even when FLOAT32_FILTERABLE is unavailable.
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
                         visibility: wgpu::ShaderStages::COMPUTE,
                         ty: wgpu::BindingType::Texture {
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            sample_type: wgpu::TextureSampleType::Float { filterable: false },
                             view_dimension: wgpu::TextureViewDimension::D2,
                             multisampled: false,
                         },
@@ -781,7 +799,7 @@ impl Context {
                         visibility: wgpu::ShaderStages::COMPUTE,
                         ty: wgpu::BindingType::StorageTexture {
                             access: wgpu::StorageTextureAccess::WriteOnly,
-                            format: wgpu::TextureFormat::R32Float,
+                            format: pressure_format,
                             view_dimension: wgpu::TextureViewDimension::D2,
                         },
                         count: None,
@@ -822,9 +840,10 @@ impl Context {
 
         let pressure_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("shader:pressure"),
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!(
-                "../../shader/solve_pressure.comp.wgsl"
-            ))),
+            source: wgpu::ShaderSource::Wgsl(downgrade_float_storage(
+                include_str!("../../shader/solve_pressure.comp.wgsl"),
+                caps,
+            )),
         });
 
         let pressure_pipeline_layout =
@@ -996,6 +1015,26 @@ impl Context {
 
     pub fn clear_pressure(&self, queue: &wgpu::Queue, pressure: f32) {
         let (width, height) = (self.fluid_size[0] as u32, self.fluid_size[1] as u32);
+        let pixel_count = (width * height) as usize;
+
+        // The pressure texture format depends on FLOAT32_FILTERABLE support:
+        // R32Float on the fast path, Rgba16Float on the fallback. Build the
+        // upload buffer from whichever the actual texture is using.
+        let format = self.pressure_textures[0].format();
+        let bytes_per_pixel = format
+            .block_copy_size(None)
+            .expect("pressure format is uncompressed and color-only");
+        let buf: Vec<u8> = match format {
+            wgpu::TextureFormat::R32Float => {
+                bytemuck::cast_slice(&vec![pressure; pixel_count]).to_vec()
+            }
+            wgpu::TextureFormat::Rgba16Float => {
+                let p = half::f16::from_f32(pressure);
+                let texel = [p, half::f16::ZERO, half::f16::ZERO, half::f16::ZERO];
+                bytemuck::cast_slice(&vec![texel; pixel_count]).to_vec()
+            }
+            other => panic!("unexpected pressure format: {other:?}"),
+        };
 
         for pressure_texture in self.pressure_textures.iter() {
             queue.write_texture(
@@ -1005,10 +1044,10 @@ impl Context {
                     origin: wgpu::Origin3d::ZERO,
                     aspect: wgpu::TextureAspect::All,
                 },
-                bytemuck::cast_slice(&vec![pressure; (width * height) as usize]),
+                &buf,
                 wgpu::TexelCopyBufferLayout {
                     offset: 0,
-                    bytes_per_row: Some(4 * width),
+                    bytes_per_row: Some(bytes_per_pixel * width),
                     rows_per_image: Some(height),
                 },
                 self.fluid_size_3d,

@@ -214,8 +214,18 @@ impl ApplicationHandler for FluxApp {
             .expect("Failed to find an appropriate adapter");
 
         let limits = wgpu::Limits::default().using_resolution(adapter.limits());
-        let features = wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES
-            | wgpu::Features::FLOAT32_FILTERABLE;
+
+        let caps = flux::BackendCaps {
+            float32_filterable: adapter
+                .features()
+                .contains(wgpu::Features::FLOAT32_FILTERABLE),
+        };
+        log::info!("Backend caps: {:?}", caps);
+
+        let mut features = wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES;
+        if caps.float32_filterable {
+            features |= wgpu::Features::FLOAT32_FILTERABLE;
+        }
 
         let (device, command_queue) =
             pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
@@ -263,6 +273,7 @@ impl ApplicationHandler for FluxApp {
             logical_size.height,
             physical_size.width,
             physical_size.height,
+            caps,
             &Arc::clone(&settings),
         )
         .unwrap();

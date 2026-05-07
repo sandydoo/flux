@@ -8,6 +8,20 @@ use std::sync::Mutex;
 const MAX_ELAPSED_TIME: f32 = 1000.0;
 const MAX_FRAME_TIME: f32 = 1.0 / 10.0;
 
+/// Optional GPU capabilities discovered at device-creation time.
+///
+/// Flux relies on a small handful of optional wgpu features for its fast paths
+/// and falls back to widely-supported alternatives when they aren't available.
+/// The host (desktop or web) is responsible for probing the adapter and
+/// constructing this struct.
+#[derive(Copy, Clone, Debug)]
+pub struct BackendCaps {
+    /// Whether `wgpu::Features::FLOAT32_FILTERABLE` was enabled on the device.
+    /// Without it, R32/Rg32 float textures can't be linearly sampled, so the
+    /// pressure and noise textures fall back to R16/Rg16.
+    pub float32_filterable: bool,
+}
+
 pub struct Flux {
     settings: Arc<Settings>,
     logical_size: wgpu::Extent3d,
@@ -69,6 +83,7 @@ impl Flux {
         logical_height: u32,
         physical_width: u32,
         physical_height: u32,
+        caps: BackendCaps,
         settings: &Arc<Settings>,
     ) -> Result<Flux, String> {
         log::info!("✨ Initialising Flux");
@@ -91,7 +106,7 @@ impl Flux {
 
         let grid = grid::Grid::new(logical_width, logical_height, settings.grid_spacing);
 
-        let fluid = render::fluid::Context::new(device, queue, grid.scaling_ratio, settings);
+        let fluid = render::fluid::Context::new(device, queue, grid.scaling_ratio, caps, settings);
 
         let lines = render::lines::Context::new(
             device,
@@ -110,7 +125,7 @@ impl Flux {
         settings.noise_channels.iter().for_each(|channel| {
             noise_generator_builder.add_channel(channel);
         });
-        let noise_generator = noise_generator_builder.build(device, queue);
+        let noise_generator = noise_generator_builder.build(device, queue, caps);
 
         let debug_texture = render::texture::Context::new(
             device,

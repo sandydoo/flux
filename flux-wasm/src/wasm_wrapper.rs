@@ -129,8 +129,17 @@ impl Flux {
         // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
         let limits = wgpu::Limits::downlevel_defaults().using_resolution(adapter.limits());
 
-        let features = wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES
-            | wgpu::Features::FLOAT32_FILTERABLE;
+        let caps = flux::BackendCaps {
+            float32_filterable: adapter
+                .features()
+                .contains(wgpu::Features::FLOAT32_FILTERABLE),
+        };
+        log::info!("Backend caps: {:?}", caps);
+
+        let mut features = wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES;
+        if caps.float32_filterable {
+            features |= wgpu::Features::FLOAT32_FILTERABLE;
+        }
 
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
@@ -169,6 +178,7 @@ impl Flux {
             logical_height,
             physical_width,
             physical_height,
+            caps,
             &settings,
         )
         .map_err(|err| JsValue::from_str(&err.to_string()))?;

@@ -805,6 +805,7 @@ dependencies = [
  "bytemuck",
  "getrandom 0.4.2",
  "glam",
+ "half",
  "image",
  "log",
  "rand 0.10.0",

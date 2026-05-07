@@ -4,5 +4,5 @@ pub mod render;
 mod rng;
 pub mod settings;
 
-pub use flux::Flux;
+pub use flux::{BackendCaps, Flux};
 pub use settings::Settings;
