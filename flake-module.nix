@@ -55,12 +55,32 @@
           crate
         ];
       };
+
+      flux-desktop-unwrapped = craneLib.buildPackage (individualCrateArgs // {
+        pname = "flux-desktop";
+        src = fileSetForCrate ./flux-desktop;
+        release = true;
+        cargoExtraArgs = "-p flux-desktop";
+      });
+
+      desktopRuntimeLibraries = with pkgs; [
+        vulkan-loader
+        libglvnd
+        wayland
+        wayland-protocols
+        libxkbcommon
+        libX11
+        libXcursor
+        libXrandr
+        libXi
+      ];
     in {
     devShells = {
       default = pkgs.mkShell {
         packages = with pkgs; [nixfmt wasm-pack cargo-outdated nodePackages.pnpm];
-        inputsFrom = with config.packages; [flux flux-desktop flux-wasm];
+        inputsFrom = [config.packages.flux flux-desktop-unwrapped config.packages.flux-wasm];
         nativeBuildInputs = [rustToolchain];
+        LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath desktopRuntimeLibraries;
       };
     };
 
@@ -71,39 +91,21 @@
         cargoExtraArgs = "-p flux";
       });
 
-      flux-desktop-wrapped =
-        let
-          runtimeLibraries = with pkgs; [
-            wayland
-            wayland-protocols
-            libxkbcommon
-            libX11
-            libXcursor
-            libXrandr
-            libXi
-          ];
-        in
-          # Can’t use symlinkJoin because of the hooks are passed to the
-          # dependency-only build.
-          stdenvNoCC.mkDerivation {
-            name = "flux-desktop-wrapped";
-            inherit (config.packages.flux-desktop) version;
-            nativeBuildInputs = [pkgs.makeWrapper];
-            buildCommand = ''
-              mkdir -p $out/bin
-              cp ${config.packages.flux-desktop}/bin/flux-desktop $out/bin
-              wrapProgram $out/bin/flux-desktop \
-                --prefix LD_LIBRARY_PATH : ${pkgs.lib.makeLibraryPath runtimeLibraries}
-            '';
-            passthru.unwrapped = config.packages.flux-desktop;
-          };
-
-      flux-desktop = craneLib.buildPackage (individualCrateArgs // {
-        pname = "flux-desktop";
-        src = fileSetForCrate ./flux-desktop;
-        release = true;
-        cargoExtraArgs = "-p flux-desktop";
-      });
+      flux-desktop =
+        # Can’t use symlinkJoin because of the hooks are passed to the
+        # dependency-only build.
+        stdenvNoCC.mkDerivation {
+          name = "flux-desktop";
+          inherit (flux-desktop-unwrapped) version;
+          nativeBuildInputs = [pkgs.makeWrapper];
+          buildCommand = ''
+            mkdir -p $out/bin
+            cp ${flux-desktop-unwrapped}/bin/flux-desktop $out/bin
+            wrapProgram $out/bin/flux-desktop \
+              --prefix LD_LIBRARY_PATH : ${pkgs.lib.makeLibraryPath desktopRuntimeLibraries}
+          '';
+          passthru.unwrapped = flux-desktop-unwrapped;
+        };
 
       flux-wasm = craneLib.buildPackage (individualCrateArgs // {
         pname = "flux-wasm";
