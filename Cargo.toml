@@ -20,7 +20,7 @@ repository = "https://github.com/sandydoo/flux/"
 authors = ["Sander Melnikov <hey@sandydoo.me"]
 
 [workspace.dependencies.wgpu]
-version = "28.0"
+version = "30.0"
 
 [workspace.dependencies.image]
 features = ["jpeg", "png"]
@@ -51,10 +51,10 @@ winit = "0.30"
 # wasm32
 console_error_panic_hook = "0.1"
 console_log = "1.0"
-gloo-utils = { version = "0.2", features = ["serde"] }
+gloo-utils = { version = "0.3", features = ["serde"] }
 js-sys = "0.3"
 # Match with Nix version
-wasm-bindgen = "=0.2.114"
+wasm-bindgen = "=0.2.121"
 wasm-bindgen-futures = "0.4"
 web-sys = "0.3"
 

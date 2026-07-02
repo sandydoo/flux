@@ -297,7 +297,7 @@ impl NoiseGeneratorBuilder {
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("pipeline_layout:generate_noise"),
-            bind_group_layouts: &[&bind_group_layout],
+            bind_group_layouts: &[Some(&bind_group_layout)],
             immediate_size: 0,
         });
 
@@ -427,8 +427,8 @@ impl NoiseGeneratorBuilder {
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Inject noise layout"),
                 bind_group_layouts: &[
-                    &inject_noise_bind_group_layout,
-                    &inject_noise_bind_group_layout_2,
+                    Some(&inject_noise_bind_group_layout),
+                    Some(&inject_noise_bind_group_layout_2),
                 ],
                 immediate_size: 0,
             });

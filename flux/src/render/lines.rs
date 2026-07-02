@@ -683,10 +683,10 @@ impl Context {
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("pipeline_layout:place_lines"),
                 bind_group_layouts: &[
-                    &uniform_bind_group_layout,
-                    &lines_bind_group_layout,
-                    &color_bind_group_layout,
-                    &velocity_bind_group_layout,
+                    Some(&uniform_bind_group_layout),
+                    Some(&lines_bind_group_layout),
+                    Some(&color_bind_group_layout),
+                    Some(&velocity_bind_group_layout),
                 ],
                 immediate_size: 0,
             });
@@ -711,7 +711,10 @@ impl Context {
         let draw_line_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("pipeline_layout:draw_line"),
-                bind_group_layouts: &[&uniform_bind_group_layout, &view_uniform_bind_group_layout],
+                bind_group_layouts: &[
+                    Some(&uniform_bind_group_layout),
+                    Some(&view_uniform_bind_group_layout),
+                ],
                 immediate_size: 0,
             });
 
@@ -721,22 +724,22 @@ impl Context {
         });
 
         let vertex_buffer_layouts = [
-            wgpu::VertexBufferLayout {
+            Some(wgpu::VertexBufferLayout {
                 array_stride: std::mem::size_of::<Line>() as wgpu::BufferAddress,
                 step_mode: wgpu::VertexStepMode::Instance,
                 attributes: &wgpu::vertex_attr_array![
                             0 => Float32x2, 1 => Float32x2, 2 => Float32x4, 3 => Float32x3, 4 => Float32],
-            },
-            wgpu::VertexBufferLayout {
+            }),
+            Some(wgpu::VertexBufferLayout {
                 array_stride: 2 * std::mem::size_of::<f32>() as wgpu::BufferAddress,
                 step_mode: wgpu::VertexStepMode::Instance,
                 attributes: &wgpu::vertex_attr_array![5 => Float32x2],
-            },
-            wgpu::VertexBufferLayout {
+            }),
+            Some(wgpu::VertexBufferLayout {
                 array_stride: 2 * std::mem::size_of::<f32>() as wgpu::BufferAddress,
                 step_mode: wgpu::VertexStepMode::Vertex,
                 attributes: &wgpu::vertex_attr_array![6 => Float32x2],
-            },
+            }),
         ];
 
         let color_targets = [Some(wgpu::ColorTargetState {
@@ -781,7 +784,10 @@ impl Context {
         let draw_endpoint_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("pipeline_layout:draw_endpoint"),
-                bind_group_layouts: &[&uniform_bind_group_layout, &view_uniform_bind_group_layout],
+                bind_group_layouts: &[
+                    Some(&uniform_bind_group_layout),
+                    Some(&view_uniform_bind_group_layout),
+                ],
                 immediate_size: 0,
             });
 
