@@ -80,7 +80,7 @@
     in {
     devShells = {
       default = pkgs.mkShell {
-        packages = with pkgs; [nixfmt wasm-pack cargo-outdated nodePackages.pnpm];
+        packages = with pkgs; [nixfmt wasm-pack cargo-outdated pnpm];
         inputsFrom = [config.packages.flux flux-desktop-unwrapped config.packages.flux-wasm];
         nativeBuildInputs = [rustToolchain];
         LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath desktopRuntimeLibraries;
