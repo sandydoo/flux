@@ -63,17 +63,20 @@
         cargoExtraArgs = "-p flux-desktop";
       });
 
-      desktopRuntimeLibraries = with pkgs; [
-        vulkan-loader
-        libglvnd
-        wayland
-        wayland-protocols
-        libxkbcommon
-        libX11
-        libXcursor
-        libXrandr
-        libXi
-      ];
+      desktopRuntimeLibraries = lib.optionals stdenv.hostPlatform.isLinux (
+        with pkgs;
+        [
+          vulkan-loader
+          libglvnd
+          wayland
+          wayland-protocols
+          libxkbcommon
+          libX11
+          libXcursor
+          libXrandr
+          libXi
+        ]
+      );
     in {
     devShells = {
       default = pkgs.mkShell {
