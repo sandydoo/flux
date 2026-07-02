@@ -16,76 +16,6 @@ use winit::{
 #[cfg(target_os = "macos")]
 use winit::platform::macos::WindowAttributesExtMacOS;
 
-#[cfg(target_os = "macos")]
-mod macos {
-    use std::ffi::c_void;
-
-    type CGColorSpaceRef = *const c_void;
-    type CFStringRef = *const c_void;
-
-    #[link(name = "CoreGraphics", kind = "framework")]
-    extern "C" {
-        static kCGColorSpaceExtendedSRGB: CFStringRef;
-        fn CGColorSpaceCreateWithName(name: CFStringRef) -> CGColorSpaceRef;
-        fn CFRelease(cf: *const c_void);
-    }
-
-    extern "C" {
-        fn sel_registerName(name: *const u8) -> *const c_void;
-    }
-
-    // objc_msgSend is NOT variadic — it uses the callee's calling convention.
-    // On ARM64, variadic and non-variadic conventions differ (stack vs registers),
-    // so we must call it with the correct function pointer type for each message.
-    #[allow(clashing_extern_declarations)]
-    extern "C" {
-        #[link_name = "objc_msgSend"]
-        fn objc_msg_send_bool(receiver: *mut c_void, sel: *const c_void, val: i32);
-        #[link_name = "objc_msgSend"]
-        fn objc_msg_send_ptr(receiver: *mut c_void, sel: *const c_void, val: *const c_void);
-    }
-
-    /// Set the CAMetalLayer's color space to extended linear sRGB and enable EDR.
-    ///
-    /// Uses wgpu's HAL API to access the Metal surface's layer directly.
-    pub fn enable_edr(surface: &wgpu::Surface) {
-        unsafe {
-            let hal_surface = surface.as_hal::<wgpu::hal::api::Metal>();
-            let Some(hal_surface) = hal_surface else {
-                log::warn!("Failed to access Metal HAL surface");
-                return;
-            };
-
-            let layer = hal_surface.render_layer().lock();
-            let layer_ptr = metal::foreign_types::ForeignType::as_ptr(&*layer) as *mut c_void;
-
-            // Enable extended dynamic range content
-            objc_msg_send_bool(
-                layer_ptr,
-                sel_registerName(b"setWantsExtendedDynamicRangeContent:\0".as_ptr()),
-                1,
-            );
-
-            // Set the color space to extended sRGB (non-linear).
-            // This preserves the sRGB gamma interpretation of our pixel values
-            // (matching the default layer behavior) while allowing values > 1.0
-            // to map to EDR brightness above SDR white.
-            let color_space = CGColorSpaceCreateWithName(kCGColorSpaceExtendedSRGB);
-            if !color_space.is_null() {
-                objc_msg_send_ptr(
-                    layer_ptr,
-                    sel_registerName(b"setColorspace:\0".as_ptr()),
-                    color_space,
-                );
-                CFRelease(color_space);
-                log::info!("Enabled EDR with extended sRGB color space");
-            } else {
-                log::warn!("Failed to create extended sRGB color space");
-            }
-        }
-    }
-}
-
 use flux::{Flux, Settings};
 
 struct App {
@@ -210,6 +140,7 @@ impl ApplicationHandler for FluxApp {
                 power_preference: wgpu::PowerPreference::HighPerformance,
                 force_fallback_adapter: false,
                 compatible_surface: Some(&window_surface),
+                apply_limit_buckets: false,
             }))
             .expect("Failed to find an appropriate adapter");
 
@@ -244,6 +175,13 @@ impl ApplicationHandler for FluxApp {
         log::info!("Available formats: {:?}", swapchain_capabilities.formats);
 
         let physical_size = window.inner_size();
+        // On macOS, request extended sRGB so values > 1.0 in the (Rgba16Float)
+        // framebuffer map to EDR brightness above SDR white.
+        #[cfg(target_os = "macos")]
+        let color_space = wgpu::SurfaceColorSpace::ExtendedSrgb;
+        #[cfg(not(target_os = "macos"))]
+        let color_space = wgpu::SurfaceColorSpace::Auto;
+
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: swapchain_format,
@@ -253,12 +191,10 @@ impl ApplicationHandler for FluxApp {
             desired_maximum_frame_latency: 2,
             alpha_mode: swapchain_capabilities.alpha_modes[0],
             view_formats: vec![],
+            color_space,
         };
 
         window_surface.configure(&device, &config);
-
-        #[cfg(target_os = "macos")]
-        macos::enable_edr(&window_surface);
 
         let logical_size = physical_size.to_logical(window.scale_factor());
         let settings = Arc::new(Settings {
@@ -362,10 +298,21 @@ impl ApplicationHandler for FluxApp {
                 window.request_redraw();
             }
             WindowEvent::RedrawRequested => {
-                let frame = gpu
-                    .window_surface
-                    .get_current_texture()
-                    .expect("Failed to acquire next swap chain texture");
+                let frame = match gpu.window_surface.get_current_texture() {
+                    wgpu::CurrentSurfaceTexture::Success(frame)
+                    | wgpu::CurrentSurfaceTexture::Suboptimal(frame) => frame,
+                    wgpu::CurrentSurfaceTexture::Timeout
+                    | wgpu::CurrentSurfaceTexture::Occluded => {
+                        window.request_redraw();
+                        return;
+                    }
+                    wgpu::CurrentSurfaceTexture::Outdated => {
+                        gpu.window_surface.configure(&gpu.device, &gpu.config);
+                        window.request_redraw();
+                        return;
+                    }
+                    status => panic!("Failed to acquire next swap chain texture: {status:?}"),
+                };
                 let view = frame
                     .texture
                     .create_view(&wgpu::TextureViewDescriptor::default());
@@ -386,7 +333,7 @@ impl ApplicationHandler for FluxApp {
 
                 gpu.command_queue.submit(Some(encoder.finish()));
                 window.pre_present_notify();
-                frame.present();
+                gpu.command_queue.present(frame);
             }
             _ => (),
         }
