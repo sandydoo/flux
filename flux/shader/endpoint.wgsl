@@ -37,7 +37,7 @@ fn main_vs(
 ) -> VertexOutput {
   var point
     = vec2<f32>(uniforms.aspect, 1.0) * uniforms.zoom * (basepoint * 2.0 - 1.0)
-    + endpoint
+    + uniforms.line_length * endpoint
     + 0.5 * uniforms.line_width * width * vertex;
 
   point.x /= uniforms.aspect;

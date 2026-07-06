@@ -140,7 +140,7 @@ fn main(
   let momentum_boost = mix(3.0, 5.0, variance);
 
   let new_velocity = (1.0 - uniforms.delta_time * momentum_boost) * line.velocity
-    + (uniforms.line_length * velocity - line.endpoint) * velocity_delta_boost * uniforms.delta_time;
+    + (velocity - line.endpoint) * velocity_delta_boost * uniforms.delta_time;
 
   let new_endpoint = line.endpoint + uniforms.delta_time * new_velocity;
 

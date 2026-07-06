@@ -37,12 +37,12 @@ fn main_vs(
   x_basis /= max(length(x_basis), 1e-10); // safely normalize
 
   var point = vec2<f32>(uniforms.aspect, 1.0) * uniforms.zoom * (basepoint * 2.0 - 1.0)
-    + endpoint * vertex.y
+    + uniforms.line_length * endpoint * vertex.y
     + uniforms.line_width * width * x_basis * vertex.x;
 
   point.x /= uniforms.aspect;
 
-  let short_line_boost = 1.0 + ((uniforms.line_width * width) / length(endpoint));
+  let short_line_boost = 1.0 + ((uniforms.line_width * width) / length(uniforms.line_length * endpoint));
   let line_offset = uniforms.line_begin_offset / short_line_boost;
 
   let transformed_point = view_matrix * vec4<f32>(point, 0.0, 1.0);
