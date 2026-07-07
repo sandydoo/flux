@@ -46,8 +46,15 @@ impl Grid {
         let aspect_ratio = width / height;
         let grid_spacing = grid_spacing as f32;
 
+        // Derive each axis independently from the spacing so the counts are
+        // stable under resize: `columns` depends only on width, `rows` only on
+        // height. Both give ~square cells (columns/rows ≈ width/height). Deriving
+        // `rows` from the floored `columns` instead couples it to width, which
+        // makes it oscillate by ±1 as the window widens — and since the grid
+        // distributes `rows` evenly over [0,1], every such flip shifts every
+        // line vertically, producing a visible jump while resizing.
         let columns = f32::floor(width / grid_spacing);
-        let rows = f32::floor((height / width) * columns);
+        let rows = f32::floor(height / grid_spacing);
         let grid_spacing_x: f32 = 1.0 / columns;
         let grid_spacing_y: f32 = 1.0 / rows;
 
@@ -116,7 +123,7 @@ mod test {
     #[test]
     fn is_sane_grid_for_iphone_xr() {
         let logical_size = LogicalSize::new(414, 896);
-        assert_eq!(create_test_grid(logical_size, 15), (28, 59));
+        assert_eq!(create_test_grid(logical_size, 15), (28, 60));
         assert_eq!(
             clamp_logical_size(logical_size.width, logical_size.height),
             (800, 1731)

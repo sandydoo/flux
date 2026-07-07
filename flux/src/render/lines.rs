@@ -109,10 +109,21 @@ struct Line {
     width: f32,
 }
 
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct ResampleUniforms {
+    old_columns: u32,
+    old_rows: u32,
+    new_columns: u32,
+    new_rows: u32,
+}
+
 pub struct Context {
     line_count: u32,
     work_group_count: u32,
     frame_num: usize,
+    columns: u32,
+    rows: u32,
 
     line_vertex_buffer: wgpu::Buffer,
     endpoint_vertex_buffer: wgpu::Buffer,
@@ -138,6 +149,8 @@ pub struct Context {
     color_bind_group: wgpu::BindGroup,
 
     place_lines_pipeline: wgpu::ComputePipeline,
+    resample_pipeline: wgpu::ComputePipeline,
+    resample_bind_group_layout: wgpu::BindGroupLayout,
     draw_line_pipeline: wgpu::RenderPipeline,
     draw_endpoint_pipeline: wgpu::RenderPipeline,
 }
@@ -256,8 +269,6 @@ impl Context {
         );
     }
 
-    // TODO: resample the line state in a compute shader
-    // TODO: dedupe with new
     pub fn resize(
         &mut self,
         device: &wgpu::Device,
@@ -266,8 +277,26 @@ impl Context {
         grid: &Grid,
         settings: &Settings,
     ) {
+        // Refresh the aspect and line-scale uniforms for the new window shape.
         self.update(device, queue, screen_size, grid, settings);
 
+        // Common path: the grid dimensions are unchanged (e.g. a window drag
+        // that doesn't cross a column boundary). The normalized basepoints are
+        // identical, so nothing needs reallocating — the aspect uniform alone
+        // stretches the grid, and scale-invariant line state keeps the lengths
+        // correct.
+        if grid.columns == self.columns && grid.rows == self.rows {
+            return;
+        }
+
+        // The grid changed size. Carry the current line state into the new grid
+        // by nearest-neighbour resampling instead of zeroing it, so lines don't
+        // spring back from scratch.
+        let old_columns = self.columns;
+        let old_rows = self.rows;
+
+        // Basepoints are the new (target) grid positions. The resample's implied
+        // positions equal these exactly, so there's nothing to interpolate here.
         let basepoints_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("buffer:basepoints"),
             contents: bytemuck::cast_slice(&grid.basepoints),
@@ -276,6 +305,8 @@ impl Context {
                 | wgpu::BufferUsages::COPY_DST,
         });
 
+        // Buffer 0 receives the resampled state; buffer 1 is fully written by the
+        // first place_lines dispatch. Zero-init is fine for both.
         let lines = vec![Line::zeroed(); grid.line_count as usize];
 
         let line_buffers = (0..2)
@@ -289,6 +320,57 @@ impl Context {
                 })
             })
             .collect::<Vec<_>>();
+
+        let resample_params = ResampleUniforms {
+            old_columns,
+            old_rows,
+            new_columns: grid.columns,
+            new_rows: grid.rows,
+        };
+        let resample_params_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("buffer:ResampleUniforms"),
+            contents: bytemuck::cast_slice(&[resample_params]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        // Resample the current visible state (last place_lines output lives in
+        // line_buffers[frame_num]) into the new grid's buffer 0.
+        let resample_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("bind_group:resample"),
+            layout: &self.resample_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: resample_params_buffer.as_entire_binding(),
+                },
+                // old_lines
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: self.line_buffers[self.frame_num].as_entire_binding(),
+                },
+                // new_lines
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: line_buffers[0].as_entire_binding(),
+                },
+            ],
+        });
+
+        let work_group_count = ((grid.line_count as f32) / 64.0).ceil() as u32;
+
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("encoder:resample_lines"),
+        });
+        {
+            let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("flux::resample_lines"),
+                timestamp_writes: None,
+            });
+            cpass.set_pipeline(&self.resample_pipeline);
+            cpass.set_bind_group(0, &resample_bind_group, &[]);
+            cpass.dispatch_workgroups(work_group_count, 1, 1);
+        }
+        queue.submit(Some(encoder.finish()));
 
         let line_bind_groups = (0..2)
             .map(|i| {
@@ -343,7 +425,10 @@ impl Context {
         });
 
         self.line_count = grid.line_count;
-        self.work_group_count = ((grid.line_count as f32) / 64.0).ceil() as u32;
+        self.columns = grid.columns;
+        self.rows = grid.rows;
+        self.work_group_count = work_group_count;
+        self.frame_num = 0;
         self.line_buffers = line_buffers;
         self.line_bind_groups = line_bind_groups;
         self.basepoints_buffer = basepoints_buffer;
@@ -708,6 +793,69 @@ impl Context {
                 cache: None,
             });
 
+        let resample_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("bind_group_layout:resample"),
+                entries: &[
+                    // params
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                    // old_lines
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                    // new_lines
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: false },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                ],
+            });
+
+        let resample_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("pipeline_layout:resample"),
+                bind_group_layouts: &[Some(&resample_bind_group_layout)],
+                immediate_size: 0,
+            });
+
+        let resample_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("shader:resample_lines"),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!(
+                "../../shader/resample_lines.comp.wgsl"
+            ))),
+        });
+
+        let resample_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some("pipeline:resample_lines"),
+            layout: Some(&resample_pipeline_layout),
+            module: &resample_shader,
+            entry_point: Some("main"),
+            compilation_options: Default::default(),
+            cache: None,
+        });
+
         let draw_line_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("pipeline_layout:draw_line"),
@@ -828,6 +976,8 @@ impl Context {
             line_count: grid.line_count,
             work_group_count,
             frame_num: 0,
+            columns: grid.columns,
+            rows: grid.rows,
 
             line_vertex_buffer,
             endpoint_vertex_buffer,
@@ -853,6 +1003,8 @@ impl Context {
             color_bind_group,
 
             place_lines_pipeline,
+            resample_pipeline,
+            resample_bind_group_layout,
             draw_line_pipeline,
             draw_endpoint_pipeline,
         };

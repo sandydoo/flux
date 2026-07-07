@@ -168,7 +168,6 @@ impl Flux {
     ) {
         let grid = grid::Grid::new(logical_width, logical_height, self.settings.grid_spacing);
 
-        // TODO: fetch line state from GPU and resample for new grid
         let logical_size = wgpu::Extent3d {
             width: logical_width,
             height: logical_height,
