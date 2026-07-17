@@ -170,28 +170,32 @@ impl ApplicationHandler for FluxApp {
             .expect("Failed to create device");
 
         let swapchain_capabilities = window_surface.get_capabilities(&adapter);
-        let swapchain_format = get_preferred_format(&swapchain_capabilities);
-        log::info!("Swapchain format: {:?}", swapchain_format);
-        log::info!("Available formats: {:?}", swapchain_capabilities.formats);
+        let surface_output = get_preferred_surface_output(&swapchain_capabilities)
+            .expect("Surface does not support a renderer-compatible color space");
+        let display_hdr_info = window_surface.display_hdr_info(&adapter);
+        log::info!(
+            "Surface output: format={:?}, color_space={:?}, hdr={}, headroom={:?}",
+            surface_output.format,
+            surface_output.color_space,
+            surface_output.color_space.is_hdr(),
+            display_hdr_info.tone_map_headroom(),
+        );
+        log::debug!(
+            "Surface format capabilities: {:?}",
+            swapchain_capabilities.format_capabilities
+        );
 
         let physical_size = window.inner_size();
-        // On macOS, request extended sRGB so values > 1.0 in the (Rgba16Float)
-        // framebuffer map to EDR brightness above SDR white.
-        #[cfg(target_os = "macos")]
-        let color_space = wgpu::SurfaceColorSpace::ExtendedSrgb;
-        #[cfg(not(target_os = "macos"))]
-        let color_space = wgpu::SurfaceColorSpace::Auto;
-
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: swapchain_format,
+            format: surface_output.format,
             width: physical_size.width,
             height: physical_size.height,
             present_mode: wgpu::PresentMode::AutoVsync,
             desired_maximum_frame_latency: 2,
             alpha_mode: swapchain_capabilities.alpha_modes[0],
             view_formats: vec![],
-            color_space,
+            color_space: surface_output.color_space,
         };
 
         window_surface.configure(&device, &config);
@@ -201,7 +205,7 @@ impl ApplicationHandler for FluxApp {
         let flux = Flux::new(
             &device,
             &command_queue,
-            swapchain_format,
+            surface_output.format,
             logical_size.width,
             logical_size.height,
             physical_size.width,
@@ -343,29 +347,139 @@ impl ApplicationHandler for FluxApp {
     }
 }
 
-fn get_preferred_format(capabilities: &wgpu::SurfaceCapabilities) -> wgpu::TextureFormat {
-    // Prefer non-srgb formats, as we will be doing linear math in the shaders.
-    // If the swapchain doesn't support any non-srgb formats, we will fall back to srgb.
-    //
-    // On macOS, prefer Rgba16Float for EDR support: values > 1.0 in the framebuffer
-    // map to brightness above SDR white when the CAMetalLayer is configured with
-    // an extended linear sRGB color space.
-    let preferred_formats = [
-        #[cfg(target_os = "macos")]
-        wgpu::TextureFormat::Rgba16Float,
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct SurfaceOutput {
+    format: wgpu::TextureFormat,
+    color_space: wgpu::SurfaceColorSpace,
+}
+
+fn get_preferred_surface_output(capabilities: &wgpu::SurfaceCapabilities) -> Option<SurfaceOutput> {
+    // Flux's existing output values are sRGB-encoded. Prefer an encoded
+    // extended-sRGB surface where available (Metal and some Vulkan drivers),
+    // preserving the current appearance and values above SDR white.
+    let encoded_hdr = SurfaceOutput {
+        format: wgpu::TextureFormat::Rgba16Float,
+        color_space: wgpu::SurfaceColorSpace::ExtendedSrgb,
+    };
+    if supports_surface_output(capabilities, encoded_hdr) {
+        return Some(encoded_hdr);
+    }
+
+    // Linear scRGB and PQ/HLG need an explicit output conversion pass. Until
+    // Flux has one, using those spaces would alter the existing colors.
+    // Preserve the existing SDR output convention: non-sRGB formats contain an
+    // sRGB-encoded signal, while *Srgb formats perform the encoding on store.
+    // Every candidate is paired with an explicitly advertised color space.
+    let sdr_formats = [
         wgpu::TextureFormat::Rgb10a2Unorm,
         wgpu::TextureFormat::Bgra8Unorm,
         wgpu::TextureFormat::Rgba8Unorm,
         wgpu::TextureFormat::Bgra8UnormSrgb,
         wgpu::TextureFormat::Rgba8UnormSrgb,
     ];
+    sdr_formats.into_iter().find_map(|format| {
+        let output = SurfaceOutput {
+            format,
+            color_space: wgpu::SurfaceColorSpace::Srgb,
+        };
+        supports_surface_output(capabilities, output).then_some(output)
+    })
+}
 
-    for format in &preferred_formats {
-        if capabilities.formats.contains(format) {
-            return *format;
+fn supports_surface_output(
+    capabilities: &wgpu::SurfaceCapabilities,
+    output: SurfaceOutput,
+) -> bool {
+    capabilities
+        .color_spaces(output.format)
+        .contains(output.color_space.to_color_spaces().unwrap())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn capabilities(
+        formats: &[(wgpu::TextureFormat, wgpu::SurfaceColorSpaces)],
+    ) -> wgpu::SurfaceCapabilities {
+        wgpu::SurfaceCapabilities {
+            formats: Vec::new(),
+            format_capabilities: formats
+                .iter()
+                .map(|&(format, color_spaces)| wgpu::SurfaceFormatCapabilities {
+                    format,
+                    color_spaces,
+                })
+                .collect(),
+            present_modes: Vec::new(),
+            alpha_modes: vec![wgpu::CompositeAlphaMode::Opaque],
+            usages: wgpu::TextureUsages::RENDER_ATTACHMENT,
         }
     }
 
-    // If none of the preferred formats are supported, just return the first supported format.
-    capabilities.formats[0]
+    #[test]
+    fn falls_back_to_sdr_when_only_linear_hdr_is_advertised() {
+        let capabilities = capabilities(&[
+            (
+                wgpu::TextureFormat::Bgra8Unorm,
+                wgpu::SurfaceColorSpaces::SRGB,
+            ),
+            (
+                wgpu::TextureFormat::Rgba16Float,
+                wgpu::SurfaceColorSpaces::EXTENDED_SRGB_LINEAR,
+            ),
+        ]);
+
+        assert_eq!(
+            get_preferred_surface_output(&capabilities),
+            Some(SurfaceOutput {
+                format: wgpu::TextureFormat::Bgra8Unorm,
+                color_space: wgpu::SurfaceColorSpace::Srgb,
+            })
+        );
+    }
+
+    #[test]
+    fn prefers_encoded_hdr_without_changing_existing_colors() {
+        let capabilities = capabilities(&[
+            (
+                wgpu::TextureFormat::Rgba16Float,
+                wgpu::SurfaceColorSpaces::EXTENDED_SRGB,
+            ),
+            (
+                wgpu::TextureFormat::Bgra8Unorm,
+                wgpu::SurfaceColorSpaces::SRGB,
+            ),
+        ]);
+
+        assert_eq!(
+            get_preferred_surface_output(&capabilities),
+            Some(SurfaceOutput {
+                format: wgpu::TextureFormat::Rgba16Float,
+                color_space: wgpu::SurfaceColorSpace::ExtendedSrgb,
+            })
+        );
+    }
+
+    #[test]
+    fn falls_back_to_supported_sdr_pair() {
+        let capabilities = capabilities(&[
+            (
+                wgpu::TextureFormat::Rgb10a2Unorm,
+                wgpu::SurfaceColorSpaces::BT2100_PQ,
+            ),
+            (
+                wgpu::TextureFormat::Bgra8Unorm,
+                wgpu::SurfaceColorSpaces::SRGB,
+            ),
+        ]);
+
+        assert_eq!(
+            get_preferred_surface_output(&capabilities),
+            Some(SurfaceOutput {
+                format: wgpu::TextureFormat::Bgra8Unorm,
+                color_space: wgpu::SurfaceColorSpace::Srgb,
+            })
+        );
+    }
 }
