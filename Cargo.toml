@@ -10,7 +10,7 @@ members = [
 ]
 
 [workspace.package]
-version = "7.0.0"
+version = "7.1.0"
 description = "An open-source tribute to the macOS Drift screensaver"
 edition = "2021"
 license = "MIT"
