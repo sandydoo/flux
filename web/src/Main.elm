@@ -186,6 +186,7 @@ type SettingMsg
     | SetLineWidth Float
     | SetLineBeginOffset Float
     | SetLineVariance Float
+    | SetGridSpacing Int
     | SetNoiseMultiplier Float
     | SetNoiseChannel Int NoiseChannelMsg
 
@@ -231,6 +232,9 @@ updateSettings msg settings =
 
         SetLineVariance newLineVariance ->
             { settings | lineVariance = newLineVariance }
+
+        SetGridSpacing newGridSpacing ->
+            { settings | gridSpacing = newGridSpacing }
 
         SetNoiseMultiplier newNoiseMultiplier ->
             { settings | noiseMultiplier = newNoiseMultiplier }
@@ -496,6 +500,26 @@ viewSettings settings =
                                 |> SetLineVariance
                                 |> SaveSetting
                     , toString = formatFloat 2
+                    }
+                )
+        , viewControl <|
+            Control
+                "Grid spacing"
+                """
+                Adjust the spacing between the lines.
+                """
+                (Slider
+                    { min = 1
+                    , max = 50
+                    , step = 1
+                    , value = settings.gridSpacing
+                    , onInput =
+                        \value ->
+                            String.toInt value
+                                |> Maybe.withDefault defaultSettings.gridSpacing
+                                |> SetGridSpacing
+                                |> SaveSetting
+                    , toString = String.fromInt
                     }
                 )
         , Html.h2 [ HA.class "col-span-2-md" ] [ Html.text "Fluid simulation" ]
