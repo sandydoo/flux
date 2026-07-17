@@ -75,7 +75,7 @@ impl Flux {
             .sample_colors_from_texture_view(&self.device, &self.queue, texture_view);
     }
 
-    #[wasm_bindgen(constructor)]
+    #[wasm_bindgen]
     pub async fn new(settings_object: &JsValue) -> Result<Flux, JsValue> {
         console_log::init_with_level(log::Level::Trace).expect("cannot enable logging");
 
@@ -109,9 +109,9 @@ impl Flux {
             Err(msg) => return Err(JsValue::from_str(&msg.to_string())),
         };
 
-        let mut instance_desc = wgpu::InstanceDescriptor::default();
+        let mut instance_desc = wgpu::InstanceDescriptor::new_without_display_handle();
         instance_desc.backends = wgpu::Backends::BROWSER_WEBGPU;
-        let wgpu_instance = wgpu::Instance::new(&instance_desc);
+        let wgpu_instance = wgpu::Instance::new(instance_desc);
         let window_surface = wgpu_instance
             .create_surface(wgpu::SurfaceTarget::Canvas(html_canvas))
             .expect("Failed to create surface");
@@ -120,6 +120,7 @@ impl Flux {
                 power_preference: wgpu::PowerPreference::HighPerformance,
                 force_fallback_adapter: false,
                 compatible_surface: Some(&window_surface),
+                apply_limit_buckets: false,
             })
             .await
             .expect("Failed to find an appropiate adapter");
@@ -166,6 +167,7 @@ impl Flux {
             desired_maximum_frame_latency: 2,
             alpha_mode: swapchain_capabilities.alpha_modes[0],
             view_formats: vec![],
+            color_space: wgpu::SurfaceColorSpace::Auto,
         };
 
         window_surface.configure(&device, &config);
@@ -196,10 +198,25 @@ impl Flux {
     }
 
     pub fn animate(&mut self, timestamp: f64) {
-        let frame = self
-            .window_surface
-            .get_current_texture()
-            .expect("Failed to acquire next swap chain texture");
+        let mut retried_outdated_surface = false;
+        let frame = loop {
+            match self.window_surface.get_current_texture() {
+                wgpu::CurrentSurfaceTexture::Success(frame)
+                | wgpu::CurrentSurfaceTexture::Suboptimal(frame) => break frame,
+                wgpu::CurrentSurfaceTexture::Timeout | wgpu::CurrentSurfaceTexture::Occluded => {
+                    return
+                }
+                wgpu::CurrentSurfaceTexture::Outdated if !retried_outdated_surface => {
+                    let config = self
+                        .window_surface
+                        .get_configuration()
+                        .expect("Surface should remain configured");
+                    self.window_surface.configure(&self.device, &config);
+                    retried_outdated_surface = true;
+                }
+                status => panic!("Failed to acquire next swap chain texture: {status:?}"),
+            }
+        };
         let view = frame
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
@@ -219,7 +236,7 @@ impl Flux {
         );
 
         self.queue.submit(Some(encoder.finish()));
-        frame.present();
+        self.queue.present(frame);
     }
 
     pub fn resize(&mut self, logical_width: u32, logical_height: u32) {
@@ -229,6 +246,12 @@ impl Flux {
 
             self.canvas.set_width(physical_width);
             self.canvas.set_height(physical_height);
+
+            if let Some(mut config) = self.window_surface.get_configuration() {
+                config.width = physical_width;
+                config.height = physical_height;
+                self.window_surface.configure(&self.device, &config);
+            }
 
             self.instance.resize(
                 &self.device,

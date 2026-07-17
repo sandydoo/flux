@@ -14,22 +14,31 @@ function setupFlux() {
   ui.ports.initFlux.subscribe(async function(settings) {
     if (navigator.gpu) {
       console.log("Backend: WebGPU");
-      flux = await new Flux(settings);
+      flux = await Flux.new(settings);
     } else {
       console.log("Backend: WebGL2");
       flux = new FluxGL(settings);
     }
 
+    let pendingResize;
+
+    const resizeObserver = new ResizeObserver(([entry]) => {
+      // Resizing a canvas clears its backing buffer. Defer that work to the
+      // animation callback so resize and redraw happen before the next paint,
+      // while coalescing multiple observations into a single resize.
+      pendingResize = entry.contentRect;
+    });
+    resizeObserver.observe(document.getElementById("canvas"));
+
     function animate(timestamp) {
+      if (pendingResize) {
+        flux.resize(pendingResize.width, pendingResize.height);
+        pendingResize = undefined;
+      }
+
       flux.animate(timestamp);
       window.requestAnimationFrame(animate);
     }
-
-    const resizeObserver = new ResizeObserver(([entry]) => {
-      let { width, height } = entry.contentRect;
-      flux.resize(width, height);
-    });
-    resizeObserver.observe(document.getElementById("canvas"));
 
     window.requestAnimationFrame(animate);
   });
