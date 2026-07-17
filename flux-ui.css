@@ -1,0 +1,327 @@
+.flux-ui p,
+.flux-ui h1,
+.flux-ui h2,
+.flux-ui h3,
+.flux-ui h4,
+.flux-ui h5,
+.flux-ui h6,
+.flux-ui ul,
+.flux-ui li {
+  margin: 0;
+  padding: 0;
+}
+
+.flux-ui .button-group {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  background-color: rgba(20, 20, 20, 0.3);
+  border-radius: 0.6em;
+  padding: 1em;
+}
+
+.flux-ui .button-group .button {
+  margin: 0.5em 0;
+  flex-grow: 1;
+}
+
+.flux-ui .button {
+  border-radius: 0.6em;
+  padding: 0.8em 1.5em;
+  font-weight: 600;
+  text-align: center;
+  transition: background-color 0.15s ease-in-out;
+}
+
+.flux-ui .button.active {
+  background-color: rgba(39, 41, 41, 0.5);
+}
+
+.flux-ui input[type=range] {
+  -webkit-appearance: none;
+  background: transparent;
+  width: 100%;
+  height: 3px;
+  font-size: 3px;
+}
+
+.flux-ui input[type=range]::-webkit-slider-runnable-track {
+  cursor: col-resize;
+  background: #4e4d4d;
+  border-radius: 1em;
+  height: 1em;
+  width: 100%;
+  width: 100%;
+}
+
+.flux-ui input[type=range]::-moz-range-track {
+  cursor: col-resize;
+  background: #4e4d4d;
+  border-radius: 1em;
+  height: 1em;
+  width: 100%;
+  width: 100%;
+}
+
+.flux-ui input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 5em;
+  width: 5em;
+  margin-top: -1.8em;
+  border-radius: 5em;
+  border: none;
+  background: var(--flux-ui-color, var(--body-color, #f0ffff));
+  cursor: col-resize;
+}
+
+.flux-ui input[type=range]::-moz-range-thumb {
+  -webkit-appearance: none;
+  height: 5em;
+  width: 5em;
+  border-radius: 5em;
+  border: none;
+  background: var(--flux-ui-color, var(--body-color, #f0ffff));
+  cursor: col-resize;
+}
+
+.flux-ui button {
+  -webkit-appearance: none;
+  appearance: none;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  color: inherit;
+  border: none;
+  text-align: left;
+  font-size: inherit;
+  font-family: inherit;
+  line-height: inherit;
+  transition: color 0.15s;
+  cursor: pointer;
+}
+
+.flux-ui button:hover {
+  color: var(--flux-ui-color, var(--body-color, #f0ffff));
+}
+
+.flux-ui .col-span-1 {
+  grid-column: span 1;
+}
+
+.flux-ui .col-span-2 {
+  grid-column: span 2;
+}
+
+.flux-ui .whitespace-nowrap {
+  white-space: nowrap;
+}
+
+.flux-ui .text-secondary {
+  color: var(--flux-ui-secondary-color, var(--body-secondary-color, #99a2a2));
+}
+
+.flux-ui a {
+  color: inherit;
+  transition: color 0.15s;
+  text-decoration: none;
+}
+
+.flux-ui a:hover {
+  color: var(--flux-ui-color, var(--body-color, #f0ffff));
+}
+
+.flux-ui .control-panel {
+  display: flex;
+  flex-direction: row;
+
+  /* do not touch opacity. it breaks backdrop-filter in chrome/firefox */
+  visibility: hidden;
+  opacity: 1;
+  transition: 0.3s opacity, 0.3s visibility;
+
+  margin-left: 0.3rem;
+  margin-right: 0.3rem;
+}
+
+.flux-ui .active {
+  color: var(--flux-ui-color, var(--body-color, #f0ffff));
+}
+
+.flux-ui .control-container {
+  opacity: 0;
+  transition: 0.3s opacity;
+
+  margin: 0.3rem auto;
+  padding: 4rem 3rem;
+  border-radius: 13px;
+  border: 1px solid rgb(10, 10, 20);
+  background-color: rgba(5, 5, 7, 0.98);
+  max-height: calc(100vh - 2 * 4rem - 0.6rem);
+  max-width: 660px;
+  overflow-y: auto;
+
+  position: relative;
+  z-index: 100;
+  align-self: flex-start;
+}
+
+@supports (backdrop-filter: none) {
+  .flux-ui .control-container {
+    backdrop-filter: blur(12px);
+    background-color: rgba(5, 5, 7, 0.7);
+  }
+}
+
+.flux-ui .visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.flux-ui .control-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2.6rem;
+}
+
+.flux-ui .control-list-single {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2.6rem;
+}
+
+/* workaround for backdrop-filter not working when the parent element has an opacity less than 1 */
+.flux-ui .visible .control-container {
+  opacity: 1;
+}
+
+.flux-ui .control {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.flux-ui .control-title {
+  font-size: 0.9rem;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  grid-column: span 2;
+}
+
+.flux-ui .control-description {
+  font-size: 0.8rem;
+  color: var(--flux-ui-secondary-color, var(--body-secondary-color, #99a2a2));
+  line-height: 1.4;
+  letter-spacing: -0.015em;
+  margin-top: 0.3rem;
+}
+
+.flux-ui .control-slider {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 0;
+}
+
+.flux-ui .control-select {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 0;
+}
+
+.flux-ui .control-select select {
+  width: 100%;
+  padding: 0.6em 0.8em;
+  border: 1px solid var(--flux-ui-sub-color, var(--body-sub-color, #272929));
+  border-radius: 0.6em;
+  background-color: rgba(20, 20, 20, 0.3);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.flux-ui .control-select select:focus-visible {
+  outline: 2px solid var(--flux-ui-color, var(--body-color, #f0ffff));
+  outline-offset: 2px;
+}
+
+.flux-ui .control-value {
+  font-size: 0.8rem;
+  font-weight: bold;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  width: 2rem;
+  text-align: right;
+}
+
+.flux-ui .gallery-item {
+  margin: 0 10px 10px 0;
+  display: inline-flex;
+  flex-direction: column;
+}
+
+.flux-ui .gallery-item:focus-visible {
+  outline: none;
+}
+
+.flux-ui .gallery-item:focus-visible .gallery-icon {
+  outline: 2px solid var(--flux-ui-color, var(--body-color, #f0ffff));
+  outline-offset: -2px;
+}
+
+.flux-ui .gallery-icon {
+  width: 110px;
+  height: 110px;
+  border-radius: 8px;
+  border: 1px solid var(--flux-ui-sub-color, var(--body-sub-color, #272929));
+  background-color: black;
+  overflow: hidden;
+  transition: outline 0.15s;
+}
+
+.flux-ui .gallery-icon.active {
+  outline: 2px solid var(--flux-ui-color, var(--body-color, #f0ffff));
+  outline-offset: -2px;
+}
+
+.flux-ui footer {
+  display: flex;
+  flex-direction: row;
+}
+
+.flux-ui .nav {
+  list-style: none;
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+}
+
+.flux-ui .nav li {
+  margin-left: 1rem;
+}
+
+.flux-ui nav li:first {
+  margin-left: 0;
+}
+
+@media (min-width: 640px) {
+  .flux-ui .col-span-2-md {
+    grid-column: span 2;
+  }
+
+  .flux-ui .button-group {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-evenly;
+  }
+
+  .flux-ui .button-group .button {
+    margin: 0 0.5em;
+  }
+
+  .flux-ui .control-container {
+    align-self: center;
+  }
+
+  .flux-ui .control-list {
+    grid-template-columns: 1fr 1fr;
+  }
+}
