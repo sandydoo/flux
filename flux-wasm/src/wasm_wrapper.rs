@@ -155,8 +155,35 @@ impl Flux {
             .expect("Failed to create device");
 
         let swapchain_capabilities = window_surface.get_capabilities(&adapter);
-        let swapchain_format = swapchain_capabilities.formats[0];
-        log::debug!("Swapchain format: {:?}", swapchain_format);
+        let display_hdr_info = window_surface.display_hdr_info(&adapter);
+
+        // WebGPU exposes HDR canvases as an fp16 surface with extended sRGB
+        // tone mapping. Only opt in when both the canvas and current display
+        // advertise support; otherwise retain the browser's SDR defaults.
+        let hdr_format = wgpu::TextureFormat::Rgba16Float;
+        let hdr_display = display_hdr_info
+            .coarse
+            .and_then(|coarse| coarse.high_dynamic_range)
+            == Some(true);
+        let hdr_canvas = swapchain_capabilities
+            .color_spaces(hdr_format)
+            .contains(wgpu::SurfaceColorSpaces::EXTENDED_SRGB);
+        let hdr_enabled = hdr_display && hdr_canvas;
+
+        let (swapchain_format, color_space) = if hdr_enabled {
+            (hdr_format, wgpu::SurfaceColorSpace::ExtendedSrgb)
+        } else {
+            (
+                swapchain_capabilities.formats[0],
+                wgpu::SurfaceColorSpace::Auto,
+            )
+        };
+        log::info!(
+            "Canvas output: format={:?}, color_space={:?}, hdr={}",
+            swapchain_format,
+            color_space,
+            hdr_enabled
+        );
 
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -167,7 +194,7 @@ impl Flux {
             desired_maximum_frame_latency: 2,
             alpha_mode: swapchain_capabilities.alpha_modes[0],
             view_formats: vec![],
-            color_space: wgpu::SurfaceColorSpace::Auto,
+            color_space,
         };
 
         window_surface.configure(&device, &config);
