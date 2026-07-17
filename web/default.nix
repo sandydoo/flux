@@ -2,7 +2,10 @@
   pkgs,
   lib,
   stdenv,
-  pnpm,
+  # pnpm 11 crashes on macOS 26+: node worker cleanup closes a guarded fd
+  # (EXC_GUARD) during `pnpm install`, and libuv asserts in uv__io_poll.
+  # Fall back to pnpm 10 until this is fixed upstream.
+  pnpm_10,
   flux-wasm,
   flux-gl-wasm,
 }: let
@@ -60,17 +63,17 @@ in
       openssl
       pkg-config
       nodejs
-      pnpm
-      pnpm.configHook
+      pnpm_10
+      pnpm_10.configHook
       elmPackages.elm
       wasm-bindgen
       binaryen
     ];
 
-    pnpmDeps = pnpm.fetchDeps {
+    pnpmDeps = pnpm_10.fetchDeps {
       inherit (finalAttrs) pname src version;
-      hash = "sha256-bjdRJwSDEI2g0pDB/T/J93O9gkF5j/aCMejuxui3M7E=";
-      fetcherVersion = 2;
+      hash = "sha256-PPVZN9RUY86hkny03OEvXKltoI68bnfTlLx0lyL2OPI=";
+      fetcherVersion = 4;
     };
 
     preConfigure = pkgs.elmPackages.fetchElmDeps {

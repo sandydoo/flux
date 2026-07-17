@@ -80,7 +80,8 @@
     in {
     devShells = {
       default = pkgs.mkShell {
-        packages = with pkgs; [nixfmt wasm-pack cargo-outdated pnpm elmPackages.elm];
+        # pnpm 10 to match the web build; pnpm 11 crashes on macOS 26+.
+        packages = with pkgs; [nixfmt wasm-pack cargo-outdated pnpm_10 elmPackages.elm];
         inputsFrom = [config.packages.flux flux-desktop-unwrapped config.packages.flux-wasm];
         nativeBuildInputs = [rustToolchain];
         LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath desktopRuntimeLibraries;

@@ -19,20 +19,13 @@
   },
   "devDependencies": {
     "@wasm-tool/wasm-pack-plugin": "^1.7.0",
-    "copy-webpack-plugin": "^13.0.0",
+    "copy-webpack-plugin": "^14.0.0",
     "elm-hot": "^1.1.6",
     "elm-webpack-loader": "^8.0.0",
     "gh-pages": "^6.3.0",
-    "html-webpack-plugin": "^5.6.3",
-    "webpack": "^5.100.1",
-    "webpack-cli": "^6.0.1",
-    "webpack-dev-server": "^5.2.2"
-  },
-  "pnpm": {
-    "peerDependencyRules": {
-      "ignoreMissing": [
-        "elm"
-      ]
-    }
+    "html-webpack-plugin": "^5.6.7",
+    "webpack": "^5.108.4",
+    "webpack-cli": "^7.2.1",
+    "webpack-dev-server": "^6.0.0"
   }
 }
