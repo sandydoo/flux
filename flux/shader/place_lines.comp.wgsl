@@ -23,9 +23,16 @@ struct LineUniforms {
 }
 
 @group(0) @binding(0) var<uniform> uniforms: LineUniforms;
-@group(0) @binding(1) var<storage, read> basepoints: array<vec2<f32>>;
+@group(0) @binding(1) var<storage, read_write> basepoints: array<vec2<f32>>;
 @group(0) @binding(2) var linear_sampler: sampler;
 @group(0) @binding(3) var color_texture_sampler: sampler;
+@group(0) @binding(4) var<storage, read> target_basepoints: array<vec2<f32>>;
+
+// Rate at which each animated basepoint eases toward its target after a grid
+// change. Only a grid_spacing change actually moves the targets (lines glide to
+// the new spacing); a window resize seeds current == target, so this is inert
+// there. Exponential ease-out: framerate-independent, no overshoot, no state.
+const BASEPOINT_STIFFNESS: f32 = 6.0;
 
 @group(1) @binding(0) var<storage, read> lines: array<Line>;
 @group(1) @binding(1) var<storage, read_write> out_lines: array<Line>;
@@ -122,7 +129,14 @@ fn main(
     return;
   }
 
-  let basepoint = basepoints[index];
+  // Ease the current basepoint toward its target. Same-index read/write is
+  // race-free, so no ping-pong buffer is needed. The noise term below keys off
+  // the eased basepoint, so variance follows the animated position for free.
+  var basepoint = basepoints[index];
+  let goal = target_basepoints[index];
+  basepoint += (goal - basepoint) * (1.0 - exp(-BASEPOINT_STIFFNESS * uniforms.delta_time));
+  basepoints[index] = basepoint;
+
   let line = lines[index];
   let velocity = textureSampleLevel(velocity_texture, linear_sampler, basepoint, 0.0).xy;
 

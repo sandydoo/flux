@@ -1,19 +1,23 @@
-// One-shot pass run when the grid dimensions change. Every grid spans the same
-// normalized [0,1]² square (basepoint = index / (dim - 1)), so the old and new
-// grids are two samplings of the same continuous field. Each new line inherits
-// the state of the nearest old line at the same normalized position.
+// One-shot pass run when the grid dimensions change (window resize or a
+// grid_spacing change). Each line is identified by its integer offset from the
+// grid centre. A line at centre-offset (du, dv) inherits the state of the line
+// at the same offset in the old grid, so every line that exists in both grids
+// keeps its identity — and therefore its on-screen position, since the view is
+// zoomed in and lines sit on a fixed centred lattice. Lines with no counterpart
+// (the newly-exposed edges) are born empty and fade in via the velocity-driven
+// width, and lines that fall off the edge are simply dropped.
 //
-// Nearest-neighbour (rather than bilinear) is deliberate: window drags make the
-// grid dimensions oscillate by ±1 at every column boundary, and a round trip of
-// nearest-neighbour resamples is exactly the identity — a row duplicated on grow
-// is dropped again on shrink, with no state change. Bilinear would low-pass the
-// line state a little on every toggle, which the springs then fight, producing a
-// visible up/down jitter as the window resizes.
+// This is why the counts are forced odd (see `grid.rs`): an odd count puts a
+// line exactly at the centre, so the offsets are integers in both grids and the
+// mapping is exact — no half-cell shimmer as the counts change.
 //
-// Thanks to scale-invariant line state (plan 1) the inherited state is already
-// valid in the new grid — no scale correction is needed. Basepoints are not
-// resampled: the resampled positions equal the new grid's basepoints exactly, so
-// the new (target) grid positions are used directly.
+// The pass also seeds each line's *current* basepoint, which then eases toward
+// its target in place_lines:
+//   - snap != 0 (window resize): seed at the target. A surviving line's target
+//     already equals its old on-screen position, so nothing moves; only the
+//     edges change.
+//   - snap == 0 (grid_spacing change): seed at the line's old position so it
+//     glides from the old spacing to the new one — visible positional movement.
 
 struct Line {
   endpoint: vec2<f32>,
@@ -28,11 +32,15 @@ struct ResampleUniforms {
   old_rows: u32,
   new_columns: u32,
   new_rows: u32,
+  snap: u32,
 }
 
 @group(0) @binding(0) var<uniform> params: ResampleUniforms;
 @group(0) @binding(1) var<storage, read> old_lines: array<Line>;
 @group(0) @binding(2) var<storage, read_write> new_lines: array<Line>;
+@group(0) @binding(3) var<storage, read> old_basepoints: array<vec2<f32>>;
+@group(0) @binding(4) var<storage, read> target_basepoints: array<vec2<f32>>;
+@group(0) @binding(5) var<storage, read_write> new_basepoints: array<vec2<f32>>;
 
 @compute
 @workgroup_size(64)
@@ -44,16 +52,28 @@ fn main(
     return;
   }
 
-  let u = index % params.new_columns;
-  let v = index / params.new_columns;
+  let u = i32(index % params.new_columns);
+  let v = i32(index / params.new_columns);
 
-  // Map the new grid position to the nearest old grid node. Both grids place
-  // node i at i / (dim - 1), so old_index = new_index * (old_dim - 1) / (new_dim - 1).
-  let fx = f32(u) * f32(params.old_columns - 1u) / f32(max(params.new_columns - 1u, 1u));
-  let fy = f32(v) * f32(params.old_rows - 1u) / f32(max(params.new_rows - 1u, 1u));
+  // Same centre-offset in the old grid. Counts are odd, so (count - 1) / 2 is
+  // the exact integer centre index in both grids.
+  let u_old = u - (i32(params.new_columns) - 1) / 2 + (i32(params.old_columns) - 1) / 2;
+  let v_old = v - (i32(params.new_rows) - 1) / 2 + (i32(params.old_rows) - 1) / 2;
 
-  let ox = min(u32(round(fx)), params.old_columns - 1u);
-  let oy = min(u32(round(fy)), params.old_rows - 1u);
+  let old_valid = u_old >= 0 && u_old < i32(params.old_columns)
+    && v_old >= 0 && v_old < i32(params.old_rows);
 
-  new_lines[index] = old_lines[oy * params.old_columns + ox];
+  if (old_valid) {
+    let old_index = u32(v_old) * params.old_columns + u32(u_old);
+    new_lines[index] = old_lines[old_index];
+    if (params.snap != 0u) {
+      new_basepoints[index] = target_basepoints[index];
+    } else {
+      new_basepoints[index] = old_basepoints[old_index];
+    }
+  } else {
+    // Newly-exposed edge line: born empty at its target, fades in on its own.
+    new_lines[index] = Line(vec2<f32>(0.0), vec2<f32>(0.0), vec4<f32>(0.0), vec3<f32>(0.0), 0.0);
+    new_basepoints[index] = target_basepoints[index];
+  }
 }

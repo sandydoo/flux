@@ -116,6 +116,10 @@ struct ResampleUniforms {
     old_rows: u32,
     new_columns: u32,
     new_rows: u32,
+    // 1 => seed current basepoints at the target (window resize; no glide).
+    // 0 => seed at the line's old position (grid_spacing change; glide).
+    snap: u32,
+    _padding: [u32; 3],
 }
 
 pub struct Context {
@@ -124,10 +128,12 @@ pub struct Context {
     frame_num: usize,
     columns: u32,
     rows: u32,
+    logical_size: wgpu::Extent3d,
 
     line_vertex_buffer: wgpu::Buffer,
     endpoint_vertex_buffer: wgpu::Buffer,
     basepoints_buffer: wgpu::Buffer,
+    target_basepoints_buffer: wgpu::Buffer,
     view_uniform_buffer: wgpu::Buffer,
     line_uniforms: LineUniforms,
     line_uniform_buffer: wgpu::Buffer,
@@ -136,6 +142,7 @@ pub struct Context {
     linear_sampler: wgpu::Sampler,
     uniform_bind_group_layout: wgpu::BindGroupLayout,
     uniform_bind_group: wgpu::BindGroup,
+    draw_uniform_bind_group: wgpu::BindGroup,
     _view_uniform_bind_group_layout: wgpu::BindGroupLayout,
     view_uniform_bind_group: wgpu::BindGroup,
     lines_bind_group_layout: wgpu::BindGroupLayout,
@@ -281,22 +288,51 @@ impl Context {
         self.update(device, queue, screen_size, grid, settings);
 
         // Common path: the grid dimensions are unchanged (e.g. a window drag
-        // that doesn't cross a column boundary). The normalized basepoints are
-        // identical, so nothing needs reallocating — the aspect uniform alone
-        // stretches the grid, and scale-invariant line state keeps the lengths
-        // correct.
+        // that doesn't cross a cell boundary). Nothing needs reallocating, but
+        // the basepoints are window-dependent (fixed on-screen spacing), so
+        // refresh them — this is what holds the grid's position steady as the
+        // window resizes. Current == target, so the glide stays inert.
+        let size_changed = screen_size.width != self.logical_size.width
+            || screen_size.height != self.logical_size.height;
+        self.logical_size = screen_size;
         if grid.columns == self.columns && grid.rows == self.rows {
+            if size_changed {
+                queue.write_buffer(
+                    &self.basepoints_buffer,
+                    0,
+                    bytemuck::cast_slice(&grid.basepoints),
+                );
+                queue.write_buffer(
+                    &self.target_basepoints_buffer,
+                    0,
+                    bytemuck::cast_slice(&grid.basepoints),
+                );
+            }
             return;
         }
 
         // The grid changed size. Carry the current line state into the new grid
-        // by nearest-neighbour resampling instead of zeroing it, so lines don't
+        // (resampled by centred offset) instead of zeroing it, so lines don't
         // spring back from scratch.
+        //
+        // A window resize (size_changed) seeds each current basepoint at its
+        // target: a surviving line's target already equals its old on-screen
+        // position, so it stays put and only the edges change. A grid_spacing
+        // change (same window) seeds at the old position instead, so lines glide
+        // from the old spacing to the new one.
         let old_columns = self.columns;
         let old_rows = self.rows;
+        let snap = size_changed;
 
-        // Basepoints are the new (target) grid positions. The resample's implied
-        // positions equal these exactly, so there's nothing to interpolate here.
+        // The final layout the animated basepoints ease toward.
+        let target_basepoints_buffer =
+            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("buffer:target_basepoints"),
+                contents: bytemuck::cast_slice(&grid.basepoints),
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            });
+
+        // The animated ("current") basepoints, seeded by the resample below.
         let basepoints_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("buffer:basepoints"),
             contents: bytemuck::cast_slice(&grid.basepoints),
@@ -326,6 +362,8 @@ impl Context {
             old_rows,
             new_columns: grid.columns,
             new_rows: grid.rows,
+            snap: snap as u32,
+            _padding: [0; 3],
         };
         let resample_params_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("buffer:ResampleUniforms"),
@@ -334,7 +372,8 @@ impl Context {
         });
 
         // Resample the current visible state (last place_lines output lives in
-        // line_buffers[frame_num]) into the new grid's buffer 0.
+        // line_buffers[frame_num], its animated positions in basepoints_buffer)
+        // into the new grid's buffer 0 and seed the new current basepoints.
         let resample_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("bind_group:resample"),
             layout: &self.resample_bind_group_layout,
@@ -352,6 +391,21 @@ impl Context {
                 wgpu::BindGroupEntry {
                     binding: 2,
                     resource: line_buffers[0].as_entire_binding(),
+                },
+                // old_basepoints
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: self.basepoints_buffer.as_entire_binding(),
+                },
+                // target_basepoints
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: target_basepoints_buffer.as_entire_binding(),
+                },
+                // new_basepoints
+                wgpu::BindGroupEntry {
+                    binding: 5,
+                    resource: basepoints_buffer.as_entire_binding(),
                 },
             ],
         });
@@ -393,36 +447,15 @@ impl Context {
             })
             .collect::<Vec<_>>();
 
-        self.uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("bind_group:uniforms"),
-            layout: &self.uniform_bind_group_layout,
-            entries: &[
-                // uniforms
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &self.line_uniform_buffer,
-                        offset: 0,
-                        size: None,
-                    }),
-                },
-                // basepoints
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: basepoints_buffer.as_entire_binding(),
-                },
-                // linear_sampler
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::Sampler(&self.linear_sampler),
-                },
-                // color_texture_sampler
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: wgpu::BindingResource::Sampler(&self.color_texture_sampler),
-                },
-            ],
-        });
+        self.uniform_bind_group = build_uniform_bind_group(
+            device,
+            &self.uniform_bind_group_layout,
+            &self.line_uniform_buffer,
+            &basepoints_buffer,
+            &target_basepoints_buffer,
+            &self.linear_sampler,
+            &self.color_texture_sampler,
+        );
 
         self.line_count = grid.line_count;
         self.columns = grid.columns;
@@ -432,6 +465,7 @@ impl Context {
         self.line_buffers = line_buffers;
         self.line_bind_groups = line_bind_groups;
         self.basepoints_buffer = basepoints_buffer;
+        self.target_basepoints_buffer = target_basepoints_buffer;
     }
 
     pub fn new(
@@ -468,6 +502,8 @@ impl Context {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
+        // Current (animated) basepoints start at their targets, so there's no
+        // glide at startup.
         let basepoints_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("buffer:basepoints"),
             contents: bytemuck::cast_slice(&grid.basepoints),
@@ -475,6 +511,13 @@ impl Context {
                 | wgpu::BufferUsages::STORAGE
                 | wgpu::BufferUsages::COPY_DST,
         });
+
+        let target_basepoints_buffer =
+            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("buffer:target_basepoints"),
+                contents: bytemuck::cast_slice(&grid.basepoints),
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            });
 
         let lines = vec![Line::zeroed(); grid.line_count as usize];
 
@@ -525,12 +568,12 @@ impl Context {
                         },
                         count: None,
                     },
-                    // basepoints
+                    // basepoints (current, animated — written in place)
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
                         visibility: wgpu::ShaderStages::COMPUTE,
                         ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            ty: wgpu::BufferBindingType::Storage { read_only: false },
                             has_dynamic_offset: false,
                             min_binding_size: None,
                         },
@@ -550,38 +593,56 @@ impl Context {
                         ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                         count: None,
                     },
+                    // target_basepoints
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 4,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
                 ],
             });
 
-        let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("bind_group:uniforms"),
-            layout: &uniform_bind_group_layout,
-            entries: &[
-                // uniforms
-                wgpu::BindGroupEntry {
+        let uniform_bind_group = build_uniform_bind_group(
+            device,
+            &uniform_bind_group_layout,
+            &line_uniform_buffer,
+            &basepoints_buffer,
+            &target_basepoints_buffer,
+            &linear_sampler,
+            &color_texture_sampler,
+        );
+
+        // The draw pipelines only need the uniforms (binding 0). A dedicated
+        // layout keeps the writable basepoints storage out of the render-pass
+        // usage scope, where it would conflict with the same buffer being bound
+        // as a vertex buffer.
+        let draw_uniform_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("bind_group_layout:draw_uniforms"),
+                entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &line_uniform_buffer,
-                        offset: 0,
-                        size: None,
-                    }),
-                },
-                // basepoints
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: basepoints_buffer.as_entire_binding(),
-                },
-                // linear_sampler
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::Sampler(&linear_sampler),
-                },
-                // color_texture_sampler
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: wgpu::BindingResource::Sampler(&color_texture_sampler),
-                },
-            ],
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+            });
+
+        let draw_uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("bind_group:draw_uniforms"),
+            layout: &draw_uniform_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: line_uniform_buffer.as_entire_binding(),
+            }],
         });
 
         let view_uniform_bind_group_layout =
@@ -830,6 +891,39 @@ impl Context {
                         },
                         count: None,
                     },
+                    // old_basepoints
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 3,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                    // target_basepoints
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 4,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                    // new_basepoints
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 5,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: false },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
                 ],
             });
 
@@ -860,7 +954,7 @@ impl Context {
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("pipeline_layout:draw_line"),
                 bind_group_layouts: &[
-                    Some(&uniform_bind_group_layout),
+                    Some(&draw_uniform_bind_group_layout),
                     Some(&view_uniform_bind_group_layout),
                 ],
                 immediate_size: 0,
@@ -933,7 +1027,7 @@ impl Context {
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("pipeline_layout:draw_endpoint"),
                 bind_group_layouts: &[
-                    Some(&uniform_bind_group_layout),
+                    Some(&draw_uniform_bind_group_layout),
                     Some(&view_uniform_bind_group_layout),
                 ],
                 immediate_size: 0,
@@ -978,10 +1072,12 @@ impl Context {
             frame_num: 0,
             columns: grid.columns,
             rows: grid.rows,
+            logical_size: screen_size,
 
             line_vertex_buffer,
             endpoint_vertex_buffer,
             basepoints_buffer,
+            target_basepoints_buffer,
             view_uniform_buffer,
             line_uniforms,
             line_uniform_buffer,
@@ -991,6 +1087,7 @@ impl Context {
             color_texture_sampler,
             uniform_bind_group_layout,
             uniform_bind_group,
+            draw_uniform_bind_group,
             _view_uniform_bind_group_layout: view_uniform_bind_group_layout,
             view_uniform_bind_group,
             lines_bind_group_layout,
@@ -1032,7 +1129,7 @@ impl Context {
 
     pub fn draw_lines<'rpass>(&'rpass self, rpass: &mut wgpu::RenderPass<'rpass>) {
         rpass.set_pipeline(&self.draw_line_pipeline);
-        rpass.set_bind_group(0, &self.uniform_bind_group, &[]);
+        rpass.set_bind_group(0, &self.draw_uniform_bind_group, &[]);
         rpass.set_bind_group(1, &self.view_uniform_bind_group, &[]);
         rpass.set_vertex_buffer(0, self.line_buffers[self.frame_num].slice(..));
         rpass.set_vertex_buffer(1, self.basepoints_buffer.slice(..));
@@ -1042,13 +1139,56 @@ impl Context {
 
     pub fn draw_endpoints<'rpass>(&'rpass self, rpass: &mut wgpu::RenderPass<'rpass>) {
         rpass.set_pipeline(&self.draw_endpoint_pipeline);
-        rpass.set_bind_group(0, &self.uniform_bind_group, &[]);
+        rpass.set_bind_group(0, &self.draw_uniform_bind_group, &[]);
         rpass.set_bind_group(1, &self.view_uniform_bind_group, &[]);
         rpass.set_vertex_buffer(0, self.line_buffers[self.frame_num].slice(..));
         rpass.set_vertex_buffer(1, self.basepoints_buffer.slice(..));
         rpass.set_vertex_buffer(2, self.endpoint_vertex_buffer.slice(..));
         rpass.draw(0..6, 0..self.line_count);
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn build_uniform_bind_group(
+    device: &wgpu::Device,
+    layout: &wgpu::BindGroupLayout,
+    line_uniform_buffer: &wgpu::Buffer,
+    basepoints_buffer: &wgpu::Buffer,
+    target_basepoints_buffer: &wgpu::Buffer,
+    linear_sampler: &wgpu::Sampler,
+    color_texture_sampler: &wgpu::Sampler,
+) -> wgpu::BindGroup {
+    device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("bind_group:uniforms"),
+        layout,
+        entries: &[
+            // uniforms
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: line_uniform_buffer.as_entire_binding(),
+            },
+            // basepoints (current, animated)
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: basepoints_buffer.as_entire_binding(),
+            },
+            // linear_sampler
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: wgpu::BindingResource::Sampler(linear_sampler),
+            },
+            // color_texture_sampler
+            wgpu::BindGroupEntry {
+                binding: 3,
+                resource: wgpu::BindingResource::Sampler(color_texture_sampler),
+            },
+            // target_basepoints
+            wgpu::BindGroupEntry {
+                binding: 4,
+                resource: target_basepoints_buffer.as_entire_binding(),
+            },
+        ],
+    })
 }
 
 fn get_line_scale_factor(width: f32, height: f32) -> f32 {

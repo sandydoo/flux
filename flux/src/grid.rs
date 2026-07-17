@@ -46,29 +46,37 @@ impl Grid {
         let aspect_ratio = width / height;
         let grid_spacing = grid_spacing as f32;
 
-        // Derive each axis independently from the spacing so the counts are
-        // stable under resize: `columns` depends only on width, `rows` only on
-        // height. Both give ~square cells (columns/rows ≈ width/height). Deriving
-        // `rows` from the floored `columns` instead couples it to width, which
-        // makes it oscillate by ±1 as the window widens — and since the grid
-        // distributes `rows` evenly over [0,1], every such flip shifts every
-        // line vertically, producing a visible jump while resizing.
-        let columns = f32::floor(width / grid_spacing);
-        let rows = f32::floor(height / grid_spacing);
-        let grid_spacing_x: f32 = 1.0 / columns;
-        let grid_spacing_y: f32 = 1.0 / rows;
-
-        let columns = columns as u32 + 1;
-        let rows = rows as u32 + 1;
+        // The grid is a centred lattice of odd size (a line sits exactly at the
+        // centre). `half_columns` is the number of cells from centre to edge on
+        // each axis; the counts depend only on their own axis, and change in
+        // steps of ±1 cell per edge as the window or spacing changes.
+        let half_columns = (width / (2.0 * grid_spacing)).round().max(1.0) as u32;
+        let half_rows = (height / (2.0 * grid_spacing)).round().max(1.0) as u32;
+        let columns = 2 * half_columns + 1;
+        let rows = 2 * half_rows + 1;
         let line_count = rows * columns;
         let scaling_ratio = ScalingRatio::new(columns, rows);
+
+        // Cell spacing in the normalized [0,1] grid space. Crucially this is
+        // continuous in the window size (`grid_spacing / window`), not the
+        // reciprocal of the (quantized) cell count. A line at centre-offset `d`
+        // then sits at a fixed on-screen distance from the centre regardless of
+        // window size, so the grid holds its position as the window resizes
+        // instead of stretching to fill a fixed fraction of it and snapping back
+        // each time the count changes. Because the view is zoomed in, the count
+        // changes land in the off-screen margin: cells appear/disappear at the
+        // edges while everything visible stays put. `render::lines` resamples
+        // line state by centre-offset to preserve each line's identity, and
+        // refreshes the (window-dependent) basepoints on every resize.
+        let grid_spacing_x = grid_spacing / width;
+        let grid_spacing_y = grid_spacing / height;
 
         let mut basepoints = Vec::with_capacity(2 * line_count as usize);
 
         for v in 0..rows {
             for u in 0..columns {
-                basepoints.push(u as f32 * grid_spacing_x);
-                basepoints.push(v as f32 * grid_spacing_y);
+                basepoints.push(0.5 + (u as f32 - half_columns as f32) * grid_spacing_x);
+                basepoints.push(0.5 + (v as f32 - half_rows as f32) * grid_spacing_y);
             }
         }
 
@@ -123,7 +131,7 @@ mod test {
     #[test]
     fn is_sane_grid_for_iphone_xr() {
         let logical_size = LogicalSize::new(414, 896);
-        assert_eq!(create_test_grid(logical_size, 15), (28, 60));
+        assert_eq!(create_test_grid(logical_size, 15), (29, 61));
         assert_eq!(
             clamp_logical_size(logical_size.width, logical_size.height),
             (800, 1731)
@@ -143,7 +151,7 @@ mod test {
     #[test]
     fn is_sane_grid_for_macbook_pro_13_with_1280_800_scaling() {
         let logical_size = LogicalSize::new(1280, 800);
-        assert_eq!(create_test_grid(logical_size, 15), (86, 54));
+        assert_eq!(create_test_grid(logical_size, 15), (87, 55));
         assert_eq!(
             clamp_logical_size(logical_size.width, logical_size.height),
             (1280, 800)

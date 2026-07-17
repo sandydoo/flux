@@ -47,11 +47,38 @@ pub struct Flux {
 impl Flux {
     pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, settings: &Arc<Settings>) {
         self.settings = Arc::clone(settings);
+
+        // `grid_spacing` determines the grid dimensions, so a change to it
+        // re-grids at the current window size. Rebuild and compare; if the
+        // dimensions moved, carry the line state into the new grid with the same
+        // resample used for window resizes (rather than springing back from
+        // zero), and refresh the grid-dependent noise state.
+        let grid = grid::Grid::new(
+            self.logical_size.width,
+            self.logical_size.height,
+            self.settings.grid_spacing,
+        );
+        let regridded = grid.columns != self.grid.columns || grid.rows != self.grid.rows;
+        if regridded {
+            self.grid = grid;
+            self.noise_generator.resize(
+                device,
+                2 * self.settings.fluid_size,
+                self.grid.scaling_ratio,
+            );
+        }
+
         self.fluid
             .update(device, queue, self.grid.scaling_ratio, &self.settings);
         self.noise_generator.update(&self.settings);
-        self.lines
-            .update(device, queue, self.logical_size, &self.grid, &self.settings);
+
+        if regridded {
+            self.lines
+                .resize(device, queue, self.logical_size, &self.grid, &self.settings);
+        } else {
+            self.lines
+                .update(device, queue, self.logical_size, &self.grid, &self.settings);
+        }
     }
 
     pub fn sample_colors_from_image(
@@ -230,7 +257,8 @@ impl Flux {
             self.elapsed_time = timer_overflow;
         }
 
-        while self.fluid_frame_time >= self.settings.fluid_timestep {
+        let fluid_update_interval = 1.0 / self.settings.fluid_frame_rate;
+        while self.fluid_frame_time >= fluid_update_interval {
             self.noise_generator
                 .update_buffers(queue, self.settings.fluid_timestep);
 
@@ -257,7 +285,7 @@ impl Flux {
             self.fluid.solve_pressure(queue, &mut cpass);
             self.fluid.subtract_gradient(&mut cpass);
 
-            self.fluid_frame_time -= self.settings.fluid_timestep;
+            self.fluid_frame_time -= fluid_update_interval;
         }
 
         {
