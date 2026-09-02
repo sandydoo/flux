@@ -3,6 +3,7 @@ use wgpu::util::DeviceExt;
 
 pub struct Context {
     _bind_group_layout: wgpu::BindGroupLayout,
+    texture_bind_group_layout: wgpu::BindGroupLayout,
     bind_group: wgpu::BindGroup,
     texture_bind_groups: Vec<(String, wgpu::BindGroup)>,
     _sampler: wgpu::Sampler,
@@ -125,22 +126,8 @@ impl Context {
             ],
         });
 
-        let texture_bind_groups = texture_views
-            .iter()
-            .map(|(name, texture_view)| {
-                (
-                    name.to_string(),
-                    device.create_bind_group(&wgpu::BindGroupDescriptor {
-                        label: Some("texture"),
-                        layout: &texture_bind_group_layout,
-                        entries: &[wgpu::BindGroupEntry {
-                            binding: 0,
-                            resource: wgpu::BindingResource::TextureView(texture_view),
-                        }],
-                    }),
-                )
-            })
-            .collect();
+        let texture_bind_groups =
+            create_texture_bind_groups(device, &texture_bind_group_layout, texture_views);
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
@@ -182,12 +169,23 @@ impl Context {
 
         Self {
             _bind_group_layout: bind_group_layout,
+            texture_bind_group_layout,
             bind_group,
             texture_bind_groups,
             _sampler: sampler,
             _pipeline_layout: pipeline_layout,
             pipeline,
         }
+    }
+
+    /// Point the named views at new textures, for example after a resize.
+    pub fn set_texture_views(
+        &mut self,
+        device: &wgpu::Device,
+        texture_views: &[(&str, &wgpu::TextureView)],
+    ) {
+        self.texture_bind_groups =
+            create_texture_bind_groups(device, &self.texture_bind_group_layout, texture_views);
     }
 
     pub fn draw_texture<'rpass>(
@@ -209,4 +207,27 @@ impl Context {
             rpass.draw(0..6, 0..1);
         }
     }
+}
+
+fn create_texture_bind_groups(
+    device: &wgpu::Device,
+    layout: &wgpu::BindGroupLayout,
+    texture_views: &[(&str, &wgpu::TextureView)],
+) -> Vec<(String, wgpu::BindGroup)> {
+    texture_views
+        .iter()
+        .map(|(name, texture_view)| {
+            (
+                name.to_string(),
+                device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("texture"),
+                    layout,
+                    entries: &[wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(texture_view),
+                    }],
+                }),
+            )
+        })
+        .collect()
 }

@@ -61,15 +61,10 @@ impl Flux {
         let regridded = grid.columns != self.grid.columns || grid.rows != self.grid.rows;
         if regridded {
             self.grid = grid;
-            self.noise_generator.resize(
-                device,
-                2 * self.settings.fluid_size,
-                self.grid.scaling_ratio,
-            );
+            self.resize_fields(device, queue);
         }
 
-        self.fluid
-            .update(device, queue, self.grid.scaling_ratio, &self.settings);
+        self.fluid.update(queue, &self.settings);
         self.noise_generator.update(&self.settings);
 
         if regridded {
@@ -213,11 +208,28 @@ impl Flux {
         self.logical_size = logical_size;
         self.physical_size = physical_size;
 
-        // self.fluid.resize(device, self.grid.scaling_ratio);
+        self.resize_fields(device, queue);
+    }
+
+    /// Follow the grid with the fluid and noise textures. Both keep the aspect
+    /// ratio of the grid, so the simulation stays isotropic on screen. The
+    /// debug views point at the new textures afterwards.
+    fn resize_fields(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+        self.fluid
+            .resize(device, queue, self.grid.scaling_ratio, &self.settings);
         self.noise_generator.resize(
             device,
             2 * self.settings.fluid_size,
             self.grid.scaling_ratio,
+        );
+        self.debug_texture.set_texture_views(
+            device,
+            &[
+                ("fluid", self.fluid.get_velocity_texture_view()),
+                ("noise", self.noise_generator.get_noise_texture_view()),
+                ("pressure", self.fluid.get_pressure_texture_view()),
+                ("divergence", self.fluid.get_divergence_texture_view()),
+            ],
         );
     }
 

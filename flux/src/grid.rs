@@ -1,3 +1,14 @@
+/// How much larger than their base size the fluid and noise textures are,
+/// per axis.
+///
+/// The ratio follows the shape of the grid, so the textures have the aspect
+/// ratio of the window. Every simulation pass works in texel space, and a
+/// texel then covers a square patch of the screen: vortices stay round on an
+/// ultrawide display instead of being stretched across it.
+///
+/// The shorter side of the grid maps onto the base size. Once that side has
+/// more cells than `REFERENCE_CELLS`, the textures grow with the grid so that
+/// large displays keep about the same fluid detail per line.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ScalingRatio {
     x: f32,
@@ -5,10 +16,20 @@ pub struct ScalingRatio {
 }
 
 impl ScalingRatio {
+    /// The grid side (in cells) that maps onto one base texture size before
+    /// the textures start to grow with the grid.
+    const REFERENCE_CELLS: f32 = 171.0;
+
+    /// Texture sides are rounded to this. It is the compute workgroup size.
+    const TEXTURE_ALIGNMENT: f32 = 16.0;
+
     pub fn new(columns: u32, rows: u32) -> Self {
-        let x = (columns as f32 / 171.0).max(1.0);
-        let y = (rows as f32 / 171.0).max(1.0);
-        Self { x, y }
+        let shorter_side = columns.min(rows) as f32;
+        let reference = shorter_side.clamp(1.0, Self::REFERENCE_CELLS);
+        Self {
+            x: columns as f32 / reference,
+            y: rows as f32 / reference,
+        }
     }
 
     pub fn x(&self) -> f32 {
@@ -19,12 +40,17 @@ impl ScalingRatio {
         self.y
     }
 
-    pub fn rounded_x(&self) -> u32 {
-        self.x.round() as u32
-    }
-
-    pub fn rounded_y(&self) -> u32 {
-        self.y.round() as u32
+    /// The size of a texture with the base size `base` on its shorter side.
+    pub fn texture_size(&self, base: u32) -> wgpu::Extent3d {
+        let align = |side: f32| {
+            let steps = (side / Self::TEXTURE_ALIGNMENT).round().max(1.0);
+            (steps * Self::TEXTURE_ALIGNMENT) as u32
+        };
+        wgpu::Extent3d {
+            width: align(base as f32 * self.x),
+            height: align(base as f32 * self.y),
+            depth_or_array_layers: 1,
+        }
     }
 }
 
@@ -176,6 +202,35 @@ mod test {
             clamp_logical_size(logical_size.width, logical_size.height),
             (3840, 1600)
         );
+    }
+
+    fn fluid_size(width: u32, height: u32, grid_spacing: u32) -> (u32, u32) {
+        let grid = Grid::new(width, height, grid_spacing);
+        let size = grid.scaling_ratio.texture_size(128);
+        (size.width, size.height)
+    }
+
+    #[test]
+    fn fluid_keeps_the_aspect_ratio_of_the_window() {
+        // 3:2, 16:9, 21:9, and portrait.
+        assert_eq!(fluid_size(1200, 800, 15), (192, 128));
+        assert_eq!(fluid_size(2560, 1440, 15), (224, 128));
+        assert_eq!(fluid_size(3840, 1600, 15), (304, 128));
+        assert_eq!(fluid_size(414, 896, 15), (128, 272));
+    }
+
+    #[test]
+    fn fluid_grows_with_large_grids() {
+        // The shorter side has more than REFERENCE_CELLS cells.
+        assert_eq!(fluid_size(5120, 2880, 15), (256, 144));
+        assert_eq!(fluid_size(2560 * 3, 1440, 15), (672, 128));
+        assert_eq!(fluid_size(1200, 800, 5), (192, 128));
+        assert_eq!(fluid_size(3840, 2160, 5), (576, 320));
+    }
+
+    #[test]
+    fn fluid_has_a_minimum_size() {
+        assert_eq!(fluid_size(16, 16, 15), (128, 128));
     }
 
     #[test]

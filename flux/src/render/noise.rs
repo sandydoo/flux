@@ -19,10 +19,13 @@ pub struct NoiseGenerator {
     channel_settings: Vec<settings::Noise>,
     channels: Vec<NoiseChannel>,
 
+    linear_sampler: wgpu::Sampler,
     uniform_buffer: wgpu::Buffer,
     channel_buffer: wgpu::Buffer,
+    bind_group_layout: wgpu::BindGroupLayout,
     bind_group: wgpu::BindGroup,
     push_constants_buffer: wgpu::Buffer,
+    inject_noise_bind_group_layout: wgpu::BindGroupLayout,
     inject_noise_bind_group: wgpu::BindGroup,
 
     generate_noise_pipeline: wgpu::ComputePipeline,
@@ -30,26 +33,34 @@ pub struct NoiseGenerator {
 }
 
 impl NoiseGenerator {
+    /// Follow the grid to a new size. The noise texture keeps the aspect ratio
+    /// of the grid, like the fluid it is injected into. The noise is generated
+    /// again every fluid step, so nothing needs to be carried over.
     pub fn resize(&mut self, device: &wgpu::Device, size: u32, scaling_ratio: grid::ScalingRatio) {
-        if scaling_ratio == self.scaling_ratio {
+        self.scaling_ratio = scaling_ratio;
+
+        let size = scaling_ratio.texture_size(size);
+        if size == self.texture.size() {
             return;
         }
 
-        let (width, height) = (
-            size * scaling_ratio.rounded_x(),
-            size * scaling_ratio.rounded_y(),
-        );
-        let size = wgpu::Extent3d {
-            width,
-            height,
-            depth_or_array_layers: 1,
-        };
-
         let (texture, texture_view) = create_texture(device, &size, self.texture_format);
-
-        self.scaling_ratio = scaling_ratio;
         self.texture = texture;
         self.texture_view = texture_view;
+        self.bind_group = create_bind_group(
+            device,
+            &self.bind_group_layout,
+            &self.uniform_buffer,
+            &self.channel_buffer,
+            &self.texture_view,
+        );
+        self.inject_noise_bind_group = create_inject_noise_bind_group(
+            device,
+            &self.inject_noise_bind_group_layout,
+            &self.push_constants_buffer,
+            &self.texture_view,
+            &self.linear_sampler,
+        );
     }
 
     pub fn update(&mut self, new_settings: &settings::Settings) {
@@ -60,11 +71,13 @@ impl NoiseGenerator {
     pub fn update_buffers(&mut self, queue: &wgpu::Queue, timestep: f32) {
         self.elapsed_time += timestep;
 
+        let scaling_ratio = self.scaling_ratio;
+        let elapsed_time = self.elapsed_time;
         self.channels
             .iter_mut()
             .zip(self.channel_settings.iter())
             .for_each(|(channel, channel_settings)| {
-                channel.tick(channel_settings, self.elapsed_time);
+                channel.tick(scaling_ratio, channel_settings, elapsed_time);
             });
 
         queue.write_buffer(
@@ -88,8 +101,8 @@ impl NoiseGenerator {
 
     pub fn generate<'cpass>(&'cpass self, cpass: &mut wgpu::ComputePass<'cpass>) {
         let workgroup = (
-            self.texture.size().width / 16,
-            self.texture.size().height / 16,
+            self.texture.size().width.div_ceil(16),
+            self.texture.size().height.div_ceil(16),
             1,
         );
         cpass.set_pipeline(&self.generate_noise_pipeline);
@@ -104,8 +117,8 @@ impl NoiseGenerator {
         target_texture_size: wgpu::Extent3d,
     ) {
         let workgroup = (
-            target_texture_size.width / 16,
-            target_texture_size.height / 16,
+            target_texture_size.width.div_ceil(16),
+            target_texture_size.height.div_ceil(16),
             1,
         );
         cpass.set_pipeline(&self.inject_noise_pipeline);
@@ -162,16 +175,7 @@ impl NoiseGeneratorBuilder {
             .map(|channel| NoiseChannel::new(self.scaling_ratio, channel))
             .collect::<Vec<_>>();
 
-        let (width, height) = (
-            self.size * self.scaling_ratio.rounded_x(),
-            self.size * self.scaling_ratio.rounded_y(),
-        );
-
-        let size = wgpu::Extent3d {
-            width,
-            height,
-            depth_or_array_layers: 1,
-        };
+        let size = self.scaling_ratio.texture_size(self.size);
 
         // The noise texture is linearly sampled in `inject_noise.comp.wgsl`;
         // Rg32Float requires `FLOAT32_FILTERABLE`. The shaders only touch the
@@ -264,36 +268,13 @@ impl NoiseGeneratorBuilder {
             ],
         });
 
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("bind_group:noise"),
-            layout: &bind_group_layout,
-            entries: &[
-                // wgpu::BindGroupEntry {
-                //     binding: 2,
-                //     resource: wgpu::BindingResource::Sampler(&linear_sampler),
-                // },
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &uniform_buffer,
-                        offset: 0,
-                        size: None,
-                    }),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &channel_buffer,
-                        offset: 0,
-                        size: None,
-                    }),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::TextureView(&texture_view),
-                },
-            ],
-        });
+        let bind_group = create_bind_group(
+            device,
+            &bind_group_layout,
+            &uniform_buffer,
+            &channel_buffer,
+            &texture_view,
+        );
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("pipeline_layout:generate_noise"),
@@ -400,28 +381,13 @@ impl NoiseGeneratorBuilder {
                 ],
             });
 
-        let inject_noise_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Inject noise bind group"),
-            layout: &inject_noise_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &push_constants_buffer,
-                        offset: 0,
-                        size: None,
-                    }),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&texture_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::Sampler(&linear_sampler),
-                },
-            ],
-        });
+        let inject_noise_bind_group = create_inject_noise_bind_group(
+            device,
+            &inject_noise_bind_group_layout,
+            &push_constants_buffer,
+            &texture_view,
+            &linear_sampler,
+        );
 
         let inject_noise_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -457,13 +423,16 @@ impl NoiseGeneratorBuilder {
             channel_settings: self.channels,
             channels,
 
+            linear_sampler,
             uniform_buffer,
             channel_buffer,
             scaling_ratio: self.scaling_ratio,
             texture,
             texture_view,
             texture_format: noise_format,
+            bind_group_layout,
             bind_group,
+            inject_noise_bind_group_layout,
             inject_noise_bind_group,
             push_constants_buffer,
 
@@ -471,6 +440,72 @@ impl NoiseGeneratorBuilder {
             inject_noise_pipeline,
         }
     }
+}
+
+fn create_bind_group(
+    device: &wgpu::Device,
+    layout: &wgpu::BindGroupLayout,
+    uniform_buffer: &wgpu::Buffer,
+    channel_buffer: &wgpu::Buffer,
+    texture_view: &wgpu::TextureView,
+) -> wgpu::BindGroup {
+    device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("bind_group:noise"),
+        layout,
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                    buffer: uniform_buffer,
+                    offset: 0,
+                    size: None,
+                }),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                    buffer: channel_buffer,
+                    offset: 0,
+                    size: None,
+                }),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: wgpu::BindingResource::TextureView(texture_view),
+            },
+        ],
+    })
+}
+
+fn create_inject_noise_bind_group(
+    device: &wgpu::Device,
+    layout: &wgpu::BindGroupLayout,
+    push_constants_buffer: &wgpu::Buffer,
+    texture_view: &wgpu::TextureView,
+    linear_sampler: &wgpu::Sampler,
+) -> wgpu::BindGroup {
+    device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("Inject noise bind group"),
+        layout,
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                    buffer: push_constants_buffer,
+                    offset: 0,
+                    size: None,
+                }),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::TextureView(texture_view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: wgpu::BindingResource::Sampler(linear_sampler),
+            },
+        ],
+    })
 }
 
 fn create_texture(
@@ -528,10 +563,17 @@ impl NoiseChannel {
         }
     }
 
-    pub fn tick(&mut self, channel_settings: &settings::Noise, elapsed_time: f32) {
+    pub fn tick(
+        &mut self,
+        scaling_ratio: grid::ScalingRatio,
+        channel_settings: &settings::Noise,
+        elapsed_time: f32,
+    ) {
+        // The scale follows the shape of the texture so that the pattern is
+        // isotropic on screen.
         let scale = channel_settings.scale
             * (1.0 + 0.15 * (0.01 * elapsed_time * std::f32::consts::TAU).sin());
-        self.scale = [scale, scale];
+        self.scale = [scale * scaling_ratio.x(), scale * scaling_ratio.y()];
         self.multiplier = channel_settings.multiplier;
         self.offset_1 += channel_settings.offset_increment;
 
