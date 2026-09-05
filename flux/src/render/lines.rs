@@ -1294,13 +1294,20 @@ mod tests {
                     let spacing_pixels = spacing_uv * width as f32 * uniforms.zoom * backing_scale;
                     assert!(
                         (spacing_pixels
-                            - 15.0 * overall_scale * settings.view_scale * backing_scale)
+                            - settings.grid_spacing as f32
+                                * overall_scale
+                                * settings.view_scale
+                                * backing_scale)
                             .abs()
                             < 0.002
                     );
                     // Each lattice cell samples the same span of variance noise
                     // at every display and overall scale, independent of texture size.
-                    assert!((spacing_uv * uniforms.line_noise_scale[0] - 0.75).abs() < 0.0001);
+                    let expected_noise_span = settings.grid_spacing as f32 * 64.0 / 1280.0;
+                    assert!(
+                        (spacing_uv * uniforms.line_noise_scale[0] - expected_noise_span).abs()
+                            < 0.0001
+                    );
                 }
             }
         }

@@ -59,25 +59,25 @@ impl Default for Settings {
             line_length: 450.0,
             line_width: 9.0,
             line_begin_offset: 0.4,
-            line_variance: 0.55,
-            grid_spacing: 15,
+            line_variance: 0.5,
+            grid_spacing: 16,
             view_scale: 1.6,
             overall_scale: 1.0,
             noise_multiplier: 0.45,
             noise_channels: vec![
                 Noise {
-                    scale: 2.8,
+                    scale: 2.5,
                     multiplier: 1.0,
                     offset_increment: 0.001,
                 },
                 Noise {
-                    scale: 15.0,
+                    scale: 2.5 * 6.0,
                     multiplier: 0.7,
                     offset_increment: 0.001 * 6.0,
                 },
                 Noise {
-                    scale: 30.0,
-                    multiplier: 0.5,
+                    scale: 2.5 * 12.0,
+                    multiplier: 0.49,
                     offset_increment: 0.001 * 12.0,
                 },
             ],
@@ -212,7 +212,7 @@ mod tests {
         let settings = Settings::deserialize(legacy).unwrap();
         assert_eq!(settings.line_length, 450.0);
         assert_eq!(settings.line_width, 9.0);
-        assert_eq!(settings.grid_spacing, 15);
+        assert_eq!(settings.grid_spacing, Settings::default().grid_spacing);
         assert_eq!(settings.overall_scale(), 1.0);
         assert!((settings.line_length_pixels() - 293.87756).abs() < 0.0001);
         assert!((settings.line_width_pixels() - 5.877551).abs() < 0.0001);
