@@ -1,4 +1,4 @@
-use image::{DynamicImage, GenericImage, GenericImageView, Rgba, RgbaImage};
+use image::RgbaImage;
 
 pub enum Problem {
     ReadImage(std::io::Error),
@@ -48,34 +48,8 @@ impl Context {
             img.height()
         );
 
-        Ok(increase_black_level(&img, 25).to_rgba8())
+        Ok(img.to_rgba8())
     }
-}
-
-fn increase_black_level(img: &DynamicImage, threshold: u8) -> DynamicImage {
-    // Create an empty buffer to store the modified image
-    let mut modified_img = DynamicImage::new_rgba8(img.width(), img.height());
-
-    // Iterate over the pixels of the input image
-    for (x, y, pixel) in img.pixels() {
-        let Rgba([r, g, b, a]) = pixel;
-
-        // Check if the pixel is below the threshold
-        if r < threshold && g < threshold && b < threshold {
-            // Increase the black level to the threshhold
-            let new_r = r.max(threshold);
-            let new_g = g.max(threshold);
-            let new_b = b.max(threshold);
-
-            // Set the modified pixel in the output image
-            modified_img.put_pixel(x, y, Rgba([new_r, new_g, new_b, a]));
-        } else {
-            // Pixel is not too dark, keep it unchanged
-            modified_img.put_pixel(x, y, Rgba([r, g, b, a]));
-        }
-    }
-
-    modified_img
 }
 
 pub fn load_color_texture(
