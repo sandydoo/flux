@@ -83,24 +83,24 @@ appearance settings =
             [ Control.slider
                 { id = "line-length"
                 , title = "Line length"
-                , description = "The maximum length of a line."
-                , min = 1.0
-                , max = 1000.0
-                , step = 1.0
-                , value = settings.lineLength
-                , onInput = floatSetting SetLineLength
-                , toString = formatFloat 0
+                , description = "Adjust the length of the lines. Actual length follows the flow strength."
+                , min = 0.0
+                , max = 1.0
+                , step = 0.01
+                , value = settings.lineLength / 1000.0
+                , onInput = floatSetting (\value -> SetLineLength (value * 1000.0))
+                , toString = formatFloat 2
                 }
             , Control.slider
                 { id = "line-width"
                 , title = "Line width"
                 , description = "The maximum width of a line."
-                , min = 1.0
-                , max = 20.0
-                , step = 0.1
-                , value = settings.lineWidth
-                , onInput = floatSetting SetLineWidth
-                , toString = formatFloat 1
+                , min = 0.0
+                , max = 1.0
+                , step = 0.01
+                , value = settings.lineWidth / 20.0
+                , onInput = floatSetting (\value -> SetLineWidth (value * 20.0))
+                , toString = formatFloat 2
                 }
             , Control.slider
                 { id = "line-fade-offset"
@@ -151,7 +151,7 @@ fluid settings =
             [ Control.slider
                 { id = "viscosity"
                 , title = "Viscosity"
-                , description = "A viscous fluid resists any change to its velocity. It spreads out and diffuses any force applied to it."
+                , description = "Spreads motion between nearby parts of the fluid, smoothing out fine detail."
                 , min = 0.1
                 , max = 8.0
                 , step = 0.1
@@ -173,7 +173,7 @@ fluid settings =
             , Control.slider
                 { id = "diffusion-iterations"
                 , title = "Diffusion iterations"
-                , description = "Viscous fluids dissipate velocity through a process called “diffusion”. Each iteration enchances this effect and the diffusion strength is controlled by the fluid’s viscosity."
+                , description = "More iterations spread motion farther. Viscosity controls the strength of each step."
                 , min = 0
                 , max = 30
                 , step = 1
@@ -184,7 +184,7 @@ fluid settings =
             , Control.slider
                 { id = "pressure-iterations"
                 , title = "Pressure iterations"
-                , description = "Applying a force to the fluid creates pressure as the fluid pushes back. Calculating pressure is expensive, but the fluid will look unrealistic with fewer than 20 iterations."
+                , description = "More iterations improve how the fluid pushes back against compression."
                 , min = 0
                 , max = 60
                 , step = 1
