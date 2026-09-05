@@ -160,11 +160,10 @@ fn main(
 
   let new_endpoint = line.endpoint + uniforms.delta_time * new_velocity;
 
-  // Basically, smoothstep(0.0, 0.4, length(velocity));
-  // Maybe width and opacity should be on different easings.
+  // Drift smooths width, but keeps the speed-to-opacity response linear.
   let width_boost = saturate(2.5 * length(velocity));
   let new_line_width = smoothstep(0.0, 1.0, width_boost);
-  let opacity = smoothstep(0.0, 1.0, width_boost);
+  let opacity = width_boost;
 
   var color: vec3<f32>;
   var color_momentum_boost = 3.0;
