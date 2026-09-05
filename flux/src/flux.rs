@@ -17,8 +17,8 @@ const MAX_FRAME_TIME: f32 = 1.0 / 10.0;
 #[derive(Copy, Clone, Debug)]
 pub struct BackendCaps {
     /// Whether `wgpu::Features::FLOAT32_FILTERABLE` was enabled on the device.
-    /// Without it, R32/Rg32 float textures can't be linearly sampled, so the
-    /// pressure and noise textures fall back to R16/Rg16.
+    /// Without it, linearly sampled noise uses Rgba16Float. Pressure always
+    /// uses R32Float with unfiltered integer reads to preserve solver precision.
     pub float32_filterable: bool,
 }
 
@@ -46,28 +46,28 @@ pub struct Flux {
 
 impl Flux {
     pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, settings: &Arc<Settings>) {
+        let fluid_size_changed = self.settings.fluid_size != settings.fluid_size;
+        let scale_changed = self.settings.overall_scale() != settings.overall_scale();
+        let spacing_changed = self.settings.grid_spacing != settings.grid_spacing || scale_changed;
         self.settings = Arc::clone(settings);
 
-        // `grid_spacing` determines the grid dimensions, so a change to it
-        // re-grids at the current window size. Rebuild and compare; if the
-        // dimensions moved, carry the line state into the new grid with the same
-        // resample used for window resizes (rather than springing back from
-        // zero), and refresh the grid-dependent noise state.
-        let grid = grid::Grid::new(
-            self.logical_size.width,
-            self.logical_size.height,
-            self.settings.grid_spacing,
-        );
-        let regridded = grid.columns != self.grid.columns || grid.rows != self.grid.rows;
-        if regridded {
-            self.grid = grid;
+        if spacing_changed {
+            self.grid = grid::Grid::with_scale(
+                self.logical_size.width,
+                self.logical_size.height,
+                self.settings.grid_spacing,
+                self.settings.overall_scale(),
+            );
+        }
+        // Overall size changes the visible world, independently of texture detail.
+        if fluid_size_changed || scale_changed {
             self.resize_fields(device, queue);
         }
 
         self.fluid.update(queue, &self.settings);
         self.noise_generator.update(&self.settings);
 
-        if regridded {
+        if spacing_changed {
             self.lines
                 .resize(device, queue, self.logical_size, &self.grid, &self.settings);
         } else {
@@ -108,6 +108,10 @@ impl Flux {
         caps: BackendCaps,
         settings: &Arc<Settings>,
     ) -> Result<Flux, String> {
+        if logical_width == 0 || logical_height == 0 || physical_width == 0 || physical_height == 0
+        {
+            return Err("Flux requires nonzero logical and backing dimensions".into());
+        }
         log::info!("✨ Initialising Flux");
 
         rng::init_from_seed(&settings.seed);
@@ -126,7 +130,12 @@ impl Flux {
         log::info!("📐 Logical size: {}x{}", logical_width, logical_height);
         log::info!("📏 Physical size: {}x{}", physical_width, physical_height);
 
-        let grid = grid::Grid::new(logical_width, logical_height, settings.grid_spacing);
+        let grid = grid::Grid::with_scale(
+            logical_width,
+            logical_height,
+            settings.grid_spacing,
+            settings.overall_scale(),
+        );
 
         let fluid = render::fluid::Context::new(device, queue, grid.scaling_ratio, caps, settings);
 
@@ -140,7 +149,7 @@ impl Flux {
         );
 
         let mut noise_generator_builder = render::noise::NoiseGeneratorBuilder::new(
-            2 * settings.fluid_size,
+            settings.fluid_size.saturating_mul(2),
             grid.scaling_ratio,
             settings,
         );
@@ -188,38 +197,50 @@ impl Flux {
         physical_width: u32,
         physical_height: u32,
     ) {
-        let grid = grid::Grid::new(logical_width, logical_height, self.settings.grid_spacing);
+        // Hosts suspend minimized/hidden surfaces. Keep the last valid scene
+        // if an embedding host nevertheless forwards an empty resize.
+        if logical_width == 0 || logical_height == 0 || physical_width == 0 || physical_height == 0
+        {
+            return;
+        }
+        self.physical_size = wgpu::Extent3d {
+            width: physical_width,
+            height: physical_height,
+            depth_or_array_layers: 1,
+        };
+        if self.logical_size.width == logical_width && self.logical_size.height == logical_height {
+            // A backing-scale change only changes rasterization sharpness.
+            return;
+        }
+        let grid = grid::Grid::with_scale(
+            logical_width,
+            logical_height,
+            self.settings.grid_spacing,
+            self.settings.overall_scale(),
+        );
 
         let logical_size = wgpu::Extent3d {
             width: logical_width,
             height: logical_height,
             depth_or_array_layers: 1,
         };
-        let physical_size = wgpu::Extent3d {
-            width: physical_width,
-            height: physical_height,
-            depth_or_array_layers: 1,
-        };
-
         self.lines
             .resize(device, queue, logical_size, &grid, &self.settings);
 
         self.grid = grid;
         self.logical_size = logical_size;
-        self.physical_size = physical_size;
 
         self.resize_fields(device, queue);
     }
 
-    /// Follow the grid with the fluid and noise textures. Both keep the aspect
-    /// ratio of the grid, so the simulation stays isotropic on screen. The
-    /// debug views point at the new textures afterwards.
+    /// Update the fluid/noise world domain and bounded simulation resolution.
+    /// Debug views must follow any replaced textures.
     fn resize_fields(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
         self.fluid
             .resize(device, queue, self.grid.scaling_ratio, &self.settings);
         self.noise_generator.resize(
             device,
-            2 * self.settings.fluid_size,
+            self.settings.fluid_size.saturating_mul(2),
             self.grid.scaling_ratio,
         );
         self.debug_texture.set_texture_views(
@@ -272,7 +293,7 @@ impl Flux {
         let fluid_update_interval = 1.0 / self.settings.fluid_frame_rate;
         while self.fluid_frame_time >= fluid_update_interval {
             self.noise_generator
-                .update_buffers(queue, self.settings.fluid_timestep);
+                .update_buffers(device, encoder, self.settings.fluid_timestep);
 
             let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                 label: Some("flux::compute"),

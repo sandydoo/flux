@@ -2,10 +2,10 @@
 struct FluidUniforms {
   timestep: f32,
   dissipation: f32,
-  alpha: f32,
-  r_beta: f32,
-  center_factor: f32,
-  stencil_factor: f32,
+  inverse_cell: vec2<f32>,
+  velocity_to_uv: vec2<f32>,
+  diffusion_weight: vec2<f32>,
+  pressure_clear: f32,
 }
 
 @group(0) @binding(0) var<uniform> uniforms: FluidUniforms;
@@ -26,7 +26,7 @@ fn main(
   let velocity = textureLoad(velocity_texture, global_id.xy, 0).xy;
 
   let size = vec2<f32>(textureDimensions(velocity_texture));
-  let advected_position  = (vec2<f32>(global_id.xy) + 1.0) - uniforms.timestep * velocity;
+  let advected_position  = (vec2<f32>(global_id.xy) + 1.0) - uniforms.timestep * velocity * uniforms.velocity_to_uv * size;
   let min_max_sampling_position = (0.5 + floor(advected_position)) / size;
   let l = textureSampleLevel(velocity_texture, linear_sampler, min_max_sampling_position, 0.0, vec2<i32>(-1, 0)).xy;
   let r = textureSampleLevel(velocity_texture, linear_sampler, min_max_sampling_position, 0.0, vec2<i32>(1, 0)).xy;

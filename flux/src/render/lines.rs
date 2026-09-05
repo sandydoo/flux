@@ -33,18 +33,19 @@ struct LineUniforms {
 
 impl LineUniforms {
     fn new(screen_size: wgpu::Extent3d, grid: &Grid, settings: &Settings) -> Self {
-        // TODO: can we compute the scale factor from the grid?
-        let line_scale_factor =
-            get_line_scale_factor(screen_size.width as f32, screen_size.height as f32);
+        let logical_pixels_to_clip = 2.0 / screen_size.height.max(1) as f32;
 
         Self {
             aspect: grid.aspect_ratio,
             zoom: settings.view_scale,
-            line_width: settings.view_scale * settings.line_width * line_scale_factor,
-            line_length: settings.view_scale * settings.line_length * line_scale_factor,
+            line_width: settings.line_width_pixels() * logical_pixels_to_clip,
+            line_length: settings.line_length_pixels() * logical_pixels_to_clip,
             line_begin_offset: settings.line_begin_offset,
             line_variance: settings.line_variance,
-            line_noise_scale: [64.0 * grid.scaling_ratio.x(), 64.0 * grid.scaling_ratio.y()],
+            line_noise_scale: grid
+                .scaling_ratio
+                .simulation_domain()
+                .map(|extent| 64.0 * extent),
             line_noise_offset_1: 0.0,
             line_noise_offset_2: 0.0,
             line_noise_blend_factor: 0.0,
@@ -302,12 +303,14 @@ impl Context {
                     0,
                     bytemuck::cast_slice(&grid.basepoints),
                 );
-                queue.write_buffer(
-                    &self.target_basepoints_buffer,
-                    0,
-                    bytemuck::cast_slice(&grid.basepoints),
-                );
             }
+            // Spacing can change without changing the row/column counts.
+            // Keep the current positions for the glide, but refresh the goals.
+            queue.write_buffer(
+                &self.target_basepoints_buffer,
+                0,
+                bytemuck::cast_slice(&grid.basepoints),
+            );
             return;
         }
 
@@ -1191,12 +1194,6 @@ fn build_uniform_bind_group(
     })
 }
 
-fn get_line_scale_factor(width: f32, height: f32) -> f32 {
-    let aspect_ratio = width / height;
-    let p = 1.0 / aspect_ratio;
-    1.0 / ((1.0 - p) * width + p * height).min(2000.0)
-}
-
 #[rustfmt::skip]
 pub static LINE_VERTICES: [f32; 12] = [
     -0.5, 0.0,
@@ -1216,3 +1213,96 @@ pub static ENDPOINT_VERTICES: [f32; 12] = [
     -1.0,  1.0,
      1.0,  1.0,
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::settings::LOGICAL_PIXELS_PER_LINE_UNIT;
+
+    #[test]
+    fn lines_keep_their_size_across_surface_sizes() {
+        let settings = Settings::default();
+        for (width, height) in [(1280, 800), (2560, 800), (800, 1280), (3840, 2160)] {
+            let grid = Grid::new(width, height, settings.grid_spacing);
+            let uniforms = LineUniforms::new(
+                wgpu::Extent3d {
+                    width,
+                    height,
+                    depth_or_array_layers: 1,
+                },
+                &grid,
+                &settings,
+            );
+            let to_pixels = height as f32 / 2.0;
+            for (actual, setting) in [
+                (uniforms.line_length, settings.line_length),
+                (uniforms.line_width, settings.line_width),
+            ] {
+                let expected = settings.view_scale * setting * LOGICAL_PIXELS_PER_LINE_UNIT;
+                assert!((actual * to_pixels - expected).abs() < 1e-4);
+            }
+        }
+    }
+
+    #[test]
+    fn reference_display_keeps_the_original_scale() {
+        let original = 1.0 / (0.375 * 1280.0 + 0.625 * 800.0);
+        assert!((2.0 * LOGICAL_PIXELS_PER_LINE_UNIT / 800.0 - original).abs() < 1e-7);
+    }
+
+    #[test]
+    fn display_scale_and_overall_size_scale_lines_spacing_and_variance_together() {
+        for (width, height) in [(390, 844), (1280, 800), (3840, 2160)] {
+            for backing_scale in [1.0, 1.5, 2.0, 3.0] {
+                for overall_scale in [0.5, 1.0, 2.0] {
+                    let settings = Settings {
+                        overall_scale,
+                        ..Settings::default()
+                    };
+                    let grid =
+                        Grid::with_scale(width, height, settings.grid_spacing, overall_scale);
+                    let uniforms = LineUniforms::new(
+                        wgpu::Extent3d {
+                            width,
+                            height,
+                            depth_or_array_layers: 1,
+                        },
+                        &grid,
+                        &settings,
+                    );
+                    let to_physical_pixels = height as f32 * backing_scale / 2.0;
+                    assert!(
+                        (uniforms.line_length * to_physical_pixels
+                            - Settings::default().line_length_pixels()
+                                * overall_scale
+                                * backing_scale)
+                            .abs()
+                            < 0.001
+                    );
+                    assert!(
+                        (uniforms.line_width * to_physical_pixels
+                            - Settings::default().line_width_pixels()
+                                * overall_scale
+                                * backing_scale)
+                            .abs()
+                            < 0.001
+                    );
+                    let center = (((grid.rows - 1) / 2) * grid.columns + (grid.columns - 1) / 2)
+                        as usize
+                        * 2;
+                    let spacing_uv = grid.basepoints[center + 2] - grid.basepoints[center];
+                    let spacing_pixels = spacing_uv * width as f32 * uniforms.zoom * backing_scale;
+                    assert!(
+                        (spacing_pixels
+                            - 15.0 * overall_scale * settings.view_scale * backing_scale)
+                            .abs()
+                            < 0.002
+                    );
+                    // Each lattice cell samples the same span of variance noise
+                    // at every display and overall scale, independent of texture size.
+                    assert!((spacing_uv * uniforms.line_noise_scale[0] - 0.75).abs() < 0.0001);
+                }
+            }
+        }
+    }
+}

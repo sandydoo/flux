@@ -141,7 +141,9 @@ fn main(
   let velocity = textureSampleLevel(velocity_texture, linear_sampler, basepoint, 0.0).xy;
 
   // Blend the two noises when reaching the limit of the offset
-  let scaled_pos = uniforms.line_noise_scale * basepoint;
+  // Anchor variance at the scene centre as the domain grows or overall size
+  // changes. The fixed phase preserves the original 1280×800 preset.
+  let scaled_pos = uniforms.line_noise_scale * (basepoint - 0.5) + vec2<f32>(32.0, 32.0);
   let noise1 = snoise(vec3(scaled_pos, uniforms.line_noise_offset_1));
   var noise = noise1;
   if (uniforms.line_noise_blend_factor > 0.0) {

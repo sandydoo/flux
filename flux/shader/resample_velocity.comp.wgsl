@@ -1,10 +1,7 @@
-// One-shot pass run when the fluid changes size. It carries the velocity field
-// into the new texture so the flow continues instead of restarting.
-//
-// Velocity is measured in texels per second. A texel covers a different
-// fraction of the screen in the new texture, so each component is scaled by
-// the change in texel density along its axis. The flow then covers the same
-// fraction of the screen per second as before.
+// Carry fixed-unit velocities through the centered world-space overlap.
+// Newly revealed world space starts at rest instead of stretching edge flow.
+struct DomainChange { ratio: vec2<f32>, padding: vec2<f32> }
+@group(0) @binding(3) var<uniform> domain: DomainChange;
 
 @group(0) @binding(0) var linear_sampler: sampler;
 @group(0) @binding(1) var velocity_texture: texture_2d<f32>;
@@ -20,10 +17,12 @@ fn main(
     return;
   }
 
-  let in_size = vec2<f32>(textureDimensions(velocity_texture));
-  let sample_position = (vec2<f32>(global_id.xy) + 0.5) / vec2<f32>(out_size);
-  let scale = vec2<f32>(out_size) / in_size;
-  let velocity = textureSampleLevel(velocity_texture, linear_sampler, sample_position, 0.0).xy * scale;
+  let uv = (vec2<f32>(global_id.xy) + 0.5) / vec2<f32>(out_size);
+  let sample_position = (uv - 0.5) * domain.ratio + 0.5;
+  var velocity = vec2<f32>(0.0);
+  if (all(sample_position >= vec2<f32>(0.0)) && all(sample_position <= vec2<f32>(1.0))) {
+    velocity = textureSampleLevel(velocity_texture, linear_sampler, sample_position, 0.0).xy;
+  }
 
   textureStore(out_velocity_texture, global_id.xy, vec4<f32>(velocity, 0.0, 0.0));
 }

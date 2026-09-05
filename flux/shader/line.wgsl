@@ -42,7 +42,7 @@ fn main_vs(
 
   point.x /= uniforms.aspect;
 
-  let short_line_boost = 1.0 + ((uniforms.line_width * width) / length(uniforms.line_length * endpoint));
+  let short_line_boost = 1.0 + ((uniforms.line_width * width) / max(length(uniforms.line_length * endpoint), 1e-10));
   let line_offset = uniforms.line_begin_offset / short_line_boost;
 
   let transformed_point = view_matrix * vec4<f32>(point, 0.0, 1.0);

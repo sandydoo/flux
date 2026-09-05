@@ -2,10 +2,10 @@
 struct FluidUniforms {
   timestep: f32,
   dissipation: f32,
-  alpha: f32,
-  r_beta: f32,
-  center_factor: f32,
-  stencil_factor: f32,
+  inverse_cell: vec2<f32>,
+  velocity_to_uv: vec2<f32>,
+  diffusion_weight: vec2<f32>,
+  pressure_clear: f32,
 }
 
 @group(0) @binding(0) var<uniform> uniforms: FluidUniforms;
@@ -23,13 +23,13 @@ fn main(
   @builtin(global_invocation_id) global_id: vec3<u32>,
 ) {
   let size = textureDimensions(velocity_texture);
-  // Match the solver stencil; texel boundaries would blend adjacent pressures.
-  let sample_position = (vec2<f32>(global_id.xy) + 0.5) / vec2<f32>(size);
+  let position = vec2<i32>(global_id.xy);
+  let last = vec2<i32>(size) - 1;
 
-  var l = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(-1, 0)).x;
-  var r = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(1, 0)).x;
-  var b = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(0, -1)).x;
-  var t = textureSampleLevel(pressure_texture, linear_sampler, sample_position, 0.0, vec2<i32>(0, 1)).x;
+  var l = textureLoad(pressure_texture, clamp(position + vec2<i32>(-1, 0), vec2<i32>(0), last), 0).x;
+  var r = textureLoad(pressure_texture, clamp(position + vec2<i32>(1, 0), vec2<i32>(0), last), 0).x;
+  var b = textureLoad(pressure_texture, clamp(position + vec2<i32>(0, -1), vec2<i32>(0), last), 0).x;
+  var t = textureLoad(pressure_texture, clamp(position + vec2<i32>(0, 1), vec2<i32>(0), last), 0).x;
 
   // Enforce the following boundary conditions:
   //
@@ -70,7 +70,7 @@ fn main(
   }
 
   let velocity = textureLoad(velocity_texture, global_id.xy, 0).xy;
-  let new_velocity = boundary_condition * (velocity - 0.5 * vec2<f32>(r - l, t - b));
+  let new_velocity = boundary_condition * (velocity - 0.5 * uniforms.inverse_cell * vec2<f32>(r - l, t - b));
 
   textureStore(out_velocity_texture, global_id.xy, vec4<f32>(new_velocity, 0.0, 0.0));
 }

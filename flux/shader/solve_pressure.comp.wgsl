@@ -2,10 +2,10 @@
 struct FluidUniforms {
   timestep: f32,
   dissipation: f32,
-  alpha: f32,
-  r_beta: f32,
-  center_factor: f32,
-  stencil_factor: f32,
+  inverse_cell: vec2<f32>,
+  velocity_to_uv: vec2<f32>,
+  diffusion_weight: vec2<f32>,
+  pressure_clear: f32,
 }
 
 @group(0) @binding(0) var<uniform> uniforms: FluidUniforms;
@@ -23,29 +23,18 @@ fn main(
   @builtin(global_invocation_id) global_id: vec3<u32>,
 ) {
   let size = textureDimensions(pressure_texture);
-  // Texel centres keep nearest-filter stencils aligned on non-power-of-two textures.
-  let sample_position = (vec2<f32>(global_id.xy) + 0.5) / vec2<f32>(size);
-
-  let pressure = textureLoad(pressure_texture, global_id.xy, 0).x;
+  let position = vec2<i32>(global_id.xy);
+  let last = vec2<i32>(size) - 1;
   let divergence = textureLoad(divergence_texture, global_id.xy, 0).x;
 
-  var l = textureSampleLevel(pressure_texture, nearest_sampler, sample_position, 0.0, vec2<i32>(-1, 0)).x;
-  var r = textureSampleLevel(pressure_texture, nearest_sampler, sample_position, 0.0, vec2<i32>(1, 0)).x;
-  var b = textureSampleLevel(pressure_texture, nearest_sampler, sample_position, 0.0, vec2<i32>(0, -1)).x;
-  var t = textureSampleLevel(pressure_texture, nearest_sampler, sample_position, 0.0, vec2<i32>(0, 1)).x;
+  let l = textureLoad(pressure_texture, clamp(position + vec2<i32>(-1, 0), vec2<i32>(0), last), 0).x;
+  let r = textureLoad(pressure_texture, clamp(position + vec2<i32>(1, 0), vec2<i32>(0), last), 0).x;
+  let b = textureLoad(pressure_texture, clamp(position + vec2<i32>(0, -1), vec2<i32>(0), last), 0).x;
+  let t = textureLoad(pressure_texture, clamp(position + vec2<i32>(0, 1), vec2<i32>(0), last), 0).x;
 
-  if (global_id.x == 0u) {
-    l = pressure;
-  } else if (global_id.x == size.x - 1u) {
-    r = pressure;
-  }
-  if (global_id.y == 0u) {
-    b = pressure;
-  } else if (global_id.y == size.y - 1u) {
-    t = pressure;
-  }
-
-  let new_pressure = uniforms.r_beta * (l + r + b + t + uniforms.alpha * divergence);
+  let weight = uniforms.inverse_cell * uniforms.inverse_cell;
+  let new_pressure = (weight.x * (l + r) + weight.y * (b + t) - divergence)
+      / (2.0 * (weight.x + weight.y));
 
   textureStore(out_pressure_texture, global_id.xy, vec4<f32>(new_pressure, 0.0, 0.0, 0.0));
 }

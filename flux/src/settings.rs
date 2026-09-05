@@ -1,11 +1,17 @@
 use serde::{Deserialize, Serialize};
 
+/// Conversion from persisted line units to logical pixels. UI normalization
+/// leaves the serialized values and their rendered size unchanged.
+pub const LOGICAL_PIXELS_PER_LINE_UNIT: f32 = 20.0 / 49.0;
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Settings {
     pub mode: Mode,
     pub seed: Option<String>,
 
+    /// Base fluid texture side on a 16:10 surface. Longer spans extend one axis,
+    /// bounded by the GPU budget; logical scene size is independent of quality.
     pub fluid_size: u32,
     pub fluid_frame_rate: f32,
     pub fluid_timestep: f32,
@@ -17,12 +23,20 @@ pub struct Settings {
 
     pub color_mode: ColorMode,
 
+    /// Nominal length in legacy line units (20/49 logical pixels), before view scale.
+    /// Rendered length also depends on the simulated endpoint magnitude.
     pub line_length: f32,
+    /// Maximum width in the same units as line_length, before view scale.
     pub line_width: f32,
     pub line_begin_offset: f32,
     pub line_variance: f32,
+    /// Logical pixels between basepoints, before view scale.
     pub grid_spacing: u32,
+    /// Scene zoom: scales line dimensions and basepoint spacing and crops the field.
     pub view_scale: f32,
+    /// User size multiplier, independent of OS display scaling and legacy zoom.
+    /// Missing in older presets means 100%, preserving their existing size.
+    pub overall_scale: f32,
 
     pub noise_multiplier: f32,
     pub noise_channels: Vec<Noise>,
@@ -48,6 +62,7 @@ impl Default for Settings {
             line_variance: 0.55,
             grid_spacing: 15,
             view_scale: 1.6,
+            overall_scale: 1.0,
             noise_multiplier: 0.45,
             noise_channels: vec![
                 Noise {
@@ -67,6 +82,25 @@ impl Default for Settings {
                 },
             ],
         }
+    }
+}
+
+impl Settings {
+    pub fn overall_scale(&self) -> f32 {
+        if self.overall_scale.is_finite() && self.overall_scale > 0.0 {
+            self.overall_scale.clamp(0.1, 10.0)
+        } else {
+            1.0
+        }
+    }
+
+    /// Nominal logical length; actual length follows the simulated endpoint.
+    pub fn line_length_pixels(&self) -> f32 {
+        self.line_length * LOGICAL_PIXELS_PER_LINE_UNIT * self.view_scale * self.overall_scale()
+    }
+
+    pub fn line_width_pixels(&self) -> f32 {
+        self.line_width * LOGICAL_PIXELS_PER_LINE_UNIT * self.view_scale * self.overall_scale()
     }
 }
 
@@ -160,3 +194,46 @@ pub static COLOR_SCHEME_POOLSIDE: [f32; 24] = [
     124.0 / 255.0, 220.0 / 255.0, 236.0 / 255.0, 1.0,
     156.0 / 255.0, 208.0 / 255.0, 236.0 / 255.0, 1.0,
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn old_presets_retain_their_units_and_default_to_100_percent() {
+        let legacy = serde::de::value::MapDeserializer::<_, serde::de::value::Error>::new(
+            [
+                ("lineLength", 450.0),
+                ("lineWidth", 9.0),
+                ("viewScale", 1.6),
+            ]
+            .into_iter(),
+        );
+        let settings = Settings::deserialize(legacy).unwrap();
+        assert_eq!(settings.line_length, 450.0);
+        assert_eq!(settings.line_width, 9.0);
+        assert_eq!(settings.grid_spacing, 15);
+        assert_eq!(settings.overall_scale(), 1.0);
+        assert!((settings.line_length_pixels() - 293.87756).abs() < 0.0001);
+        assert!((settings.line_width_pixels() - 5.877551).abs() < 0.0001);
+    }
+
+    #[test]
+    fn overall_size_scales_dimensions_without_changing_preset_values() {
+        let settings = Settings {
+            overall_scale: 2.0,
+            ..Settings::default()
+        };
+        let original = Settings::default();
+        assert_eq!(settings.line_length, original.line_length);
+        assert_eq!(settings.line_width, original.line_width);
+        assert_eq!(
+            settings.line_length_pixels(),
+            2.0 * original.line_length_pixels()
+        );
+        assert_eq!(
+            settings.line_width_pixels(),
+            2.0 * original.line_width_pixels()
+        );
+    }
+}

@@ -39,7 +39,10 @@ impl NoiseGenerator {
     pub fn resize(&mut self, device: &wgpu::Device, size: u32, scaling_ratio: grid::ScalingRatio) {
         self.scaling_ratio = scaling_ratio;
 
-        let size = scaling_ratio.texture_size(size);
+        let size = scaling_ratio.texture_size(
+            size,
+            grid::TextureBudget::for_base(size, device.limits().max_texture_dimension_2d),
+        );
         if size == self.texture.size() {
             return;
         }
@@ -68,7 +71,12 @@ impl NoiseGenerator {
         self.channel_settings = new_settings.noise_channels.to_vec();
     }
 
-    pub fn update_buffers(&mut self, queue: &wgpu::Queue, timestep: f32) {
+    pub fn update_buffers(
+        &mut self,
+        device: &wgpu::Device,
+        encoder: &mut wgpu::CommandEncoder,
+        timestep: f32,
+    ) {
         self.elapsed_time += timestep;
 
         let scaling_ratio = self.scaling_ratio;
@@ -80,23 +88,24 @@ impl NoiseGenerator {
                 channel.tick(scaling_ratio, channel_settings, elapsed_time);
             });
 
-        queue.write_buffer(
-            &self.push_constants_buffer,
-            0,
-            bytemuck::cast_slice(&[0.0, 0.0, 0.0, timestep]),
-        );
-
-        queue.write_buffer(
-            &self.uniform_buffer,
-            0,
-            bytemuck::cast_slice(&[self.uniforms]),
-        );
-
-        queue.write_buffer(
-            &self.channel_buffer,
-            0,
-            bytemuck::cast_slice(&self.channels),
-        );
+        // Queue writes all run before the next submitted command buffer.
+        // Immutable snapshots copied in command order let catch-up ticks use
+        // their own noise state when several ticks share one submission.
+        let mut snapshot = Vec::with_capacity(32 + std::mem::size_of_val(self.channels.as_slice()));
+        snapshot.extend_from_slice(bytemuck::cast_slice(&[0.0, 0.0, 0.0, timestep]));
+        snapshot.extend_from_slice(bytemuck::bytes_of(&self.uniforms));
+        snapshot.extend_from_slice(bytemuck::cast_slice(&self.channels));
+        let upload = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("upload:noise_tick"),
+            contents: &snapshot,
+            usage: wgpu::BufferUsages::COPY_SRC,
+        });
+        encoder.copy_buffer_to_buffer(&upload, 0, &self.push_constants_buffer, 0, 16);
+        encoder.copy_buffer_to_buffer(&upload, 16, &self.uniform_buffer, 0, 16);
+        let channel_bytes = snapshot.len() as u64 - 32;
+        if channel_bytes > 0 {
+            encoder.copy_buffer_to_buffer(&upload, 32, &self.channel_buffer, 0, channel_bytes);
+        }
     }
 
     pub fn generate<'cpass>(&'cpass self, cpass: &mut wgpu::ComputePass<'cpass>) {
@@ -175,7 +184,10 @@ impl NoiseGeneratorBuilder {
             .map(|channel| NoiseChannel::new(self.scaling_ratio, channel))
             .collect::<Vec<_>>();
 
-        let size = self.scaling_ratio.texture_size(self.size);
+        let size = self.scaling_ratio.texture_size(
+            self.size,
+            grid::TextureBudget::for_base(self.size, device.limits().max_texture_dimension_2d),
+        );
 
         // The noise texture is linearly sampled in `inject_noise.comp.wgsl`;
         // Rg32Float requires `FLOAT32_FILTERABLE`. The shaders only touch the
@@ -523,7 +535,12 @@ fn create_texture(
         view_formats: &[],
         usage: wgpu::TextureUsages::TEXTURE_BINDING
             | wgpu::TextureUsages::STORAGE_BINDING
-            | wgpu::TextureUsages::COPY_DST,
+            | wgpu::TextureUsages::COPY_DST
+            | if cfg!(test) {
+                wgpu::TextureUsages::COPY_SRC
+            } else {
+                wgpu::TextureUsages::empty()
+            },
     });
 
     let texture_view = texture.create_view(&wgpu::TextureViewDescriptor {
@@ -542,8 +559,8 @@ pub struct NoiseChannel {
     offset_2: f32,     // 12
     blend_factor: f32, //16
     multiplier: f32,   // 20
-    _padding: [u32; 2], // 24
-                       // roundUp(8, 24) = 24 -> 32 for uniform
+    origin: [f32; 2],  // 24: center phase in the tuned noise coordinates
+                       // 32 bytes, aligned to 8 bytes.
 }
 
 impl NoiseChannel {
@@ -551,15 +568,14 @@ impl NoiseChannel {
 
     pub fn new(scaling_ratio: grid::ScalingRatio, channel_settings: &settings::Noise) -> Self {
         Self {
-            scale: [
-                channel_settings.scale * scaling_ratio.x(),
-                channel_settings.scale * scaling_ratio.y(),
-            ],
+            scale: scaling_ratio
+                .simulation_domain()
+                .map(|axis| channel_settings.scale * axis),
             offset_1: Self::BLEND_THRESHOLD * rng::gen::<f32>(),
             offset_2: 0.0,
             blend_factor: 0.0,
             multiplier: channel_settings.multiplier,
-            _padding: [0; 2],
+            origin: [0.5 * channel_settings.scale; 2],
         }
     }
 
@@ -569,11 +585,12 @@ impl NoiseChannel {
         channel_settings: &settings::Noise,
         elapsed_time: f32,
     ) {
-        // The scale follows the shape of the texture so that the pattern is
-        // isotropic on screen.
+        // Preserve the square noise profile the presets were tuned against.
+        // Larger world domains reveal more of that field around its center.
         let scale = channel_settings.scale
             * (1.0 + 0.15 * (0.01 * elapsed_time * std::f32::consts::TAU).sin());
-        self.scale = [scale * scaling_ratio.x(), scale * scaling_ratio.y()];
+        self.scale = scaling_ratio.simulation_domain().map(|axis| scale * axis);
+        self.origin = [0.5 * scale; 2];
         self.multiplier = channel_settings.multiplier;
         self.offset_1 += channel_settings.offset_increment;
 
@@ -604,5 +621,130 @@ impl NoiseUniforms {
             multiplier: settings.noise_multiplier,
             _padding: [0, 0, 0],
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reference_noise_profile_matches_tuned_coordinates_and_keeps_centered_overlap() {
+        rng::init_from_seed(&Some("noise reference profile".into()));
+        for settings in settings::Settings::default().noise_channels {
+            let reference_domain = grid::ScalingRatio::new(1280, 800);
+            let mut reference = NoiseChannel::new(reference_domain, &settings);
+            let mut span = reference;
+            for time in [0.0, 2.5, 25.0] {
+                reference.tick(reference_domain, &settings, time);
+                span.tick(grid::ScalingRatio::new(2560, 800), &settings, time);
+                let tuned_scale =
+                    settings.scale * (1.0 + 0.15 * (0.01 * time * std::f32::consts::TAU).sin());
+                for uv in [[0.0, 0.0], [0.25, 0.75], [0.5, 0.5], [1.0, 1.0]] {
+                    let coordinates: [f32; 2] = std::array::from_fn(|axis| {
+                        reference.scale[axis] * (uv[axis] - 0.5) + reference.origin[axis]
+                    });
+                    for axis in [0, 1] {
+                        assert!(
+                            (coordinates[axis] - tuned_scale * uv[axis]).abs() < 0.00001,
+                            "a default channel must retain its original spatial profile"
+                        );
+                    }
+                    let spanned_uv = [0.5 + (uv[0] - 0.5) / 2.0, uv[1]];
+                    for axis in [0, 1] {
+                        let spanning_coordinate =
+                            span.scale[axis] * (spanned_uv[axis] - 0.5) + span.origin[axis];
+                        assert!(
+                            (coordinates[axis] - spanning_coordinate).abs() < 0.00001,
+                            "resizing must reveal the same field around its center"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "requires a compute-capable GPU; run with --ignored"]
+    fn batched_noise_ticks_match_individually_submitted_ticks() {
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
+        let adapter = pollster::block_on(instance.request_adapter(&Default::default())).unwrap();
+        let (device, queue) =
+            pollster::block_on(adapter.request_device(&Default::default())).unwrap();
+        let settings = Arc::new(settings::Settings::default());
+
+        let run = |batched: bool| {
+            rng::init_from_seed(&Some("noise tick ordering".into()));
+            let mut builder =
+                NoiseGeneratorBuilder::new(64, grid::ScalingRatio::new(1280, 800), &settings);
+            for channel in &settings.noise_channels {
+                builder.add_channel(channel);
+            }
+            let mut noise = builder.build(
+                &device,
+                &queue,
+                BackendCaps {
+                    float32_filterable: false,
+                },
+            );
+            let size = noise.texture.size();
+            let stride = (size.width * 8).div_ceil(256) * 256;
+            let frame_bytes = u64::from(stride) * u64::from(size.height);
+            let readback = device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("test:noise_tick_readback"),
+                size: frame_bytes * 6,
+                usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+                mapped_at_creation: false,
+            });
+            let mut encoder = device.create_command_encoder(&Default::default());
+            for tick in 0..6 {
+                // Exercise both the channel state and the uniform snapshot.
+                noise.uniforms.multiplier = 1.0 + tick as f32 * 0.1;
+                noise.update_buffers(&device, &mut encoder, 1.0 / 60.0);
+                {
+                    let mut pass = encoder.begin_compute_pass(&Default::default());
+                    noise.generate(&mut pass);
+                }
+                encoder.copy_texture_to_buffer(
+                    noise.texture.as_image_copy(),
+                    wgpu::TexelCopyBufferInfo {
+                        buffer: &readback,
+                        layout: wgpu::TexelCopyBufferLayout {
+                            offset: frame_bytes * tick,
+                            bytes_per_row: Some(stride),
+                            rows_per_image: Some(size.height),
+                        },
+                    },
+                    size,
+                );
+                if !batched {
+                    queue.submit([encoder.finish()]);
+                    encoder = device.create_command_encoder(&Default::default());
+                }
+            }
+            queue.submit([encoder.finish()]);
+            readback
+                .slice(..)
+                .map_async(wgpu::MapMode::Read, |result| result.unwrap());
+            device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
+            let bytes = readback.slice(..).get_mapped_range().unwrap().to_vec();
+            assert_ne!(
+                &bytes[..frame_bytes as usize],
+                &bytes[5 * frame_bytes as usize..]
+            );
+            bytes
+        };
+
+        let batched = run(true);
+        let separate = run(false);
+        let differing_bytes = batched
+            .iter()
+            .zip(&separate)
+            .filter(|(a, b)| a != b)
+            .count();
+        assert_eq!(
+            differing_bytes, 0,
+            "catch-up ticks must each use their own noise snapshot"
+        );
     }
 }

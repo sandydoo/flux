@@ -1,3 +1,14 @@
+struct FluidUniforms {
+  timestep: f32,
+  dissipation: f32,
+  inverse_cell: vec2<f32>,
+  velocity_to_uv: vec2<f32>,
+  diffusion_weight: vec2<f32>,
+  pressure_clear: f32,
+}
+
+@group(2) @binding(0) var<uniform> uniforms: FluidUniforms;
+
 @group(0) @binding(0) var nearest_sampler: sampler;
 @group(0) @binding(1) var out_divergence_texture: texture_storage_2d<r32float, write>;
 
@@ -18,7 +29,7 @@ fn main(
   let t = textureSampleLevel(velocity_texture, nearest_sampler, sample_position, 0.0, vec2<i32>(0, 1)).y;
   let b = textureSampleLevel(velocity_texture, nearest_sampler, sample_position, 0.0, vec2<i32>(0, -1)).y;
 
-  let new_divergence = 0.5 * ((r - l) + (t - b));
+  let new_divergence = 0.5 * (uniforms.inverse_cell.x * (r - l) + uniforms.inverse_cell.y * (t - b));
 
   textureStore(out_divergence_texture, global_id.xy, vec4<f32>(new_divergence, 0.0, 0.0, 0.0));
 }

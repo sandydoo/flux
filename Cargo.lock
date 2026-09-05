@@ -831,6 +831,7 @@ dependencies = [
  "half",
  "image",
  "log",
+ "pollster",
  "rand 0.10.2",
  "rand_pcg",
  "rand_seeder",

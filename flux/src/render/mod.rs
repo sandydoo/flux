@@ -19,9 +19,9 @@ pub use view::ViewTransform;
 /// usable as a storage texture across the baseline wgpu format tier — `r16float`
 /// and `rg16float` aren't guaranteed to permit `STORAGE_BINDING`, so they aren't
 /// safe fallbacks even on hardware that supports linear filtering of them.
-/// We trade some texel bandwidth (4× for pressure, 2× for noise) for
-/// compatibility. The shaders only read `.x` / `.xy` and zero-fill the unused
-/// channels at write time, so widening the format is a no-op semantically.
+/// Noise uses this fallback at twice the texel bandwidth. The shaders read
+/// `.xy` and zero-fill unused channels; pressure uses unfiltered R32Float
+/// directly and does not require this conversion.
 ///
 /// When the feature is available, the source passes through unchanged.
 ///
