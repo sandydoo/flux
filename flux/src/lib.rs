@@ -1,3 +1,4 @@
+pub mod display_size;
 mod flux;
 mod grid;
 pub mod render;

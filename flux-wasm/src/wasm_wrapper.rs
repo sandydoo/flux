@@ -1,4 +1,4 @@
-use flux::{self, settings};
+use flux::{self, display_size::DisplaySize, settings};
 use gloo_utils::format::JsValueSerdeExt;
 use std::sync::Arc;
 
@@ -12,9 +12,8 @@ pub struct Flux {
     device: wgpu::Device,
     queue: wgpu::Queue,
     window_surface: wgpu::Surface<'static>,
-    logical_width: u32,
-    logical_height: u32,
-    pixel_ratio: f64,
+    size: Option<DisplaySize>,
+    config: wgpu::SurfaceConfiguration,
     instance: flux::Flux,
 }
 
@@ -94,14 +93,6 @@ impl Flux {
                 )
             })?;
 
-        let pixel_ratio: f64 = window.device_pixel_ratio();
-        let logical_width = html_canvas.client_width() as u32;
-        let logical_height = html_canvas.client_height() as u32;
-        let (physical_width, physical_height) =
-            physical_from_logical_size(logical_width, logical_height, pixel_ratio);
-        html_canvas.set_width(physical_width);
-        html_canvas.set_height(physical_height);
-
         let canvas = Canvas::new(html_canvas.clone());
 
         let settings = match settings_object.into_serde() {
@@ -113,7 +104,7 @@ impl Flux {
         instance_desc.backends = wgpu::Backends::BROWSER_WEBGPU;
         let wgpu_instance = wgpu::Instance::new(instance_desc);
         let window_surface = wgpu_instance
-            .create_surface(wgpu::SurfaceTarget::Canvas(html_canvas))
+            .create_surface(wgpu::SurfaceTarget::Canvas(html_canvas.clone()))
             .expect("Failed to create surface");
         let adapter = wgpu_instance
             .request_adapter(&wgpu::RequestAdapterOptions {
@@ -185,11 +176,23 @@ impl Flux {
             hdr_enabled
         );
 
+        // Initialization awaits the GPU, during which layout or DPR can change.
+        let size = DisplaySize::from_logical(
+            html_canvas.client_width().max(0) as u32,
+            html_canvas.client_height().max(0) as u32,
+            window.device_pixel_ratio(),
+            device.limits().max_texture_dimension_2d,
+        );
+        // Keep renderer resources valid while a hidden canvas awaits layout.
+        let initial_size = size.unwrap_or(DisplaySize::from_logical(1, 1, 1.0, 1).unwrap());
+        canvas.set_width(initial_size.physical_width);
+        canvas.set_height(initial_size.physical_height);
+
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: swapchain_format,
-            width: physical_width,
-            height: physical_height,
+            width: initial_size.physical_width,
+            height: initial_size.physical_height,
             present_mode: wgpu::PresentMode::AutoVsync,
             desired_maximum_frame_latency: 2,
             alpha_mode: swapchain_capabilities.alpha_modes[0],
@@ -197,16 +200,18 @@ impl Flux {
             color_space,
         };
 
-        window_surface.configure(&device, &config);
+        if size.is_some() {
+            window_surface.configure(&device, &config);
+        }
 
         let flux = flux::Flux::new(
             &device,
             &queue,
             swapchain_format,
-            logical_width,
-            logical_height,
-            physical_width,
-            physical_height,
+            initial_size.logical_width,
+            initial_size.logical_height,
+            initial_size.physical_width,
+            initial_size.physical_height,
             caps,
             &settings,
         )
@@ -218,13 +223,15 @@ impl Flux {
             device,
             queue,
             window_surface,
-            logical_width,
-            logical_height,
-            pixel_ratio,
+            size,
+            config,
         })
     }
 
     pub fn animate(&mut self, timestamp: f64) {
+        if self.size.is_none() {
+            return;
+        }
         let mut retried_outdated_surface = false;
         let frame = loop {
             match self.window_surface.get_current_texture() {
@@ -266,32 +273,46 @@ impl Flux {
         self.queue.present(frame);
     }
 
-    pub fn resize(&mut self, logical_width: u32, logical_height: u32) {
-        if (self.logical_width != logical_width) || (self.logical_height != logical_height) {
-            let (physical_width, physical_height) =
-                physical_from_logical_size(logical_width, logical_height, self.pixel_ratio);
-
-            self.canvas.set_width(physical_width);
-            self.canvas.set_height(physical_height);
-
-            if let Some(mut config) = self.window_surface.get_configuration() {
-                config.width = physical_width;
-                config.height = physical_height;
-                self.window_surface.configure(&self.device, &config);
-            }
-
-            self.instance.resize(
-                &self.device,
-                &self.queue,
-                logical_width,
-                logical_height,
-                physical_width,
-                physical_height,
-            );
-
-            self.logical_width = logical_width;
-            self.logical_height = logical_height;
+    pub fn resize(&mut self, logical_width: u32, logical_height: u32, pixel_ratio: Option<f64>) {
+        let next = DisplaySize::from_logical(
+            logical_width,
+            logical_height,
+            pixel_ratio.unwrap_or_else(|| window().device_pixel_ratio()),
+            self.device.limits().max_texture_dimension_2d,
+        );
+        if self.size == next {
+            return;
         }
+        let Some(size) = next else {
+            self.size = None;
+            return;
+        };
+
+        // Assigning even the existing canvas dimensions clears its buffer.
+        if self.config.width != size.physical_width {
+            self.canvas.set_width(size.physical_width);
+        }
+        if self.config.height != size.physical_height {
+            self.canvas.set_height(size.physical_height);
+        }
+        if self.size.is_none()
+            || self.config.width != size.physical_width
+            || self.config.height != size.physical_height
+        {
+            self.config.width = size.physical_width;
+            self.config.height = size.physical_height;
+            self.window_surface.configure(&self.device, &self.config);
+        }
+
+        self.instance.resize(
+            &self.device,
+            &self.queue,
+            size.logical_width,
+            size.logical_height,
+            size.physical_width,
+            size.physical_height,
+        );
+        self.size = next;
     }
 }
 
@@ -359,15 +380,4 @@ pub fn window() -> Window {
 pub fn set_panic_hook() {
     #[cfg(feature = "console_error_panic_hook")]
     console_error_panic_hook::set_once();
-}
-
-fn physical_from_logical_size(
-    logical_width: u32,
-    logical_height: u32,
-    pixel_ratio: f64,
-) -> (u32, u32) {
-    (
-        (pixel_ratio * f64::from(logical_width)) as u32,
-        (pixel_ratio * f64::from(logical_height)) as u32,
-    )
 }

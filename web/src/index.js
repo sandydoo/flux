@@ -1,6 +1,7 @@
 import { Flux as FluxGL } from "../flux-gl";
 import { Flux } from "../flux";
 import { Elm } from "./Main.elm";
+import { observeDisplaySize } from "./display-size.mjs";
 
 let flux;
 
@@ -26,21 +27,10 @@ function setupFlux() {
         .catch(error => console.error("Failed to load initial color image", error));
     }
 
-    let pendingResize;
-
-    const resizeObserver = new ResizeObserver(([entry]) => {
-      // Resizing a canvas clears its backing buffer. Defer that work to the
-      // animation callback so resize and redraw happen before the next paint,
-      // while coalescing multiple observations into a single resize.
-      pendingResize = entry.contentRect;
-    });
-    resizeObserver.observe(document.getElementById("canvas"));
+    const displaySize = observeDisplaySize(document.getElementById("canvas"));
 
     function animate(timestamp) {
-      if (pendingResize) {
-        flux.resize(pendingResize.width, pendingResize.height);
-        pendingResize = undefined;
-      }
+      displaySize.apply(flux);
 
       flux.animate(timestamp);
       window.requestAnimationFrame(animate);

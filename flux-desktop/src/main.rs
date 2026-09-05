@@ -16,7 +16,7 @@ use winit::{
 #[cfg(target_os = "macos")]
 use winit::platform::macos::WindowAttributesExtMacOS;
 
-use flux::{Flux, Settings};
+use flux::{display_size::DisplaySize, Flux, Settings};
 
 struct App {
     runtime: tokio::runtime::Runtime,
@@ -72,6 +72,49 @@ struct GpuState {
     command_queue: wgpu::Queue,
     window_surface: wgpu::Surface<'static>,
     config: wgpu::SurfaceConfiguration,
+    size: Option<DisplaySize>,
+    resize_pending: bool,
+    scale_factor: f64,
+}
+
+impl GpuState {
+    fn resize_before_draw(&mut self, window: &Window, flux: &mut Flux) {
+        if !self.resize_pending {
+            return;
+        }
+        self.resize_pending = false;
+        // ScaleFactorChanged can precede the OS's final Resized event. Read
+        // the current physical dimensions after both events, before drawing.
+        let physical = window.inner_size();
+        let next = DisplaySize::from_physical(
+            physical.width,
+            physical.height,
+            self.scale_factor,
+            self.device.limits().max_texture_dimension_2d,
+        );
+        if self.size == next {
+            return;
+        }
+        if let Some(size) = next {
+            if self.size.is_none()
+                || self.config.width != size.physical_width
+                || self.config.height != size.physical_height
+            {
+                self.config.width = size.physical_width;
+                self.config.height = size.physical_height;
+                self.window_surface.configure(&self.device, &self.config);
+            }
+            flux.resize(
+                &self.device,
+                &self.command_queue,
+                size.logical_width,
+                size.logical_height,
+                size.physical_width,
+                size.physical_height,
+            );
+        }
+        self.size = next;
+    }
 }
 
 struct FluxApp {
@@ -186,11 +229,19 @@ impl ApplicationHandler for FluxApp {
         );
 
         let physical_size = window.inner_size();
+        let scale_factor = window.scale_factor();
+        let size = DisplaySize::from_physical(
+            physical_size.width,
+            physical_size.height,
+            scale_factor,
+            device.limits().max_texture_dimension_2d,
+        );
+        let initial_size = size.unwrap_or(DisplaySize::from_logical(1, 1, 1.0, 1).unwrap());
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: surface_output.format,
-            width: physical_size.width,
-            height: physical_size.height,
+            width: initial_size.physical_width,
+            height: initial_size.physical_height,
             present_mode: wgpu::PresentMode::AutoVsync,
             desired_maximum_frame_latency: 2,
             alpha_mode: swapchain_capabilities.alpha_modes[0],
@@ -198,18 +249,18 @@ impl ApplicationHandler for FluxApp {
             color_space: surface_output.color_space,
         };
 
-        window_surface.configure(&device, &config);
-
-        let logical_size = physical_size.to_logical(window.scale_factor());
+        if size.is_some() {
+            window_surface.configure(&device, &config);
+        }
         let settings = Arc::new(Settings::default());
         let flux = Flux::new(
             &device,
             &command_queue,
             surface_output.format,
-            logical_size.width,
-            logical_size.height,
-            physical_size.width,
-            physical_size.height,
+            initial_size.logical_width,
+            initial_size.logical_height,
+            initial_size.physical_width,
+            initial_size.physical_height,
             caps,
             &Arc::clone(&settings),
         )
@@ -241,6 +292,9 @@ impl ApplicationHandler for FluxApp {
             command_queue,
             window_surface,
             config,
+            size,
+            resize_pending: false,
+            scale_factor,
         });
 
         self.window = Some(window);
@@ -281,24 +335,21 @@ impl ApplicationHandler for FluxApp {
                 app.decode_image(bytes);
                 window.request_redraw();
             }
-            WindowEvent::Resized(new_size) => {
-                gpu.config.width = new_size.width.max(1);
-                gpu.config.height = new_size.height.max(1);
-                gpu.window_surface.configure(&gpu.device, &gpu.config);
-
-                let physical_size = window.inner_size();
-                let logical_size = new_size.to_logical(window.scale_factor());
-                app.flux.resize(
-                    &gpu.device,
-                    &gpu.command_queue,
-                    logical_size.width,
-                    logical_size.height,
-                    physical_size.width,
-                    physical_size.height,
-                );
+            WindowEvent::Resized(_) => {
+                gpu.resize_pending = true;
+                gpu.scale_factor = window.scale_factor();
+                window.request_redraw();
+            }
+            WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
+                gpu.resize_pending = true;
+                gpu.scale_factor = scale_factor;
                 window.request_redraw();
             }
             WindowEvent::RedrawRequested => {
+                gpu.resize_before_draw(window, &mut app.flux);
+                if gpu.size.is_none() {
+                    return;
+                }
                 let frame = match gpu.window_surface.get_current_texture() {
                     wgpu::CurrentSurfaceTexture::Success(frame)
                     | wgpu::CurrentSurfaceTexture::Suboptimal(frame) => frame,
@@ -341,8 +392,10 @@ impl ApplicationHandler for FluxApp {
     }
 
     fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
-        if let Some(window) = self.window.as_ref() {
-            window.request_redraw();
+        if let (Some(window), Some(gpu)) = (self.window.as_ref(), self.gpu.as_ref()) {
+            if gpu.size.is_some() || gpu.resize_pending {
+                window.request_redraw();
+            }
         }
     }
 }
