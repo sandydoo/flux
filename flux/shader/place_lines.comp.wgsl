@@ -172,7 +172,7 @@ fn main(
   switch uniforms.color_mode {
     // Original
     case 0u, default: {
-      color = vec3<f32>(saturate(vec2<f32>(1.0, 0.66) * (0.5 + velocity)), 0.5);
+      color = vec3<f32>(saturate(vec2<f32>(1.0, 0.665) * (0.5 + velocity)), 0.5);
     }
 
     // Color wheel
