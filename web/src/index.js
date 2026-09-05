@@ -20,6 +20,12 @@ function setupFlux() {
       flux = new FluxGL(settings);
     }
 
+    if (settings.colorMode?.ImageFile) {
+      loadImage(settings.colorMode.ImageFile)
+        .then(bitmap => flux.save_image(bitmap))
+        .catch(error => console.error("Failed to load initial color image", error));
+    }
+
     let pendingResize;
 
     const resizeObserver = new ResizeObserver(([entry]) => {
