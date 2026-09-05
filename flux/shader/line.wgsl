@@ -20,7 +20,6 @@ struct VertexOutput {
   @builtin(position) position: vec4<f32>,
   @location(0) f_vertex: vec2<f32>,
   @location(1) f_color: vec4<f32>,
-  @location(2) f_line_offset: f32,
 }
 
 @vertex
@@ -36,32 +35,33 @@ fn main_vs(
   var x_basis = vec2<f32>(-endpoint.y, endpoint.x);
   x_basis /= max(length(x_basis), 1e-10); // safely normalize
 
+  let line_position = mix(uniforms.line_begin_offset, 1.0, vertex.y);
   var point = vec2<f32>(uniforms.aspect, 1.0) * uniforms.zoom * (basepoint * 2.0 - 1.0)
-    + uniforms.line_length * endpoint * vertex.y
+    + uniforms.line_length * endpoint * line_position
     + uniforms.line_width * width * x_basis * vertex.x;
 
   point.x /= uniforms.aspect;
 
-  let short_line_boost = 1.0 + ((uniforms.line_width * width) / max(length(uniforms.line_length * endpoint), 1e-10));
-  let line_offset = uniforms.line_begin_offset / short_line_boost;
+  let radius = 0.5 * uniforms.line_width * width;
+  let short_line_boost = 1.0 + radius / max(length(uniforms.line_length * endpoint), 1e-10);
+  // Evaluate Drift's fade at the vertices. Rasterization interpolates alpha
+  // linearly along the body; smoothstep in the fragment changes that profile.
+  let fade = smoothstep(0.0, 1.0, vertex.y * line_position / short_line_boost);
 
   let transformed_point = view_matrix * vec4<f32>(point, 0.0, 1.0);
 
   return VertexOutput(
     transformed_point,
     vertex,
-    color,
-    line_offset,
+    vec4<f32>(color.rgb, color.a * fade),
   );
 }
 
 @fragment
 fn main_fs(fs_input: VertexOutput) -> @location(0) vec4<f32> {
-  let fade = smoothstep(fs_input.f_line_offset, 1.0, fs_input.f_vertex.y);
-
   let edge_width = fwidth(fs_input.f_vertex.x);
   let x_offset = abs(fs_input.f_vertex.x);
   let smooth_edges = 1.0 - smoothstep(0.5 - edge_width, 0.5, x_offset);
 
-  return vec4<f32>(fs_input.f_color.rgb, fs_input.f_color.a * fade * smooth_edges);
+  return vec4<f32>(fs_input.f_color.rgb, fs_input.f_color.a * smooth_edges);
 }
