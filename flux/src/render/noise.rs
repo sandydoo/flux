@@ -18,6 +18,7 @@ pub struct NoiseGenerator {
 
     channel_settings: Vec<settings::Noise>,
     channels: Vec<NoiseChannel>,
+    phase: NoisePhase,
 
     linear_sampler: wgpu::Sampler,
     uniform_buffer: wgpu::Buffer,
@@ -78,14 +79,25 @@ impl NoiseGenerator {
         timestep: f32,
     ) {
         self.elapsed_time += timestep;
+        self.phase.tick();
 
         let scaling_ratio = self.scaling_ratio;
         let elapsed_time = self.elapsed_time;
+        let base_scale = self
+            .channel_settings
+            .first()
+            .map_or(1.0, |channel| channel.scale);
         self.channels
             .iter_mut()
             .zip(self.channel_settings.iter())
             .for_each(|(channel, channel_settings)| {
-                channel.tick(scaling_ratio, channel_settings, elapsed_time);
+                channel.tick(
+                    scaling_ratio,
+                    channel_settings,
+                    elapsed_time,
+                    &self.phase,
+                    base_scale,
+                );
             });
 
         // Queue writes all run before the next submitted command buffer.
@@ -178,10 +190,12 @@ impl NoiseGeneratorBuilder {
         log::info!("🎛 Generating noise");
 
         let uniforms = NoiseUniforms::new(&self.settings);
+        let phase = NoisePhase::new();
+        let base_scale = self.channels.first().map_or(1.0, |channel| channel.scale);
         let channels = self
             .channels
             .iter()
-            .map(|channel| NoiseChannel::new(self.scaling_ratio, channel))
+            .map(|channel| NoiseChannel::new(self.scaling_ratio, channel, &phase, base_scale))
             .collect::<Vec<_>>();
 
         let size = self.scaling_ratio.texture_size(
@@ -429,6 +443,7 @@ impl NoiseGeneratorBuilder {
             });
 
         NoiseGenerator {
+            phase,
             elapsed_time: 0.0,
 
             uniforms,
@@ -560,30 +575,73 @@ pub struct NoiseChannel {
     blend_factor: f32, //16
     multiplier: f32,   // 20
     origin: [f32; 2],  // 24: center phase in the tuned noise coordinates
-                       // 32 bytes, aligned to 8 bytes.
+    pair_offset: [f32; 2], // 32: shift the second component before octave scaling
+                       // 40 bytes, aligned to 8 bytes.
+}
+
+// All octaves sample one moving 3D field and crossfade together. Channel
+// controls still specify their own temporal frequency relative to this clock.
+struct NoisePhase {
+    offset_1: f32,
+    offset_2: f32,
+    blend_factor: f32,
+}
+
+impl NoisePhase {
+    const STEP: f32 = 0.001;
+    const BLEND_THRESHOLD: f32 = 1000.0;
+
+    fn new() -> Self {
+        Self {
+            offset_1: Self::BLEND_THRESHOLD * rng::gen::<f32>(),
+            offset_2: 0.0,
+            blend_factor: 0.0,
+        }
+    }
+
+    fn tick(&mut self) {
+        self.offset_1 += Self::STEP;
+        if self.offset_1 > Self::BLEND_THRESHOLD {
+            self.blend_factor += Self::STEP;
+            self.offset_2 += Self::STEP;
+        }
+        if self.blend_factor > 1.0 {
+            self.offset_1 = self.offset_2;
+            self.offset_2 = 0.0;
+            self.blend_factor = 0.0;
+        }
+    }
 }
 
 impl NoiseChannel {
-    const BLEND_THRESHOLD: f32 = 1000.0;
-
-    pub fn new(scaling_ratio: grid::ScalingRatio, channel_settings: &settings::Noise) -> Self {
+    fn new(
+        scaling_ratio: grid::ScalingRatio,
+        channel_settings: &settings::Noise,
+        phase: &NoisePhase,
+        base_scale: f32,
+    ) -> Self {
+        let frequency = channel_settings.scale / base_scale.max(1e-10);
+        let temporal_frequency = channel_settings.offset_increment / NoisePhase::STEP;
         Self {
             scale: scaling_ratio
                 .simulation_domain()
                 .map(|axis| channel_settings.scale * axis),
-            offset_1: Self::BLEND_THRESHOLD * rng::gen::<f32>(),
-            offset_2: 0.0,
-            blend_factor: 0.0,
+            offset_1: phase.offset_1 * temporal_frequency,
+            offset_2: phase.offset_2 * temporal_frequency,
+            blend_factor: phase.blend_factor,
             multiplier: channel_settings.multiplier,
             origin: [0.5 * channel_settings.scale; 2],
+            pair_offset: [8.0 * frequency, -8.0 * frequency],
         }
     }
 
-    pub fn tick(
+    fn tick(
         &mut self,
         scaling_ratio: grid::ScalingRatio,
         channel_settings: &settings::Noise,
         elapsed_time: f32,
+        phase: &NoisePhase,
+        base_scale: f32,
     ) {
         // Preserve the square noise profile the presets were tuned against.
         // Larger world domains reveal more of that field around its center.
@@ -592,19 +650,12 @@ impl NoiseChannel {
         self.scale = scaling_ratio.simulation_domain().map(|axis| scale * axis);
         self.origin = [0.5 * scale; 2];
         self.multiplier = channel_settings.multiplier;
-        self.offset_1 += channel_settings.offset_increment;
-
-        if self.offset_1 > Self::BLEND_THRESHOLD {
-            self.blend_factor += channel_settings.offset_increment;
-            self.offset_2 += channel_settings.offset_increment;
-        }
-
-        // Reset blending
-        if self.blend_factor > 1.0 {
-            self.offset_1 = self.offset_2;
-            self.offset_2 = 0.0;
-            self.blend_factor = 0.0;
-        }
+        let temporal_frequency = channel_settings.offset_increment / NoisePhase::STEP;
+        self.offset_1 = phase.offset_1 * temporal_frequency;
+        self.offset_2 = phase.offset_2 * temporal_frequency;
+        self.blend_factor = phase.blend_factor;
+        let frequency = channel_settings.scale / base_scale.max(1e-10);
+        self.pair_offset = [8.0 * frequency, -8.0 * frequency];
     }
 }
 
@@ -631,13 +682,22 @@ mod tests {
     #[test]
     fn reference_noise_profile_matches_tuned_coordinates_and_keeps_centered_overlap() {
         rng::init_from_seed(&Some("noise reference profile".into()));
-        for settings in settings::Settings::default().noise_channels {
+        let phase = NoisePhase::new();
+        let channels = settings::Settings::default().noise_channels;
+        let base_scale = channels[0].scale;
+        for settings in channels {
             let reference_domain = grid::ScalingRatio::new(1280, 800);
-            let mut reference = NoiseChannel::new(reference_domain, &settings);
+            let mut reference = NoiseChannel::new(reference_domain, &settings, &phase, base_scale);
             let mut span = reference;
             for time in [0.0, 2.5, 25.0] {
-                reference.tick(reference_domain, &settings, time);
-                span.tick(grid::ScalingRatio::new(2560, 800), &settings, time);
+                reference.tick(reference_domain, &settings, time, &phase, base_scale);
+                span.tick(
+                    grid::ScalingRatio::new(2560, 800),
+                    &settings,
+                    time,
+                    &phase,
+                    base_scale,
+                );
                 let tuned_scale =
                     settings.scale * (1.0 + 0.15 * (0.01 * time * std::f32::consts::TAU).sin());
                 for uv in [[0.0, 0.0], [0.25, 0.75], [0.5, 0.5], [1.0, 1.0]] {

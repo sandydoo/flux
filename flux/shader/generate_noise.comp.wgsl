@@ -9,6 +9,7 @@ struct Channel {
   blend_factor: f32,
   multiplier: f32,
   origin: vec2<f32>,
+  pair_offset: vec2<f32>,
 }
 
 @group(0) @binding(0) var<uniform> uniforms: NoiseUniforms;
@@ -95,17 +96,18 @@ fn snoise(v: vec3<f32>) -> f32 {
   return 42.0 * dot(m, px);
 }
 
-fn make_noise_pair(params: vec3<f32>) -> vec2<f32> {
-  return vec2(snoise(params), snoise(params + vec3(8.0, -8.0, 0.0)));
+fn make_noise_pair(params: vec3<f32>, pair_offset: vec2<f32>) -> vec2<f32> {
+  // Drift offsets the base field before multiplying by octave frequency.
+  return vec2(snoise(params), snoise(params + vec3(pair_offset, 0.0)));
 }
 
 fn make_noise(texel_position: vec2<f32>, channel: Channel) -> vec2<f32> {
   let scale = channel.scale * (texel_position - 0.5) + channel.origin;
-  let noise1 = make_noise_pair(vec3(scale, channel.offset_1));
+  let noise1 = make_noise_pair(vec3(scale, channel.offset_1), channel.pair_offset);
   var noise = noise1;
 
   if (channel.blend_factor > 0.0) {
-    let noise2 = make_noise_pair(vec3(scale, channel.offset_2));
+    let noise2 = make_noise_pair(vec3(scale, channel.offset_2), channel.pair_offset);
     noise = mix(noise1, noise2, channel.blend_factor);
   }
 
