@@ -54,7 +54,7 @@ impl Default for Settings {
             velocity_dissipation: 0.0,
             pressure_mode: PressureMode::ClearWith(0.0),
             diffusion_iterations: 3,
-            pressure_iterations: 19,
+            pressure_iterations: 20,
             color_mode: ColorMode::Preset(ColorPreset::Original),
             line_length: 450.0,
             line_width: 9.0,

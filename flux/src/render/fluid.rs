@@ -1300,7 +1300,7 @@ mod tests {
         let size = domain.texture_size(128, grid::TextureBudget::for_base(128, 8192));
         assert_eq!(
             pressure_iterations(&settings, domain.with_scale(2.0), size),
-            76
+            80
         );
         assert_eq!(
             pressure_iterations(&settings, domain.with_scale(0.5), size),

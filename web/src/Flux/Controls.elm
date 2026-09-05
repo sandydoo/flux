@@ -208,10 +208,10 @@ noise settings =
                 , description = "Overall amount of velocity injected into the fluid."
                 , min = 0.0
                 , max = 4.0
-                , step = 0.1
+                , step = 0.01
                 , value = settings.noiseMultiplier
                 , onInput = floatSetting SetNoiseMultiplier
-                , toString = formatFloat 1
+                , toString = formatFloat 2
                 }
             ]
         }
