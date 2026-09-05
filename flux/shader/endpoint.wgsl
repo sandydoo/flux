@@ -61,12 +61,16 @@ fn main_vs(
   // color of the line underneath, so we can reverse the blend equation to get
   // the right color.
   //
-  // GL_BLEND(SRC_ALPHA, ONE) = srcColor * srcAlpha + dstColor * srcAlpha
+  // GL_BLEND(SRC_ALPHA, ONE) = srcColor * srcAlpha + dstColor
   // = vColor * vEndpointOpacity + vColor * vLineOpacity
   //
   // Remember, we’ve already premultiplied our colors! The opacity should be
   // 1.0 to disable more opacity blending!
-  let premultiplied_color = color.rgb * color.a;
+  // Match the body alpha at its head, including Drift's short-line fade.
+  let radius = 0.5 * uniforms.line_width * width;
+  let short_line_boost = 1.0 + radius / max(length(uniforms.line_length * endpoint), 1e-10);
+  let head_alpha = color.a * smoothstep(0.0, 1.0, 1.0 / short_line_boost);
+  let premultiplied_color = color.rgb * head_alpha;
   let bottom_color = vec4<f32>(color.rgb * endpoint_opacity - premultiplied_color, 1.0);
 
   return VertexOutput(
