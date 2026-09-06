@@ -63,6 +63,26 @@ colors settings =
                           , colorMode = ImageFile "colors/silver.png"
                           , previewImage = "colors/silver.png"
                           }
+                        , { id = "color-charcoal"
+                          , name = "Charcoal"
+                          , colorMode = ImageFile "colors/charcoal.png"
+                          , previewImage = "colors/charcoal.png"
+                          }
+                        , { id = "color-glitter"
+                          , name = "Glitter"
+                          , colorMode = ImageFile "colors/glitter.png"
+                          , previewImage = "colors/glitter.png"
+                          }
+                        , { id = "color-galaxy"
+                          , name = "Andromeda"
+                          , colorMode = ImageFile "colors/galaxy.png"
+                          , previewImage = "colors/galaxy.png"
+                          }
+                        , { id = "color-verdant"
+                          , name = "Verdant"
+                          , colorMode = ImageFile "colors/verdant.png"
+                          , previewImage = "colors/verdant.png"
+                          }
                         , { id = "color-freedom"
                           , name = "Freedom"
                           , colorMode = ImageFile "colors/freedom.png"
