@@ -112,7 +112,7 @@ footerItems =
         [ Html.text "🄵 Fullscreen" ]
     , Html.a
         [ HA.href "https://github.com/sandydoo/" ]
-        [ Html.text "© 2022 Sander Melnikov" ]
+        [ Html.text "© 2026 Sander Melnikov" ]
     , Html.a
         [ HA.href "https://x.com/sandydoo/" ]
         [ Html.text "Follow me on X" ]
