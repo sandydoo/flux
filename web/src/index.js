@@ -2,6 +2,7 @@ import { Flux as FluxGL } from "../flux-gl";
 import { Flux } from "../flux";
 import { Elm } from "./Main.elm";
 import { observeDisplaySize } from "./display-size.mjs";
+import { setupFullscreen } from "./fullscreen.mjs";
 
 let flux;
 
@@ -10,6 +11,7 @@ function setupFlux() {
   const ui = Elm.Main.init({
     node: document.getElementById("controls"),
   });
+  ui.ports.toggleFullscreen.subscribe(setupFullscreen());
 
   // Initialize WASM and run animation
   ui.ports.initFlux.subscribe(async function(settings) {

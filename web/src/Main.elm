@@ -5,6 +5,7 @@ import Flux.Controls as Controls
 import Flux.Settings as Settings
 import Html exposing (Html)
 import Html.Attributes as HA
+import Html.Events as Event
 import Json.Encode as Encode
 import Set
 import Ui.Panel as Panel
@@ -15,6 +16,9 @@ port initFlux : Encode.Value -> Cmd msg
 
 
 port setSettings : Encode.Value -> Cmd msg
+
+
+port toggleFullscreen : () -> Cmd msg
 
 
 main : Program () Model Msg
@@ -35,6 +39,7 @@ type alias Model =
 
 type Msg
     = ToggleControls
+    | ToggleFullscreen
     | SaveSetting Settings.SettingMsg
 
 
@@ -56,6 +61,9 @@ update msg model =
     case msg of
         ToggleControls ->
             ( { model | isOpen = not model.isOpen }, Cmd.none )
+
+        ToggleFullscreen ->
+            ( model, toggleFullscreen () )
 
         SaveSetting settingMsg ->
             let
@@ -93,9 +101,16 @@ view model =
             }
 
 
-footerItems : List (Html msg)
+footerItems : List (Html Msg)
 footerItems =
-    [ Html.a
+    [ Html.button
+        [ Event.onClick ToggleFullscreen
+        , HA.type_ "button"
+        , HA.class "whitespace-nowrap"
+        , HA.attribute "aria-keyshortcuts" "f"
+        ]
+        [ Html.text "🄵 Fullscreen" ]
+    , Html.a
         [ HA.href "https://github.com/sandydoo/" ]
         [ Html.text "© 2022 Sander Melnikov" ]
     , Html.a
