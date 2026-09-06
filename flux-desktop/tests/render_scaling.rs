@@ -7,6 +7,58 @@ struct Renderer {
     queue: wgpu::Queue,
 }
 
+#[test]
+#[ignore = "requires a GPU adapter"]
+fn scalar_debug_views_reveal_signed_changes() {
+    use flux::settings::Mode::{DebugDivergence, DebugPressure};
+
+    let instance = wgpu::Instance::default();
+    let adapter = pollster::block_on(instance.request_adapter(&Default::default())).unwrap();
+    // R32Float previews must also work without FLOAT32_FILTERABLE.
+    let renderer = Renderer::new(&adapter, false);
+    let mut settings = Arc::new(Settings {
+        seed: Some("scalar debug visibility".into()),
+        ..Default::default()
+    });
+    let mut flux = Flux::new(
+        &renderer.device,
+        &renderer.queue,
+        wgpu::TextureFormat::Rgba8Unorm,
+        640,
+        400,
+        640,
+        400,
+        BackendCaps {
+            float32_filterable: false,
+        },
+        &settings,
+    )
+    .unwrap();
+    for mode in [DebugPressure, DebugDivergence] {
+        Arc::make_mut(&mut settings).mode = mode;
+        flux.update(&renderer.device, &renderer.queue, &settings);
+        assert!(renderer
+            .snapshot(&flux, 640, 400)
+            .chunks_exact(4)
+            .all(|p| { p[0].abs_diff(128) <= 1 && p[0] == p[1] && p[1] == p[2] && p[3] == 255 }));
+    }
+    let mut timestamp = 0.0;
+    renderer.advance(&mut flux, &mut timestamp, 30);
+    for mode in [DebugPressure, DebugDivergence] {
+        Arc::make_mut(&mut settings).mode = mode;
+        flux.update(&renderer.device, &renderer.queue, &settings);
+        let before = renderer.snapshot(&flux, 640, 400);
+        assert!(before
+            .chunks_exact(4)
+            .any(|p| i16::from(p[0]) - i16::from(p[2]) > 30));
+        assert!(before
+            .chunks_exact(4)
+            .any(|p| i16::from(p[2]) - i16::from(p[0]) > 30));
+        renderer.advance(&mut flux, &mut timestamp, 10);
+        assert_ne!(before, renderer.snapshot(&flux, 640, 400));
+    }
+}
+
 impl Renderer {
     fn new(adapter: &wgpu::Adapter, filterable: bool) -> Self {
         let mut features = wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES;

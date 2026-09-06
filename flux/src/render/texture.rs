@@ -9,6 +9,7 @@ pub struct Context {
     _sampler: wgpu::Sampler,
     _pipeline_layout: wgpu::PipelineLayout,
     pipeline: wgpu::RenderPipeline,
+    scalar_pipeline: wgpu::RenderPipeline,
 }
 
 #[repr(C)]
@@ -142,7 +143,7 @@ impl Context {
             ))),
         });
 
-        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        let mut pipeline_descriptor = wgpu::RenderPipelineDescriptor {
             label: None,
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
@@ -165,7 +166,10 @@ impl Context {
             multisample: wgpu::MultisampleState::default(),
             multiview_mask: Default::default(),
             cache: None,
-        });
+        };
+        let pipeline = device.create_render_pipeline(&pipeline_descriptor);
+        pipeline_descriptor.fragment.as_mut().unwrap().entry_point = Some("fs_scalar");
+        let scalar_pipeline = device.create_render_pipeline(&pipeline_descriptor);
 
         Self {
             _bind_group_layout: bind_group_layout,
@@ -175,6 +179,7 @@ impl Context {
             _sampler: sampler,
             _pipeline_layout: pipeline_layout,
             pipeline,
+            scalar_pipeline,
         }
     }
 
@@ -201,7 +206,11 @@ impl Context {
             .map(|(_, bg)| bg);
 
         if let Some(texture_bind_group) = some_texture_bind_group {
-            rpass.set_pipeline(&self.pipeline);
+            rpass.set_pipeline(if matches!(name, "pressure" | "divergence") {
+                &self.scalar_pipeline
+            } else {
+                &self.pipeline
+            });
             rpass.set_bind_group(0, &self.bind_group, &[]);
             rpass.set_bind_group(1, texture_bind_group, &[]);
             rpass.draw(0..6, 0..1);
