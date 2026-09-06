@@ -84,6 +84,16 @@ impl Renderer {
     }
 
     fn snapshot(&self, flux: &Flux, width: u32, height: u32) -> Vec<u8> {
+        self.snapshot_viewport(flux, width, height, None)
+    }
+
+    fn snapshot_viewport(
+        &self,
+        flux: &Flux,
+        width: u32,
+        height: u32,
+        viewport: Option<flux::render::ScreenViewport>,
+    ) -> Vec<u8> {
         let output = self.device.create_texture(&wgpu::TextureDescriptor {
             label: Some("scaling regression output"),
             size: wgpu::Extent3d {
@@ -111,7 +121,7 @@ impl Renderer {
             &self.queue,
             &mut encoder,
             &output.create_view(&Default::default()),
-            None,
+            viewport,
         );
         encoder.copy_texture_to_buffer(
             output.as_image_copy(),
@@ -139,6 +149,68 @@ impl Renderer {
             .chunks(row_bytes as usize)
             .flat_map(|row| row[..width as usize * 4].iter().copied())
             .collect()
+    }
+}
+
+#[test]
+#[ignore = "requires a GPU adapter"]
+fn debug_textures_follow_line_zoom_and_viewport() {
+    use flux::settings::Mode::{DebugDivergence, DebugFluid, DebugNoise, DebugPressure};
+
+    let instance = wgpu::Instance::default();
+    let adapter = pollster::block_on(instance.request_adapter(&Default::default())).unwrap();
+    let renderer = Renderer::new(&adapter, false);
+    let mut settings = Arc::new(Settings {
+        seed: Some("debug texture scaling".into()),
+        view_scale: 1.0,
+        ..Default::default()
+    });
+    let mut flux = Flux::new(
+        &renderer.device,
+        &renderer.queue,
+        wgpu::TextureFormat::Rgba8Unorm,
+        640,
+        400,
+        640,
+        400,
+        BackendCaps {
+            float32_filterable: false,
+        },
+        &settings,
+    )
+    .unwrap();
+    renderer.advance(&mut flux, &mut 0.0, 30);
+    for mode in [DebugNoise, DebugFluid, DebugPressure, DebugDivergence] {
+        Arc::make_mut(&mut settings).mode = mode.clone();
+        Arc::make_mut(&mut settings).view_scale = 1.0;
+        flux.update(&renderer.device, &renderer.queue, &settings);
+        // Power-of-two output keeps nearest samples away from texel boundaries.
+        let original = renderer.snapshot(&flux, 512, 512);
+        assert!(original.chunks_exact(4).any(|p| p != &original[..4]));
+        let crop = |left: usize, top: usize| -> Vec<u8> {
+            (top..top + 256)
+                .flat_map(|y| {
+                    original[(y * 512 + left) * 4..(y * 512 + left + 256) * 4]
+                        .iter()
+                        .copied()
+                })
+                .collect()
+        };
+        Arc::make_mut(&mut settings).view_scale = 2.0;
+        flux.update(&renderer.device, &renderer.queue, &settings);
+        // Double zoom maps the central half of the field to the whole output.
+        assert!(
+            renderer.snapshot(&flux, 256, 256) == crop(128, 128),
+            "zoom: {mode:?}"
+        );
+
+        Arc::make_mut(&mut settings).view_scale = 1.0;
+        flux.update(&renderer.device, &renderer.queue, &settings);
+        let viewport = flux::render::ScreenViewport::new(320, 200, 320, 200);
+        assert!(
+            renderer.snapshot_viewport(&flux, 256, 256, Some(viewport)) == crop(256, 256),
+            "viewport: {mode:?}",
+        );
     }
 }
 

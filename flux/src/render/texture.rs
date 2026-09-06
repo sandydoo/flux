@@ -5,6 +5,7 @@ pub struct Context {
     _bind_group_layout: wgpu::BindGroupLayout,
     texture_bind_group_layout: wgpu::BindGroupLayout,
     bind_group: wgpu::BindGroup,
+    view_uniform_buffer: wgpu::Buffer,
     texture_bind_groups: Vec<(String, wgpu::BindGroup)>,
     _sampler: wgpu::Sampler,
     _pipeline_layout: wgpu::PipelineLayout,
@@ -46,6 +47,16 @@ impl Context {
                     // linear filtering — breaking the divergence (R32Float)
                     // view in the FLOAT32_FILTERABLE fallback path.
                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
                     count: None,
                 },
             ],
@@ -104,6 +115,11 @@ impl Context {
             },
         ];
 
+        let view_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("debug texture view"),
+            contents: bytemuck::cast_slice(&[0.0_f32, 0.0, 1.0, 1.0]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("debug_texture"),
             layout: &bind_group_layout,
@@ -123,6 +139,10 @@ impl Context {
                 wgpu::BindGroupEntry {
                     binding: 1,
                     resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: view_uniform_buffer.as_entire_binding(),
                 },
             ],
         });
@@ -175,12 +195,21 @@ impl Context {
             _bind_group_layout: bind_group_layout,
             texture_bind_group_layout,
             bind_group,
+            view_uniform_buffer,
             texture_bind_groups,
             _sampler: sampler,
             _pipeline_layout: pipeline_layout,
             pipeline,
             scalar_pipeline,
         }
+    }
+
+    pub fn set_view_transform(&self, queue: &wgpu::Queue, view: super::ViewTransform) {
+        queue.write_buffer(
+            &self.view_uniform_buffer,
+            0,
+            bytemuck::cast_slice(&[view.offset, view.scale]),
+        );
     }
 
     /// Point the named views at new textures, for example after a resize.

@@ -364,13 +364,24 @@ impl Flux {
             });
 
             use settings::Mode::*;
+            let view_transform = screen_viewport
+                .map(|ref sv| render::ViewTransform::from_screen_viewport(&self.physical_size, sv))
+                .unwrap_or_default();
+            if self.settings.mode != Normal {
+                // Lines sample the field at their basepoints, then zoom those
+                // positions before applying the screen viewport transform.
+                self.debug_texture.set_view_transform(
+                    queue,
+                    render::ViewTransform {
+                        scale: view_transform
+                            .scale
+                            .map(|scale| scale * self.settings.view_scale),
+                        ..view_transform
+                    },
+                );
+            }
             match &self.settings.mode {
                 Normal => {
-                    let view_transform = screen_viewport
-                        .map(|ref sv| {
-                            render::ViewTransform::from_screen_viewport(&self.physical_size, sv)
-                        })
-                        .unwrap_or_default();
                     self.lines.set_view_transform(queue, view_transform);
                     self.lines.draw_lines(&mut rpass);
                     self.lines.draw_endpoints(&mut rpass);
